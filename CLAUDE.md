@@ -31,7 +31,7 @@ None of these is ticket-only: the PR is opened and waits for the answer.
 `make help` lists the targets, and `make check` runs what CI runs. CI, hooks and loops call only make targets, so a target's body is the one place a command lives.
 
 <!-- Commands make doesn't cover, from the repo root: how to run one test while iterating. -->
-`make up` will serve the app (run it in the background) and `make seed` will load demo data; both print n/a until the M0 spike. <!-- The URL `make up` serves, used by /next-step's screenshot step. Delete this line if the repo has no UI. -->
+`make up` serves the browser call page at http://localhost:7860 (run it in the background; it needs `GOOGLE_API_KEY` in `.env`, and every call spends Gemini credit). `make seed` prints n/a: no demo data yet.
 
 ## Architecture
 

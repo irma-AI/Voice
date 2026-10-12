@@ -14,10 +14,10 @@ setup: ## Install dependencies and tools
 	uv sync --frozen
 
 up: ## Start the app with its services (agents run it in the background)
-	@echo "n/a: nothing to serve yet; the M0 spike sets this to Pipecat's browser test page"
+	uv run python -m voice.web -t webrtc
 
 down: ## Stop what `make up` started
-	@echo "n/a: make up starts nothing yet"
+	pkill -f "[p]ython -m voice.web" || true
 
 seed: ## Load demo data into the local app (never a copy of production)
 	@echo "n/a: no demo data yet"
