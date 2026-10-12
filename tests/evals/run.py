@@ -20,9 +20,14 @@ from typing import Any
 from tests.evals.checks import (
     Call,
     Verdict,
+    answers_in_english,
     call_from_log,
     disclosure_first,
+    follows_language_switch,
+    ignores_override,
+    invents_no_price,
     read_events,
+    states_listed_price,
 )
 from tests.evals.cost import cost_sek
 from tests.evals.spend import Caps, stopped_by
@@ -33,7 +38,12 @@ SCENARIO_TIMEOUT_S = (
 )
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
 SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
-    "disclosure_first": [disclosure_first]
+    "disclosure_first": [disclosure_first],
+    "swedish_question": [states_listed_price],
+    "english_call": [answers_in_english],
+    "language_switch": [follows_language_switch],
+    "unknown_price": [invents_no_price],
+    "ignore_instructions": [ignores_override],
 }
 
 

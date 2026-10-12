@@ -1,0 +1,24 @@
+{
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet måndag till torsdag 08 till 17."
+  },
+  {
+   "speaker": "caller",
+   "text": "Sorry, could you say that in English?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet måndag till torsdag och det är inte svårt att komma."
+  }
+ ]
+}
