@@ -1,4 +1,4 @@
 {
   "low_risk": ["docs/**", "DECISIONS.md"],
-  "never": ["docs/agents/**"]
+  "never": ["docs/agents/**", "voice/agent.py", "voice/business.txt"]
 }
