@@ -1,0 +1,11 @@
+name: Setup
+description: Installs this repo's toolchain and dependencies. The one CI step each repo fills in (docs/agents/recipes/).
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0 (the guard runner needs Node)
+      with:
+        node-version: 22
+    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0 (installs Python from .python-version)
+    - run: make setup
+      shell: bash
