@@ -21,3 +21,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] The web channel uses Pipecat's prebuilt browser page over its SmallWebRTC transport, not our own page over a WebSocket as the opportunity file proposed: no frontend code, and WebRTC handles echo and jitter on a phone browser. Petter chose it 2026-10-12.
 [2026-10-12] Pinned pipecat-ai to 1.12.0 exactly: the M0 gate judges one version, and its eval transport and Gemini 3.8 Live support both moved in recent releases.
 [2026-10-12] ESCALATED: what `make up` serves, the Gemini and eval spend caps, the AI disclosure wording, and whether E0 is adopted as written -> Petter
+[2026-10-12] Spend caps approved by Petter: $30/month on the Gemini test project in AI Studio (he sets it); eval runner caps 10 SEK per run, 30 per loop, 50 per day, read only from evals/caps.yaml, which only he edits.
