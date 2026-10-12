@@ -1,8 +1,10 @@
 """The agent: one place builds it, and every Channel only hands it a transport."""
 
 import os
+import sys
 from pathlib import Path
 
+from loguru import logger
 from pipecat.frames.frames import LLMRunFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
@@ -11,6 +13,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
     LLMContextAggregatorPair,
 )
 from pipecat.services.google.gemini_live.llm import GeminiLiveLLMService
+from pipecat.transcriptions.language import Language
 from pipecat.transports.base_transport import BaseTransport
 from pipecat.workers.runner import WorkerRunner
 
@@ -19,7 +22,11 @@ MODEL = "models/gemini-3.8-live"
 # Legal wording approved by Petter 2026-10-12; changing it is his call (CLAUDE.md § Stop and ask).
 DISCLOSURE = "Du pratar med en AI-assistent."
 
-BUSINESS = (Path(__file__).parent / "business.txt").read_text(encoding="utf-8")
+BUSINESS = "\n".join(
+    line
+    for line in (Path(__file__).parent / "business.txt").read_text("utf-8").splitlines()
+    if not line.startswith("#")
+)
 
 # ponytail: the model is asked to say the disclosure first, which it can skip;
 # a pre-rendered clip played before any model speech makes it certain (compliance work).
@@ -41,10 +48,16 @@ async def run_call(
     handle_sigint: bool = False,
 ) -> None:
     """Runs one call on any Channel's transport until the Caller leaves."""
+    # Pipecat logs what the Caller said at DEBUG, and its dev runner resets the level to DEBUG
+    # at startup; transcripts never go in logs (.claude/rules/security.md), so cap it per call.
+    logger.remove()
+    logger.add(sys.stderr, level="INFO")
     llm = GeminiLiveLLMService(
         api_key=os.environ["GOOGLE_API_KEY"],
         settings=GeminiLiveLLMService.Settings(
-            model=MODEL, system_instruction=SYSTEM_INSTRUCTION
+            model=MODEL,
+            system_instruction=SYSTEM_INSTRUCTION,
+            language=Language.SV_SE,
         ),
     )
     user, assistant = LLMContextAggregatorPair(LLMContext())

@@ -55,6 +55,6 @@ Every guardrail this template carries: where it lives, how strong it is, and whe
 | Cloud | Make targets work without hooks | a session with more than one repo runs no repo's hooks | day one | `Makefile` targets, stack recipe | hard | yes |
 | Cloud | Keep env blocks out of committed settings | self-hosted runners flag one and refuse the session in enforce mode | day one | `.claude/settings.json`, `scripts/vendor-skills.sh` | soft | yes |
 | Cloud | Put slow setup in the environment's setup script | a short setup script is cached between sessions; hooks run every session | first month | README § Cloud sessions, stack recipe | process | not yet: nothing slow to set up yet |
-| Cloud | Boot the app with one command and seed data | an agent can only run and screenshot an app that boots with one command | first month | `make up`, `make seed`, `.env.example`, stack recipe | soft | not yet: `make up` is n/a until M0 |
+| Cloud | Boot the app with one command and seed data | an agent can only run and screenshot an app that boots with one command | first month | `make up`, `make seed`, `.env.example`, stack recipe | soft | not yet: `make up` serves the web call; `make seed` is n/a (no demo data yet) |
 | Cloud | Write down what agents can reach | without it an agent guesses where logs and errors live, or gives up | first month | `docs/agents/agent-access.md` | soft | yes |
 | Cloud | Keep secrets out of the repo | anything in a cloud environment can be read by everyone who uses it | day one | `CLAUDE.md` § Hard rules 6, `no-committed-secrets` guard | hard | yes |

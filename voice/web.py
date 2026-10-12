@@ -1,8 +1,8 @@
 """The web Channel: Pipecat's built-in browser page. `make up` serves it."""
 
+import os
 import sys
 
-from loguru import logger
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport  # pyright: ignore[reportUnknownVariableType]  # untyped dict values upstream
 from pipecat.transports.base_transport import TransportParams
@@ -28,10 +28,9 @@ async def bot(runner_args: RunnerArguments) -> None:
 
 
 if __name__ == "__main__":
-    from pipecat.runner.run import main
+    from pipecat.runner.run import main  # importing it loads .env
 
-    # Pipecat logs what the Caller said at DEBUG; transcripts never go in logs (.claude/rules/security.md).
-    logger.remove()
-    logger.add(sys.stderr, level="INFO")
+    if not os.environ.get("GOOGLE_API_KEY"):
+        sys.exit("GOOGLE_API_KEY is not set: put it in .env (see .env.example).")
 
     main()
