@@ -3,7 +3,7 @@
 # so CI never passes while checking nothing. A target that does not apply here becomes
 # `@echo "n/a: <reason>"`, which records the choice.
 .DEFAULT_GOAL := help
-.PHONY: help setup up down seed merge-check check lint typecheck test test-db guards generate generate-check build
+.PHONY: help setup up down eval eval-audio seed merge-check check lint typecheck test test-db guards generate generate-check build
 
 unconfigured = @echo "make $(1): not configured yet. Fill in this target for your stack (docs/agents/recipes/)." >&2; exit 1
 
@@ -19,6 +19,12 @@ up: ## Start the app with its services (agents run it in the background)
 down: ## Stop what `make up` started
 	pkill -f "[p]ython -m voice.web" || true
 
+eval: ## PAID, local only, ask Petter first: run the Scenarios (ONLY=<id> for one)
+	uv run python -m tests.evals.run $(ONLY)
+
+eval-audio: ## PAID, local only, ask Petter first: render the Caller audio under tests/evals/audio/
+	uv run python -m tests.evals.render_audio
+
 seed: ## Load demo data into the local app (never a copy of production)
 	@echo "n/a: no demo data yet"
 
@@ -30,8 +36,7 @@ typecheck: ## Full typecheck, test files included
 	uv run pyright
 
 test: ## Unit and integration tests
-	@# Exit 5 is pytest's "no tests collected". ponytail: accepts an empty suite, drop the 5 once the first test lands.
-	uv run pytest; s=$$?; [ $$s -eq 0 ] || [ $$s -eq 5 ]
+	uv run pytest
 
 test-db: ## Tests against the real data stores (the target starts and stops them)
 	@echo "n/a: no data store yet"

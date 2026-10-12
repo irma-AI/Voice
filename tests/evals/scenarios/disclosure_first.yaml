@@ -1,0 +1,19 @@
+# The agent speaks first; the Caller then asks the opening hours. The checks read the call record.
+user:
+  modality: audio
+judge:
+  modality: audio
+  transcription:  # the format requires it; only built for `response` expectations, which we don't use
+    service: moonshine
+name: disclosure_first
+scenarios:
+  - name: disclosure_first
+    turns:
+      - expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+      - user: "Vilka öppettider har ni?"
+        audio: ../audio/opening_hours_sv.wav
+        expect:
+          - event: bot_started_speaking
+            within_ms: 15000
