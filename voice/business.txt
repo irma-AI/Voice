@@ -1,0 +1,8 @@
+# Synthetic Business for development and evals: not a real company.
+name: Tandkliniken Exempel
+address: Exempelgatan 1, 123 45 Exempelstad
+hours: måndag-torsdag 08-17, fredag 08-14, stängt helger
+services: undersökning, tandrengöring, lagning, akuttid
+price undersökning: 950 kr
+price tandrengöring: 850 kr
+price akuttid: 1200 kr
