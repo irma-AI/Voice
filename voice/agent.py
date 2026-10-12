@@ -66,7 +66,10 @@ async def run_call(
     user, assistant = LLMContextAggregatorPair(LLMContext())
     steps = [transport.input(), user, llm, transport.output(), assistant]
     if record_to:  # only the eval Channel passes this: a real call is never recorded
-        steps.insert(3, CallRecorder(record_to))
+        steps.insert(3, CallRecorder(record_to))  # what the model sends downstream
+        steps.insert(
+            2, CallRecorder(record_to)
+        )  # the Caller's transcript, which travels upstream
     pipeline = Pipeline(steps)
     worker = PipelineWorker(
         pipeline,

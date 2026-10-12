@@ -112,12 +112,10 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         code, log = _play(sc, run_dir)
         if not log.exists():
             missing = Verdict(False, f"no call record (suite exit {code})")
-            rows.append(Row(sc, {"suite exit": missing}, caps.per_run_sek, 0, None))
-            spent += caps.per_run_sek
-            _record(runs, now, run_id, loop_id, caps.per_run_sek)
+            rows.append(Row(sc, {"suite exit": missing}, 0.0, 0, None))
             continue
         events = read_events(log)
-        usage = [e for e in events if e["e"] == "usage"]
+        usage = [e for e in events if e.get("e") == "usage"]
         sek = cost_sek(usage)
         spent += sek
         _record(runs, now, run_id, loop_id, sek)
@@ -128,7 +126,7 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         if code != 0:
             verdicts["suite exit"] = Verdict(False, f"the harness exited {code}")
         tokens = sum(u.get("prompt_tokens", 0) for u in usage)
-        delay = next((e["seconds"] for e in events if e["e"] == "ttfb"), None)
+        delay = next((e["seconds"] for e in events if e.get("e") == "ttfb"), None)
         rows.append(Row(sc, verdicts, sek, tokens, delay))
         stopped = stopped_by(
             caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))

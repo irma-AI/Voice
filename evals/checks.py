@@ -68,19 +68,19 @@ def call_from_log(path: Path) -> Call:
     """
     events = read_events(path)
     agent_kind = (
-        "agent_tts" if any(e["e"] == "agent_tts" for e in events) else "agent_llm"
+        "agent_tts" if any(e.get("e") == "agent_tts" for e in events) else "agent_llm"
     )
     turns: list[Turn] = []
     new_agent_turn = True
     for e in events:
-        if e["e"] == "agent_start":
+        if e.get("e") == "agent_start":
             new_agent_turn = True
-        elif e["e"] == "caller":
+        elif e.get("e") == "caller":
             if turns and turns[-1].speaker == "caller":
                 turns[-1] = Turn("caller", f"{turns[-1].text} {e['text']}".strip())
             else:
                 turns.append(Turn("caller", e["text"].strip()))
-        elif e["e"] == agent_kind:
+        elif e.get("e") == agent_kind:
             if new_agent_turn or not turns or turns[-1].speaker != "agent":
                 turns.append(Turn("agent", e["text"]))
                 new_agent_turn = False

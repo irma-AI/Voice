@@ -18,6 +18,7 @@ LINES = {"opening_hours_sv": ("Vilka öppettider har ni?", "Kore")}
 
 
 def main() -> None:
+    AUDIO.mkdir(parents=True, exist_ok=True)
     client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
     for name, (text, voice) in LINES.items():
         out = AUDIO / f"{name}.wav"

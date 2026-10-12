@@ -18,7 +18,10 @@ def cost_sek(
         audio_in = u.get("input_audio_tokens", 0)
         audio_out = u.get("output_audio_tokens", 0)
         text_in = max(u.get("prompt_tokens", 0) - audio_in, 0)
-        text_out = max(u.get("completion_tokens", 0) - audio_out, 0)
+        # Thinking tokens are billed as output; counted on top in case the model reports them apart.
+        text_out = max(u.get("completion_tokens", 0) - audio_out, 0) + u.get(
+            "reasoning_tokens", 0
+        )
         usd += (
             audio_in * per_m["audio_in"]
             + text_in * per_m["text_in"]

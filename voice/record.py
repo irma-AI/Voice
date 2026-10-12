@@ -17,13 +17,18 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
 
 class CallRecorder(FrameProcessor):
-    """Passes every frame on and appends one line per transcript piece, usage report or delay."""
+    """Passes every frame on and appends one line per transcript piece, usage report or delay.
+
+    Gemini Live sends the Caller's transcript upstream and everything else downstream, so the
+    pipeline holds two of these around the model; each writes only what travels its way.
+    """
 
     def __init__(self, path: Path) -> None:
         super().__init__()  # pyright: ignore[reportUnknownMemberType]  # untyped kwargs upstream
         self._path = path
         self._t0 = time.monotonic()
         path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()  # a log that exists means the call got as far as the pipeline
 
     def _write(self, **event: object) -> None:
         with self._path.open("a", encoding="utf-8") as f:
@@ -34,7 +39,8 @@ class CallRecorder(FrameProcessor):
     async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
         await super().process_frame(frame, direction)
         if isinstance(frame, TranscriptionFrame):
-            self._write(e="caller", text=frame.text)
+            if direction == FrameDirection.UPSTREAM:
+                self._write(e="caller", text=frame.text)
         elif isinstance(frame, LLMFullResponseStartFrame):
             self._write(e="agent_start")
         elif isinstance(frame, TTSTextFrame):
