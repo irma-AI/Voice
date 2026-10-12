@@ -43,7 +43,7 @@ Layers, dependency direction and the one interface per cross-cutting concern: `A
 
 Two seams:
 
-- **Eval channel** (`make eval`, paid, local only): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Covers the prompt, the Business's facts and the disclosure. `tests/evals/run.py`.
+- **Eval channel** (`make eval`, paid, local only): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Aims at the prompt, the Business's facts and the disclosure; today only the disclosure is checked (PET-44 adds the rest). `tests/evals/run.py`.
 - **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`; the spend rule and cost sum sit beside them.
 
 Don't mock our own modules or add tests at other seams. A new seam needs this section updated through `/grill-with-docs` first.
