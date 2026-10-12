@@ -13,7 +13,7 @@ Repo specifics live in `CLAUDE.md` and `docs/agents/`; this skill names the sect
 
 1. Pick the flow from § Pick a flow and name it with one line on why. Nothing fits → say so and suggest working without a skill.
 2. Copy the flow's checklist into your reply. Tick steps off as they finish and repost it at every gate.
-3. Run each skill step through the Skill tool, so its hooks fire. If the Skill tool refuses it (a user-invoked skill), read `.claude/skills/<skill>/SKILL.md` and follow it instead: resolve its relative links from that folder, and treat what the user typed after the command as its arguments.
+3. Run each skill step through the Skill tool yourself, so its hooks fire. The user never has to type a flow's skill: the ones upstream marks user-only are made agent-callable by `scripts/vendor-skills.sh`, and the gates below are the human stop.
 4. Go from step to step without asking, except at a gate ⏸.
 5. Only the user can type `/clear` and `/compact`. Where a flow needs one, stop and end with the exact next command, e.g. "Type `/clear`, then `/next-step <issue-id>`."
 
@@ -21,6 +21,7 @@ Repo specifics live in `CLAUDE.md` and `docs/agents/`; this skill names the sect
 
 Stop and wait for the user:
 
+- after picking the flow: show its checklist and wait for the go before the first step, unless the user already asked for this flow or gave `/next-step <issue-id>`
 - during an interview or a question a skill asks (`grill-with-docs`, `impeccable shape`, `impeccable` choices such as the decision page or `quieter`'s questions, `triage`, `wayfinder`)
 - at `to-spec`'s and `tdd`'s seam checks, unless the spec already agreed the seams
 - after `to-tickets`: the user approves the tickets
