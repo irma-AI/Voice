@@ -30,6 +30,11 @@ add pbakaus/impeccable impeccable   # no engine binary: its launcher downloads a
 add microsoft/playwright-cli playwright-cli
 add linearis-oss/linearis linearis
 
+# ---- 2b. Let the agent run the flow skills upstream marks user-only; next-step's gates are the human stop --
+for s in grill-with-docs handoff implement improve-codebase-architecture to-spec to-tickets triage wayfinder; do
+  sed -i.bak '/^disable-model-invocation: true$/d' ".claude/skills/$s/SKILL.md" && rm ".claude/skills/$s/SKILL.md.bak"
+done
+
 # ---- 3. Plugin parts the skills CLI doesn't carry ---------------------------
 git clone --depth 1 -q https://github.com/DietrichGebert/ponytail "$T/pony"
 git clone --depth 1 -q https://github.com/pbakaus/impeccable "$T/imp"
