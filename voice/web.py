@@ -2,8 +2,9 @@
 
 import os
 import sys
+from pathlib import Path
 
-from pipecat.evals.transport import EvalTransportParams
+from pipecat.evals.transport import EvalTransport, EvalTransportParams
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport  # pyright: ignore[reportUnknownVariableType]  # untyped dict values upstream
 from pipecat.transports.base_transport import TransportParams
@@ -24,8 +25,10 @@ async def bot(runner_args: RunnerArguments) -> None:
             ),
         },
     )
+    log = os.environ.get("VOICE_CALL_LOG")
     await run_call(
         transport,
+        record_to=Path(log) if log and isinstance(transport, EvalTransport) else None,
         idle_timeout_secs=runner_args.pipeline_idle_timeout_secs,
         handle_sigint=runner_args.handle_sigint,
     )

@@ -16,11 +16,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from evals.checks import Call, Verdict, call_from_log, disclosure_first
+from evals.checks import Call, Verdict, call_from_log, disclosure_first, read_events
 from evals.cost import cost_sek
 from evals.spend import Caps, stopped_by
 
 ROOT = Path(__file__).parent.parent
+SCENARIO_TIMEOUT_S = (
+    180  # a hard stop on one call's spend: the caps are only checked between Scenarios
+)
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
 SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
     "disclosure_first": [disclosure_first]
@@ -58,9 +61,16 @@ def _play(scenario: str, run_dir: Path) -> tuple[int, Path]:
     log = run_dir / "calls" / f"{scenario}.jsonl"
     cmd = [sys.executable, "-m", "pipecat.evals", "suite", "evals/manifest.yaml"]
     cmd += ["-s", scenario, "--name", scenario, "--runs-dir", str(run_dir)]
-    done = subprocess.run(
-        cmd, cwd=ROOT, env={**os.environ, "VOICE_CALL_LOG": str(log)}, check=False
-    )
+    try:
+        done = subprocess.run(
+            cmd,
+            cwd=ROOT,
+            env={**os.environ, "VOICE_CALL_LOG": str(log)},
+            check=False,
+            timeout=SCENARIO_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return -1, log
     return done.returncode, log
 
 
@@ -78,7 +88,10 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         return 2
     caps = caps or Caps.load()
     now = datetime.now(UTC)
-    run_id, loop_id = now.strftime("%Y%m%d-%H%M%S"), os.environ.get("EVAL_LOOP_ID", "")
+    run_id, loop_id = (
+        now.strftime("%Y%m%d-%H%M%S-%f"),
+        os.environ.get("EVAL_LOOP_ID", ""),
+    )
     run_dir = runs / run_id
     spent, rows, stopped = 0.0, list[Row](), None
     for sc in ids:
@@ -103,9 +116,7 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
             spent += caps.per_run_sek
             _record(runs, now, run_id, loop_id, caps.per_run_sek)
             continue
-        events = [
-            json.loads(line) for line in log.read_text("utf-8").splitlines() if line
-        ]
+        events = read_events(log)
         usage = [e for e in events if e["e"] == "usage"]
         sek = cost_sek(usage)
         spent += sek

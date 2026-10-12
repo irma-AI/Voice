@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from voice.agent import DISCLOSURE
 
@@ -49,13 +49,24 @@ def disclosure_first(call: Call) -> Verdict:
     )
 
 
+def read_events(path: Path) -> list[dict[str, Any]]:
+    """The log's lines; a last line cut short by a killed run is skipped, not fatal."""
+    events: list[dict[str, Any]] = []
+    for line in path.read_text("utf-8").splitlines():
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return events
+
+
 def call_from_log(path: Path) -> Call:
     """Builds the call record from the JSONL the agent wrote (voice/record.py).
 
     Caller pieces join into one turn until an agent response starts; agent pieces join into one
     turn per response. Agent text comes from the speech events when there are any, else the model's.
     """
-    events = [json.loads(line) for line in path.read_text("utf-8").splitlines() if line]
+    events = read_events(path)
     agent_kind = (
         "agent_tts" if any(e["e"] == "agent_tts" for e in events) else "agent_llm"
     )

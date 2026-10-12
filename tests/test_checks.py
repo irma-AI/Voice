@@ -41,3 +41,12 @@ def test_call_log_becomes_turns(tmp_path: Path) -> None:
         ("caller", "Hej"),
     ]
     assert disclosure_first(call).passed
+
+
+def test_a_log_cut_short_by_a_killed_run_still_reads(tmp_path: Path) -> None:
+    log = tmp_path / "call.jsonl"
+    log.write_text(
+        '{"t": 0, "e": "agent_tts", "text": "Du pratar med en AI-assistent."}\n{"t": 1, "e": "ca',
+        "utf-8",
+    )
+    assert disclosure_first(call_from_log(log)).passed

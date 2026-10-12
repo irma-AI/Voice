@@ -42,4 +42,6 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] The evals/ fence guard moved from the eval MVP to PET-45, so until it lands nothing but review protects evals/caps.json; the claim in the tests is worded to match.
 [2026-10-12] make test no longer accepts pytest's exit 5: the first tests landed with PET-43, as the ponytail note in the Makefile said they would.
 [2026-10-12] A call with no record is charged the per-run cap in the ledger: spend is unknown then, and an unknown cost must not count as free. A missing audio file stops the run before any spend.
-[2026-10-12] The call recorder runs only when VOICE_CALL_LOG is set, which the eval runner sets; callers there are synthetic. It writes transcripts, so it is never set on a real call (.claude/rules/security.md).
+[2026-10-12] The call recorder runs only on the eval transport and only when VOICE_CALL_LOG is set, which the eval runner sets; callers there are synthetic. It writes transcripts, so it is never set on a real call (.claude/rules/security.md).
+[2026-10-12] Each Scenario gets a 180 s wall-clock limit, because the caps are only checked between Scenarios; a call that hangs is cut off there. The limit and the recorder's eval-only gate have no test: they sit in process and transport wiring outside both agreed seams.
+[2026-10-12] The spend ledger lives in the git-ignored eval-runs/ of one checkout, so a fresh clone starts at zero and the day cap is per checkout: a shared store is a second place for state, and Petter's AI Studio cap is the backstop.

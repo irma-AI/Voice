@@ -47,6 +47,7 @@ async def run_call(
     transport: BaseTransport,
     *,
     idle_timeout_secs: float | None = None,
+    record_to: Path | None = None,
     handle_sigint: bool = False,
 ) -> None:
     """Runs one call on any Channel's transport until the Caller leaves."""
@@ -63,11 +64,9 @@ async def run_call(
         ),
     )
     user, assistant = LLMContextAggregatorPair(LLMContext())
-    # The eval Channel sets this to read the call afterwards; a normal call records nothing.
-    log = os.environ.get("VOICE_CALL_LOG")
     steps = [transport.input(), user, llm, transport.output(), assistant]
-    if log:
-        steps.insert(3, CallRecorder(Path(log)))
+    if record_to:  # only the eval Channel passes this: a real call is never recorded
+        steps.insert(3, CallRecorder(record_to))
     pipeline = Pipeline(steps)
     worker = PipelineWorker(
         pipeline,
