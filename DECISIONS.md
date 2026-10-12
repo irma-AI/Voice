@@ -51,3 +51,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] The context is seeded with one internal turn, "The call has just connected.": Pipecat 1.12.0 sends nothing to Gemini Live for an empty context, so the agent never spoke first (found by the first real eval run). Not heard by Callers.
 [2026-10-12] The Business facts stay in voice/business.txt: Petter keeps it for early development only; it is read at runtime, not just by evals, and will not survive as a file in production.
 [2026-10-12] Dropped the push and open-PR gates from next-step: the merge is the one hard stop that matters, and a PR is cheap to close.
+[2026-10-12] The evals fence trusts the evals-approved label as a convention: agents act as Petter on GitHub, so no check can tell who added it; the guard (fenced-paths) makes a missing label fail, a stronger gate needs a second GitHub identity.

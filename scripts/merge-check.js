@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Says whether this branch's changes are low-risk, so an agent may turn on auto-merge once
 // ci-summary passes. Low-risk: every changed file matches "low_risk" in scripts/low-risk-paths.json
-// and none matches "never". Anything else needs the user's explicit go-ahead for that PR.
+// and none matches "never" or a "fenced" path. Anything else needs the user's explicit go-ahead for that PR.
 // Compares with $GUARD_BASE, else origin/main.
 'use strict';
 const fs = require('fs');
@@ -12,7 +12,8 @@ const ROOT = git('rev-parse', '--show-toplevel');
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'low-risk-paths.json'), 'utf8'));
 const any = (globs) => (f) => (globs || []).some((g) => path.matchesGlob(f, g));
 const isLow = any(cfg.low_risk);
-const isNever = any(cfg.never);
+// A fenced path (also guarded by scripts/checks/guards/fenced-paths.js) is never low-risk.
+const isNever = any([...(cfg.never || []), ...cfg.fenced.paths]);
 
 const base = process.env.GUARD_BASE || 'origin/main';
 const from = git('merge-base', base, 'HEAD');

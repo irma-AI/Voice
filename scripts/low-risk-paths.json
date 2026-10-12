@@ -1,4 +1,5 @@
 {
   "low_risk": ["docs/**", "DECISIONS.md"],
-  "never": ["docs/agents/**", "voice/agent.py", "voice/business.txt"]
+  "never": ["docs/agents/**"],
+  "fenced": { "label": "evals-approved", "paths": ["tests/evals/**"] }
 }
