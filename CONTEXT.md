@@ -1,0 +1,17 @@
+# Voice
+
+The voice core: it connects a phone or browser call to a live AI voice model and runs the call.
+
+## Language
+
+**Caller**:
+The person on the other end of a call, inbound or outbound.
+_Avoid_: user, patient, customer
+
+**Channel**:
+A way a caller reaches the core: phone, web or eval.
+_Avoid_: entrance, transport
+
+**Hand-off**:
+Passing a call to a person, or taking a message, when the agent cannot finish it.
+_Avoid_: transfer, escalation
