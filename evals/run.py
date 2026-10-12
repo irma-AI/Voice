@@ -7,6 +7,7 @@ Scenario id, 3 a spend cap stopped the run.
 
 import json
 import os
+import re
 import subprocess
 import sys
 from collections.abc import Callable
@@ -63,6 +64,13 @@ def _play(scenario: str, run_dir: Path) -> tuple[int, Path]:
     return done.returncode, log
 
 
+def _record(runs: Path, now: datetime, run_id: str, loop_id: str, sek: float) -> None:
+    runs.mkdir(parents=True, exist_ok=True)
+    entry = {"ts": now.isoformat(), "run": run_id, "loop": loop_id, "sek": sek}
+    with (runs / "ledger.jsonl").open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
 def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
     ids = [only] if only else list(SCENARIOS)
     if unknown := [i for i in ids if i not in SCENARIOS]:
@@ -79,10 +87,21 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
             caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))
         ):
             break
+        # A missing audio file fails the harness before any spend; say so instead of charging for it.
+        yaml = (ROOT / "evals" / "scenarios" / f"{sc}.yaml").read_text("utf-8")
+        for rel in re.findall(r"^\s*audio:\s*(\S+)", yaml, re.MULTILINE):
+            if not (ROOT / "evals" / "scenarios" / rel).resolve().exists():
+                print(
+                    f"missing Caller audio {rel}: run `make eval-audio` (asks Petter first)",
+                    file=sys.stderr,
+                )
+                return 2
         code, log = _play(sc, run_dir)
         if not log.exists():
             missing = Verdict(False, f"no call record (suite exit {code})")
-            rows.append(Row(sc, {"suite exit": missing}, 0.0, 0, None))
+            rows.append(Row(sc, {"suite exit": missing}, caps.per_run_sek, 0, None))
+            spent += caps.per_run_sek
+            _record(runs, now, run_id, loop_id, caps.per_run_sek)
             continue
         events = [
             json.loads(line) for line in log.read_text("utf-8").splitlines() if line
@@ -90,14 +109,10 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         usage = [e for e in events if e["e"] == "usage"]
         sek = cost_sek(usage)
         spent += sek
-        with (runs / "ledger.jsonl").open("a", encoding="utf-8") as f:
-            f.write(
-                json.dumps(
-                    {"ts": now.isoformat(), "run": run_id, "loop": loop_id, "sek": sek}
-                )
-                + "\n"
-            )
+        _record(runs, now, run_id, loop_id, sek)
         call = call_from_log(log)
+        transcript = "\n".join(f"{t.speaker}: {t.text}" for t in call.turns)
+        (run_dir / f"{sc}.transcript.txt").write_text(transcript + "\n", "utf-8")
         verdicts = {check.__name__: check(call) for check in SCENARIOS[sc]}
         if code != 0:
             verdicts["suite exit"] = Verdict(False, f"the harness exited {code}")

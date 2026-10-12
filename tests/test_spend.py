@@ -1,4 +1,4 @@
-"""Seam 2: the cap rule, free. The caps file itself is fenced by the evals-approved label."""
+"""Seam 2: the cap rule, free. The evals-approved fence on the caps file comes with PET-45."""
 
 from evals.spend import Caps, stopped_by
 
@@ -16,4 +16,5 @@ def test_each_cap_stops_the_run() -> None:
 
 
 def test_committed_caps_are_the_approved_ones() -> None:
+    # Parity: Petter's approved 10/30/50 SEK live here and in evals/caps.json; edit caps.json only with his OK.
     assert Caps.load() == CAPS

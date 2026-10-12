@@ -21,7 +21,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] The web channel uses Pipecat's prebuilt browser page over its SmallWebRTC transport, not our own page over a WebSocket as the opportunity file proposed: no frontend code, and WebRTC handles echo and jitter on a phone browser. Petter chose it 2026-10-12.
 [2026-10-12] Pinned pipecat-ai to 1.12.0 exactly: the M0 gate judges one version, and its eval transport and Gemini 3.8 Live support both moved in recent releases.
 [2026-10-12] ESCALATED: what `make up` serves, the Gemini and eval spend caps, the AI disclosure wording, and whether E0 is adopted as written -> Petter
-[2026-10-12] Spend caps approved by Petter: $30/month on the Gemini test project in AI Studio (he sets it); eval runner caps 10 SEK per run, 30 per loop, 50 per day, read only from evals/caps.yaml, which only he edits.
+[2026-10-12] Spend caps approved by Petter: $30/month on the Gemini test project in AI Studio (he sets it); eval runner caps 10 SEK per run, 30 per loop, 50 per day, read only from evals/caps.json, which only he edits.
 [2026-10-12] AI disclosure line approved by Petter: "Du pratar med en AI-assistent." (English: "You're talking to an AI assistant."), the first sentence before any model speech.
 [2026-10-12] E0 trimmed by Petter to "Lean 12": 12 audio scenarios with code checks on Pipecat's eval transport and the SEK caps; dropped the TTS back-check, per-run recordings, failure re-runs and experiments 4 and 6.
 [2026-10-12] RESOLVED 2026-10-12: Pipecat's browser page; caps $30/month and 10/30/50 SEK; disclosure "Du pratar med en AI-assistent."; E0 as Lean 12.
@@ -39,3 +39,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] Usage reports are summed as deltas; if Gemini Live sends running totals this over-counts. The first paid run shows which, and the cost then gets corrected.
 [2026-10-12] The loop cap sums ledger runs that share EVAL_LOOP_ID; without it a loop is the single run. No loops are registered yet (.claude/loops.md), so the id is the only link.
 [2026-10-12] A cap is checked before and after each Scenario, not mid-call: one Scenario costs far less than a cap, and killing a live call mid-stream would lose its record.
+[2026-10-12] The evals/ fence guard moved from the eval MVP to PET-45, so until it lands nothing but review protects evals/caps.json; the claim in the tests is worded to match.
+[2026-10-12] make test no longer accepts pytest's exit 5: the first tests landed with PET-43, as the ponytail note in the Makefile said they would.
+[2026-10-12] A call with no record is charged the per-run cap in the ledger: spend is unknown then, and an unknown cost must not count as free. A missing audio file stops the run before any spend.
+[2026-10-12] The call recorder runs only when VOICE_CALL_LOG is set, which the eval runner sets; callers there are synthetic. It writes transcripts, so it is never set on a real call (.claude/rules/security.md).
