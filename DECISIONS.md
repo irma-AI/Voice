@@ -49,3 +49,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] The eval files live in tests/evals/, not a root evals/ folder: Petter chose it; evals are tests, and accounted keeps shared test material under its root tests/. The fence guard path follows.
 [2026-10-12] The Scenario time limit kills the process tree with taskkill on Windows and killpg elsewhere: the first real run is on a Windows PC, where killpg does not exist. Not run on Windows here; the PC run shows it.
 [2026-10-12] The context is seeded with one internal turn, "The call has just connected.": Pipecat 1.12.0 sends nothing to Gemini Live for an empty context, so the agent never spoke first (found by the first real eval run). Not heard by Callers.
+[2026-10-12] The Business facts stay in voice/business.txt: Petter keeps it for early development only; it is read at runtime, not just by evals, and will not survive as a file in production.
