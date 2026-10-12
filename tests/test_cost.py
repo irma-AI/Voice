@@ -1,6 +1,6 @@
 """Seam 2: the cost sum, free."""
 
-from evals.cost import cost_sek
+from tests.evals.cost import cost_sek
 
 
 def test_no_usage_costs_nothing() -> None:

@@ -17,11 +17,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from evals.checks import Call, Verdict, call_from_log, disclosure_first, read_events
-from evals.cost import cost_sek
-from evals.spend import Caps, stopped_by
+from tests.evals.checks import (
+    Call,
+    Verdict,
+    call_from_log,
+    disclosure_first,
+    read_events,
+)
+from tests.evals.cost import cost_sek
+from tests.evals.spend import Caps, stopped_by
 
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).parent.parent.parent
 SCENARIO_TIMEOUT_S = (
     180  # a hard stop on one call's spend: the caps are only checked between Scenarios
 )
@@ -60,7 +66,7 @@ def _totals(runs: Path, run: float, loop_id: str, today: str) -> dict[str, float
 def _play(scenario: str, run_dir: Path) -> tuple[int, Path]:
     """Runs one Scenario through Pipecat's eval suite; returns its exit code and the call log."""
     log = run_dir / "calls" / f"{scenario}.jsonl"
-    cmd = [sys.executable, "-m", "pipecat.evals", "suite", "evals/manifest.yaml"]
+    cmd = [sys.executable, "-m", "pipecat.evals", "suite", "tests/evals/manifest.yaml"]
     cmd += ["-s", scenario, "--name", scenario, "--runs-dir", str(run_dir)]
     # Own process group: the suite spawns the bot, and killing only the suite would leave the
     # bot's Gemini session open and spending after the time limit.
@@ -105,9 +111,11 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         ):
             break
         # A missing audio file fails the harness before any spend; say so instead of charging for it.
-        yaml = (ROOT / "evals" / "scenarios" / f"{sc}.yaml").read_text("utf-8")
+        yaml = (ROOT / "tests" / "evals" / "scenarios" / f"{sc}.yaml").read_text(
+            "utf-8"
+        )
         for rel in re.findall(r"^\s*audio:\s*(\S+)", yaml, re.MULTILINE):
-            if not (ROOT / "evals" / "scenarios" / rel).resolve().exists():
+            if not (ROOT / "tests" / "evals" / "scenarios" / rel).resolve().exists():
                 print(
                     f"missing Caller audio {rel}: run `make eval-audio` (asks Petter first)",
                     file=sys.stderr,

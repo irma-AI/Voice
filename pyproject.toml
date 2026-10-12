@@ -18,7 +18,7 @@ target-version = "py313"
 extend-exclude = [".claude", "docs", "scripts/checks/fixtures"]  # vendored skills, template docs and guard fixtures that break rules on purpose
 
 [tool.pyright]
-include = ["voice", "evals", "tests"]
+include = ["voice", "tests"]
 typeCheckingMode = "strict"
 pythonVersion = "3.13"
 

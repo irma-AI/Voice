@@ -20,10 +20,10 @@ down: ## Stop what `make up` started
 	pkill -f "[p]ython -m voice.web" || true
 
 eval: ## PAID, local only, ask Petter first: run the Scenarios (ONLY=<id> for one)
-	uv run python -m evals.run $(ONLY)
+	uv run python -m tests.evals.run $(ONLY)
 
-eval-audio: ## PAID, local only, ask Petter first: render the Caller audio under evals/audio/
-	uv run python -m evals.render_audio
+eval-audio: ## PAID, local only, ask Petter first: render the Caller audio under tests/evals/audio/
+	uv run python -m tests.evals.render_audio
 
 seed: ## Load demo data into the local app (never a copy of production)
 	@echo "n/a: no demo data yet"

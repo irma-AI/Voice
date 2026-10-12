@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from evals.checks import Call, call_from_log, disclosure_first
+from tests.evals.checks import Call, call_from_log, disclosure_first
 
 CALLS = Path(__file__).parent / "calls"
 

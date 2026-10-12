@@ -4,9 +4,9 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from evals.checks import Verdict
-from evals.run import Row, main, report
-from evals.spend import Caps
+from tests.evals.checks import Verdict
+from tests.evals.run import Row, main, report
+from tests.evals.spend import Caps
 
 
 def test_a_reached_day_cap_stops_with_exit_3_before_any_spend(tmp_path: Path) -> None:

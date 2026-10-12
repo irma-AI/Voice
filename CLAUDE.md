@@ -31,7 +31,7 @@ None of these is ticket-only: the PR is opened and waits for the answer.
 `make help` lists the targets, and `make check` runs what CI runs. CI, hooks and loops call only make targets, so a target's body is the one place a command lives.
 
 <!-- Commands make doesn't cover, from the repo root: how to run one test while iterating. -->
-`make up` serves the browser call page at http://localhost:7860 (run it in the background; it needs `GOOGLE_API_KEY` in `.env`, and every call spends Gemini credit). `make seed` prints n/a: no demo data yet. `make eval` (`ONLY=<id>` for one Scenario) plays the Scenarios against the real agent under the caps in `evals/caps.json`; `make eval-audio` renders the Caller audio once.
+`make up` serves the browser call page at http://localhost:7860 (run it in the background; it needs `GOOGLE_API_KEY` in `.env`, and every call spends Gemini credit). `make seed` prints n/a: no demo data yet. `make eval` (`ONLY=<id>` for one Scenario) plays the Scenarios against the real agent under the caps in `tests/evals/caps.json`; `make eval-audio` renders the Caller audio once.
 
 ## Architecture
 
@@ -43,7 +43,7 @@ Layers, dependency direction and the one interface per cross-cutting concern: `A
 
 Two seams:
 
-- **Eval channel** (`make eval`, paid, local only): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Covers the prompt, the Business's facts and the disclosure. `evals/run.py`.
+- **Eval channel** (`make eval`, paid, local only): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Covers the prompt, the Business's facts and the disclosure. `tests/evals/run.py`.
 - **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`; the spend rule and cost sum sit beside them.
 
 Don't mock our own modules or add tests at other seams. A new seam needs this section updated through `/grill-with-docs` first.

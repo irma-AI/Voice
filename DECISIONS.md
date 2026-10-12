@@ -11,8 +11,8 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] pyright runs in strict mode from day one: an empty package has nothing to baseline, and strict is cheapest to adopt before code exists.
 [2026-10-12] make test accepts pytest's "no tests collected" (exit 5) until the first test lands; marked ponytail in the Makefile so it gets dropped then.
 [2026-10-12] ruff skips .claude/, docs/ and the guard fixtures: vendored skills are never edited, template docs carry Django examples, and fixtures break rules on purpose.
-[2026-10-12] The evals/ fence is a guard that fails any PR touching evals/ unless Petter added the evals-approved label; it is built with the eval MVP, together with the folder it protects.
-[2026-10-12] Kept the template's low-risk paths (docs/** and DECISIONS.md, never docs/agents/**); evals/** and agent prompts join "never" when they exist.
+[2026-10-12] The tests/evals/ fence is a guard that fails any PR touching tests/evals/ unless Petter added the evals-approved label; it is built with the eval MVP, together with the folder it protects.
+[2026-10-12] Kept the template's low-risk paths (docs/** and DECISIONS.md, never docs/agents/**); tests/evals/** and agent prompts join "never" when they exist.
 [2026-10-12] Accepted that the cloud Dokploy token reaches every Dokploy project, not just Voice: agents keep to read-only on Voice by rule (docs/agents/agent-access.md); a gap against hard rule 6 until a narrower token exists.
 [2026-10-12] Left Dokploy auto-deploy on for main although every deploy fails until a Dockerfile exists: failed deploys are harmless for now.
 [2026-10-12] Left write-domain-skill and product-agents.md in docs/agents/optional/: the domain skill waits for the compliance work, the product-agents rule for the first tool code.
@@ -21,7 +21,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] The web channel uses Pipecat's prebuilt browser page over its SmallWebRTC transport, not our own page over a WebSocket as the opportunity file proposed: no frontend code, and WebRTC handles echo and jitter on a phone browser. Petter chose it 2026-10-12.
 [2026-10-12] Pinned pipecat-ai to 1.12.0 exactly: the M0 gate judges one version, and its eval transport and Gemini 3.8 Live support both moved in recent releases.
 [2026-10-12] ESCALATED: what `make up` serves, the Gemini and eval spend caps, the AI disclosure wording, and whether E0 is adopted as written -> Petter
-[2026-10-12] Spend caps approved by Petter: $30/month on the Gemini test project in AI Studio (he sets it); eval runner caps 10 SEK per run, 30 per loop, 50 per day, read only from evals/caps.json, which only he edits.
+[2026-10-12] Spend caps approved by Petter: $30/month on the Gemini test project in AI Studio (he sets it); eval runner caps 10 SEK per run, 30 per loop, 50 per day, read only from tests/evals/caps.json, which only he edits.
 [2026-10-12] AI disclosure line approved by Petter: "Du pratar med en AI-assistent." (English: "You're talking to an AI assistant."), the first sentence before any model speech.
 [2026-10-12] E0 trimmed by Petter to "Lean 12": 12 audio scenarios with code checks on Pipecat's eval transport and the SEK caps; dropped the TTS back-check, per-run recordings, failure re-runs and experiments 4 and 6.
 [2026-10-12] RESOLVED 2026-10-12: Pipecat's browser page; caps $30/month and 10/30/50 SEK; disclosure "Du pratar med en AI-assistent."; E0 as Lean 12.
@@ -39,10 +39,11 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] Usage reports are summed as deltas; if Gemini Live sends running totals this over-counts. The first paid run shows which, and the cost then gets corrected.
 [2026-10-12] The loop cap sums ledger runs that share EVAL_LOOP_ID; without it a loop is the single run. No loops are registered yet (.claude/loops.md), so the id is the only link.
 [2026-10-12] A cap is checked before and after each Scenario, not mid-call: one Scenario costs far less than a cap, and killing a live call mid-stream would lose its record.
-[2026-10-12] The evals/ fence guard moved from the eval MVP to PET-45, so until it lands nothing but review protects evals/caps.json; the claim in the tests is worded to match.
+[2026-10-12] The tests/evals/ fence guard moved from the eval MVP to PET-45, so until it lands nothing but review protects tests/evals/caps.json; the claim in the tests is worded to match.
 [2026-10-12] make test no longer accepts pytest's exit 5: the first tests landed with PET-43, as the ponytail note in the Makefile said they would.
 [2026-10-12] A Scenario with no call record is a failure charged nothing: the record file is created when the pipeline is built, before any Gemini connection, so no record means no spend. A missing audio file stops the run first.
 [2026-10-12] The call recorder runs only on the eval transport and only when VOICE_CALL_LOG is set, which the eval runner sets; callers there are synthetic. It writes transcripts, so it is never set on a real call (.claude/rules/security.md).
 [2026-10-12] Each Scenario gets a 180 s wall-clock limit, because the caps are only checked between Scenarios; a call that hangs is cut off there. The limit and the recorder's eval-only gate have no test: they sit in process and transport wiring outside both agreed seams.
 [2026-10-12] The spend ledger lives in the git-ignored eval-runs/ of one checkout, so a fresh clone starts at zero and the day cap is per checkout: a shared store is a second place for state, and Petter's AI Studio cap is the backstop.
 [2026-10-12] Cost may be under-counted: the harness can end the call while the last reply is still arriving and kill the bot. Thinking tokens are priced as output. The first paid run shows both, and the cost gets corrected then.
+[2026-10-12] The eval files live in tests/evals/, not a root evals/ folder: Petter chose it; evals are tests, and accounted keeps shared test material under its root tests/. The fence guard path follows.
