@@ -4,7 +4,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from evals.run import main
+from evals.checks import Verdict
+from evals.run import Row, main, report
 from evals.spend import Caps
 
 
@@ -26,3 +27,10 @@ def test_a_reached_day_cap_stops_with_exit_3_before_any_spend(tmp_path: Path) ->
 
 def test_an_unknown_scenario_is_refused(tmp_path: Path) -> None:
     assert main("nope", runs=tmp_path) == 2
+
+
+def test_the_table_and_exit_code_follow_the_verdicts(tmp_path: Path) -> None:
+    ok, bad = Verdict(True, "ok"), Verdict(False, "no")
+    assert report([Row("a", {"c": ok}, 0.5, 100, 1.2)], tmp_path, 0.5, None, 0) == 0
+    assert report([Row("a", {"c": bad}, 0.5, 100, None)], tmp_path, 0.5, None, 0) == 1
+    assert report([], tmp_path, 10, "run cap 10 SEK", 1) == 3

@@ -4,5 +4,5 @@ scenarios_dir: scenarios
 runs_dir: ../eval-runs
 spawn: "{python} -m voice.web -t eval --port {port}"
 suite:
-  - bot: voice/web.py
+  - bot: ../voice/web.py
     scenarios: [disclosure_first]

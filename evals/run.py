@@ -137,23 +137,24 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         )
         if stopped:
             break
-    return _report(rows, run_dir, spent, stopped, skipped=len(ids) - len(rows))
+    return report(rows, run_dir, spent, stopped, skipped=len(ids) - len(rows))
 
 
-def _report(
-    rows: list[Any], run_dir: Path, spent: float, stopped: str | None, skipped: int
+def report(
+    rows: list[Row], run_dir: Path, spent: float, stopped: str | None, skipped: int
 ) -> int:
     print(
         f"{'Scenario':<20} {'checks':<40} {'SEK':>6} {'prompt tok':>10} {'first reply':>11}"
     )
-    for sc, verdicts, sek, tokens, delay in rows:
+    for r in rows:
         marks = " ".join(
-            f"{n}:{'PASS' if v.passed else 'FAIL'}" for n, v in verdicts.items()
+            f"{n}:{'PASS' if v.passed else 'FAIL'}" for n, v in r.verdicts.items()
         )
+        delay = "-" if r.first_reply_s is None else f"{r.first_reply_s:.2f}s"
         print(
-            f"{sc:<20} {marks:<40} {sek:>6.2f} {tokens:>10} {'-' if delay is None else f'{delay:.2f}s':>11}"
+            f"{r.scenario:<20} {marks:<40} {r.sek:>6.2f} {r.prompt_tokens:>10} {delay:>11}"
         )
-        for n, v in verdicts.items():
+        for n, v in r.verdicts.items():
             if not v.passed:
                 print(f"  {n}: {v.reason}")
     print(f"spent {spent:.2f} SEK")
