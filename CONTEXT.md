@@ -15,3 +15,7 @@ _Avoid_: entrance, transport
 **Hand-off**:
 Passing a call to a person, or taking a message, when the agent cannot finish it.
 _Avoid_: transfer, escalation
+
+**Business**:
+The business whose calls the agent answers, with its own facts and tools.
+_Avoid_: tenant, customer, clinic, client
