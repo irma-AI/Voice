@@ -1,0 +1,16 @@
+{
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vad kostar en rotfyllning?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Jag är inte hundra säker, tyvärr."
+  }
+ ]
+}
