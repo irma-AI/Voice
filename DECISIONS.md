@@ -47,3 +47,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] The spend ledger lives in the git-ignored eval-runs/ of one checkout, so a fresh clone starts at zero and the day cap is per checkout: a shared store is a second place for state, and Petter's AI Studio cap is the backstop.
 [2026-10-12] Cost may be under-counted: the harness can end the call while the last reply is still arriving and kill the bot. Thinking tokens are priced as output. The first paid run shows both, and the cost gets corrected then.
 [2026-10-12] The eval files live in tests/evals/, not a root evals/ folder: Petter chose it; evals are tests, and accounted keeps shared test material under its root tests/. The fence guard path follows.
+[2026-10-12] The Scenario time limit kills the process tree with taskkill on Windows and killpg elsewhere: the first real run is on a Windows PC, where killpg does not exist. Not run on Windows here; the PC run shows it.

@@ -79,7 +79,10 @@ def _play(scenario: str, run_dir: Path) -> tuple[int, Path]:
     try:
         return proc.wait(timeout=SCENARIO_TIMEOUT_S), log
     except subprocess.TimeoutExpired:
-        os.killpg(proc.pid, signal.SIGKILL)
+        if sys.platform == "win32":
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], check=False)
+        else:
+            os.killpg(proc.pid, signal.SIGKILL)
         proc.wait()
         return -1, log
 
