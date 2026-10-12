@@ -32,12 +32,12 @@ Every guardrail this template carries: where it lives, how strong it is, and whe
 | Guards | Test both sides when code cannot be shared | two ways into the same action drift into different results | as you grow | `.claude/rules/tests.md`, `CLAUDE.md` § Hard rules 5, stack recipe | hard | not yet: no code |
 | Guards | Sweep agent instructions for stale claims regularly | a stale instruction sends agents the wrong way, and no check catches a wrong claim | first month | `instruction-refs` guard, `claim-sweep` skill | hard + process | yes |
 | Guards | See what each baseline still allows | one view of where violations remain, with no extra file to keep current | as you grow | `node scripts/checks/run.js --report` | process | yes |
-| CI | Require passing checks before merge | without it, a red PR can still merge | day one | `.github/rulesets/main.json`, README step | hard | not yet: Petter imports the ruleset |
+| CI | Require passing checks before merge | without it, a red PR can still merge | day one | `.github/rulesets/main.json`, README step | hard | yes: ruleset `main` is active on the default branch and requires `ci-summary` |
 | CI | Add one always-run job that sums up CI | a skipped required check counts as passing | day one | CI workflow `ci-summary` job | hard | yes |
 | CI | Lock down the CI supply chain | a moved tag can swap the code an action runs | day one | SHA-pinned actions, zizmor job | hard | yes |
 | CI | Pin fragile dependencies exactly, with the reason beside the pin | an unreviewed version bump can take down a feature | first month | stack recipe | soft | not yet: no fragile dependency yet |
 | CI | Build every shipped configuration in PR CI | a configuration first built after merge breaks after merge | as you grow | CI workflow `build` job (`make build`) | hard | not yet: no image yet |
-| CI | Auto-merge only low-risk paths | agents use your GitHub identity, so this is an instruction, not a CI check | first month | `scripts/low-risk-paths.json`, `make merge-check`, `CLAUDE.md` § Workflow | soft | not yet: needs "Allow auto-merge" in repo settings |
+| CI | Auto-merge only low-risk paths | agents use your GitHub identity, so this is an instruction, not a CI check | first month | `scripts/low-risk-paths.json`, `make merge-check`, `CLAUDE.md` § Workflow | soft | yes |
 | Review | Record what happened to each AI review finding | the next session doesn't reopen a finding someone already declined | first month | `CLAUDE.md` § Decisions, `next-step` review step | soft | yes |
 | Review | Run an adversarial second-agent pass before the PR | an agent rarely finds the flaws in its own change | as you grow | `skeptic-pass` skill, `next-step` Feature flow | process | yes |
 | Review | Assign human reviewers to the guardrail files | loosening a guard or raising a baseline gets a person's eyes | with a team | `.github/CODEOWNERS` | hard | n/a: solo maintainer |
