@@ -8,6 +8,7 @@ Scenario id, 3 a spend cap stopped the run.
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 from collections.abc import Callable
@@ -61,17 +62,20 @@ def _play(scenario: str, run_dir: Path) -> tuple[int, Path]:
     log = run_dir / "calls" / f"{scenario}.jsonl"
     cmd = [sys.executable, "-m", "pipecat.evals", "suite", "evals/manifest.yaml"]
     cmd += ["-s", scenario, "--name", scenario, "--runs-dir", str(run_dir)]
+    # Own process group: the suite spawns the bot, and killing only the suite would leave the
+    # bot's Gemini session open and spending after the time limit.
+    proc = subprocess.Popen(
+        cmd,
+        cwd=ROOT,
+        env={**os.environ, "VOICE_CALL_LOG": str(log)},
+        start_new_session=True,
+    )
     try:
-        done = subprocess.run(
-            cmd,
-            cwd=ROOT,
-            env={**os.environ, "VOICE_CALL_LOG": str(log)},
-            check=False,
-            timeout=SCENARIO_TIMEOUT_S,
-        )
+        return proc.wait(timeout=SCENARIO_TIMEOUT_S), log
     except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
         return -1, log
-    return done.returncode, log
 
 
 def _record(runs: Path, now: datetime, run_id: str, loop_id: str, sek: float) -> None:
