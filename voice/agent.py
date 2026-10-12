@@ -22,6 +22,7 @@ MODEL = "models/gemini-3.8-live"
 # Legal wording approved by Petter 2026-10-12; changing it is his call (CLAUDE.md § Stop and ask).
 DISCLOSURE = "Du pratar med en AI-assistent."
 
+# ponytail: one Business in one text file, early development only; upgrade to per-Business data in a store when a second Business or an admin edit arrives.
 BUSINESS = "\n".join(
     line
     for line in (Path(__file__).parent / "business.txt").read_text("utf-8").splitlines()
