@@ -23,3 +23,5 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] ESCALATED: what `make up` serves, the Gemini and eval spend caps, the AI disclosure wording, and whether E0 is adopted as written -> Petter
 [2026-10-12] Spend caps approved by Petter: $30/month on the Gemini test project in AI Studio (he sets it); eval runner caps 10 SEK per run, 30 per loop, 50 per day, read only from evals/caps.yaml, which only he edits.
 [2026-10-12] AI disclosure line approved by Petter: "Du pratar med en AI-assistent." (English: "You're talking to an AI assistant."), the first sentence before any model speech.
+[2026-10-12] E0 trimmed by Petter to "Lean 12": 12 audio scenarios with code checks on Pipecat's eval transport and the SEK caps; dropped the TTS back-check, per-run recordings, failure re-runs and experiments 4 and 6.
+[2026-10-12] RESOLVED 2026-10-12: Pipecat's browser page; caps $30/month and 10/30/50 SEK; disclosure "Du pratar med en AI-assistent."; E0 as Lean 12.
