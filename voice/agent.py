@@ -8,7 +8,7 @@ from loguru import logger
 from pipecat.frames.frames import LLMRunFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
-from pipecat.processors.aggregators.llm_context import LLMContext
+from pipecat.processors.aggregators.llm_context import LLMContext, LLMContextMessage
 from pipecat.processors.aggregators.llm_response_universal import (
     LLMContextAggregatorPair,
 )
@@ -60,7 +60,13 @@ async def run_call(
             language=Language.SV_SE,
         ),
     )
-    user, assistant = LLMContextAggregatorPair(LLMContext())
+    # Pipecat's Gemini Live service sends nothing to the model for an empty context, so the agent
+    # would wait for the Caller to speak first. One seed turn makes it start with the disclosure.
+    seed: LLMContextMessage = {
+        "role": "developer",
+        "content": "The call has just connected.",
+    }
+    user, assistant = LLMContextAggregatorPair(LLMContext(messages=[seed]))
     pipeline = Pipeline([transport.input(), user, llm, transport.output(), assistant])
     worker = PipelineWorker(
         pipeline,
