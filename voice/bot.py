@@ -17,7 +17,7 @@ from pipecat.workers.runner import WorkerRunner
 
 MODEL = "models/gemini-3.8-live"
 
-# Legal wording: Petter approves it (CLAUDE.md § Stop and ask). The default awaits his answer.
+# Legal wording approved by Petter 2026-10-12; changing it is his call (CLAUDE.md § Stop and ask).
 DISCLOSURE = "Du pratar med en AI-assistent."
 
 # ponytail: the model is asked to say the disclosure first, which it can skip;
