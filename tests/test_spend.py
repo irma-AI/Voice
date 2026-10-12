@@ -1,4 +1,4 @@
-"""Seam 2: the cap rule, free. The evals-approved fence on the caps file comes with PET-45."""
+"""Seam 2: the cap rule, free. The evals-approved fence on the caps file is the fenced-paths guard."""
 
 from tests.evals.spend import Caps, stopped_by
 
