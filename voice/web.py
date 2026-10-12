@@ -30,7 +30,7 @@ async def bot(runner_args: RunnerArguments) -> None:
 if __name__ == "__main__":
     from pipecat.runner.run import main  # importing it loads .env
 
-    if not os.environ.get("GOOGLE_API_KEY"):
+    if not os.environ.get("GOOGLE_API_KEY", "").strip():
         sys.exit("GOOGLE_API_KEY is not set: put it in .env (see .env.example).")
 
     main()

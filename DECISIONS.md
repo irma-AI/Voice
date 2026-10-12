@@ -30,3 +30,5 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] Kept Scenario in CONTEXT.md on the web call branch although the eval ticket uses it first: Petter settled it in the grilling, and the glossary records terms when they are settled.
 [2026-10-12] Gemini Live gets language sv-SE in its speech config, not Pipecat's en-US default: callers speak Swedish by default; switching to English is left to the prompt.
 [2026-10-12] Skeptic findings on PET-42 (DEBUG transcripts in logs, blank key, en-US speech config) were fixed without new tests: none sits at an agreed seam (eval channel, check unit tests); the eval channel covers language and disclosure once PET-43 lands.
+[2026-10-12] Caller IPs can show in the runner's DEBUG logs on the first call, before run_call caps the level: declined; IPs are not in security.md's list and the runner resets the level itself. Revisit when a phone Channel logs numbers.
+[2026-10-12] sv-SE speech config might hinder the English switch: unverified; the PET-43 language-switch Scenario checks it, and a failure there reopens this choice.
