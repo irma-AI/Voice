@@ -19,7 +19,7 @@ Rules 1 to 5 are soft: no check yet. Promote a soft rule to a check once it has 
 
 Stop and ask; do not guess. How agents reach tickets, logs, errors and metrics, and what they may not touch there: `docs/agents/agent-access.md`. Petter decides each of these:
 
-- **Spend and billing**: raising a spend cap; adding eval runs, scenarios or call length; changing an API key, project or billing tier.
+- **Spend and billing**: raising a spend cap; adding eval runs, scenarios or call length; changing an API key, project or billing tier; every `make eval` and `make eval-audio` run (both spend Gemini credit, so ask before each, never in CI).
 - **Legal wording**: the AI disclosure line, caller notice text, anything else that informs callers.
 - **Real calls and people**: calling a number we don't own, recording a real person, putting personal data anywhere.
 - **Vendors and deploys**: adding a vendor or sub-processor (model, carrier, hosting), deploying anything.
@@ -31,7 +31,7 @@ None of these is ticket-only: the PR is opened and waits for the answer.
 `make help` lists the targets, and `make check` runs what CI runs. CI, hooks and loops call only make targets, so a target's body is the one place a command lives.
 
 <!-- Commands make doesn't cover, from the repo root: how to run one test while iterating. -->
-`make up` serves the browser call page at http://localhost:7860 (run it in the background; it needs `GOOGLE_API_KEY` in `.env`, and every call spends Gemini credit). `make seed` prints n/a: no demo data yet.
+`make up` serves the browser call page at http://localhost:7860 (run it in the background; it needs `GOOGLE_API_KEY` in `.env`, and every call spends Gemini credit). `make seed` prints n/a: no demo data yet. `make eval` (`ONLY=<id>` for one Scenario) plays the Scenarios against the real agent under the caps in `tests/evals/caps.json`; `make eval-audio` renders the Caller audio once.
 
 ## Architecture
 
@@ -41,7 +41,10 @@ Layers, dependency direction and the one interface per cross-cutting concern: `A
 
 ## Tests
 
-<!-- The seams tests go through (e.g. "HTTP request → rendered response"), one line each with its test file. /tdd, /to-spec and /next-step's Bug flow test only at these; name which seam covers rendered output. -->
+Two seams:
+
+- **Eval channel** (`make eval`, paid, local only): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Aims at the prompt, the Business's facts and the disclosure; today only the disclosure is checked (PET-44 adds the rest). `tests/evals/run.py`.
+- **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`; the spend rule and cost sum sit beside them.
 
 Don't mock our own modules or add tests at other seams. A new seam needs this section updated through `/grill-with-docs` first.
 
