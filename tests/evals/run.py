@@ -141,7 +141,10 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         if code != 0:
             verdicts["suite exit"] = Verdict(False, f"the harness exited {code}")
         tokens = sum(u.get("prompt_tokens", 0) for u in usage)
-        delay = next((e["seconds"] for e in events if e.get("e") == "ttfb" and e["seconds"] > 0), None)
+        delay = next(
+            (e["seconds"] for e in events if e.get("e") == "ttfb" and e["seconds"] > 0),
+            None,
+        )
         rows.append(Row(sc, verdicts, sek, tokens, delay))
         stopped = stopped_by(
             caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))
