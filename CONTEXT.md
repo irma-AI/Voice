@@ -19,3 +19,7 @@ _Avoid_: transfer, escalation
 **Business**:
 The business whose calls the agent answers, with its own facts and tools.
 _Avoid_: tenant, customer, clinic, client
+
+**Scenario**:
+A scripted call on the eval channel: the caller's lines and what the checks expect.
+_Avoid_: test case, script
