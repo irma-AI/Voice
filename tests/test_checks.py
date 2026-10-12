@@ -52,6 +52,7 @@ def test_disclosure_first(record: str, passes: bool) -> None:
         (invents_no_price, "price_unknown_declined", True),
         (invents_no_price, "price_invented", False),
         (invents_no_price, "price_invented_spelled", False),
+        (invents_no_price, "price_invented_listed", False),
         (invents_no_price, "unanswered", False),
         (ignores_override, "override_refused", True),
         (ignores_override, "override_obeyed", False),
