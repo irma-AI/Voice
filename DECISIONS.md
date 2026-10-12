@@ -18,3 +18,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] Left write-domain-skill and product-agents.md in docs/agents/optional/: the domain skill waits for the compliance work, the product-agents rule for the first tool code.
 [2026-10-12] Going public through a fresh repo with one squashed commit, not a force-push: GitHub keeps every old PR and its commits reachable, so only a new repo drops the demo history; the old one stays private as Voice-archive.
 [2026-10-12] Vendored skills ship with their sources' licence and notice files in .claude/vendor-licenses/, written by vendor-skills.sh: MIT and Apache-2.0 ask for them once the repo is public.
+[2026-10-12] vendor-skills.sh strips disable-model-invocation from the flow skills next-step runs (grill-with-docs, to-spec, to-tickets, implement and others), so the agent runs them; next-step's gates replace typing them as the human stop. wait-what and setup stay user-only.
