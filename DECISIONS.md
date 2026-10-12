@@ -26,3 +26,5 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] E0 trimmed by Petter to "Lean 12": 12 audio scenarios with code checks on Pipecat's eval transport and the SEK caps; dropped the TTS back-check, per-run recordings, failure re-runs and experiments 4 and 6.
 [2026-10-12] RESOLVED 2026-10-12: Pipecat's browser page; caps $30/month and 10/30/50 SEK; disclosure "Du pratar med en AI-assistent."; E0 as Lean 12.
 [2026-10-12] The Business's facts are a plain key: value text file read into the system instruction, not YAML or a schema: one synthetic Business, read by the model only; a parser comes with the second Business or the first tool that needs fields.
+[2026-10-12] The disclosure is asked of the model as its first sentence, not played as a pre-rendered clip: Petter approved the wording with this stopgap on 2026-10-12; the clip comes with the compliance work, and the eval checks it is said first meanwhile.
+[2026-10-12] Kept Scenario in CONTEXT.md on the web call branch although the eval ticket uses it first: Petter settled it in the grilling, and the glossary records terms when they are settled.

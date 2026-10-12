@@ -14,10 +14,10 @@ setup: ## Install dependencies and tools
 	uv sync --frozen
 
 up: ## Start the app with its services (agents run it in the background)
-	uv run python -m voice.bot -t webrtc
+	uv run python -m voice.web -t webrtc
 
 down: ## Stop what `make up` started
-	pkill -f "[p]ython -m voice.bot" || true
+	pkill -f "[p]ython -m voice.web" || true
 
 seed: ## Load demo data into the local app (never a copy of production)
 	@echo "n/a: no demo data yet"
