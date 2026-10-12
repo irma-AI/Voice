@@ -17,6 +17,8 @@ from pipecat.transcriptions.language import Language
 from pipecat.transports.base_transport import BaseTransport
 from pipecat.workers.runner import WorkerRunner
 
+from voice.record import CallRecorder
+
 MODEL = "models/gemini-3.8-live"
 
 # Legal wording approved by Petter 2026-10-12; changing it is his call (CLAUDE.md § Stop and ask).
@@ -61,7 +63,12 @@ async def run_call(
         ),
     )
     user, assistant = LLMContextAggregatorPair(LLMContext())
-    pipeline = Pipeline([transport.input(), user, llm, transport.output(), assistant])
+    # The eval Channel sets this to read the call afterwards; a normal call records nothing.
+    log = os.environ.get("VOICE_CALL_LOG")
+    steps = [transport.input(), user, llm, transport.output(), assistant]
+    if log:
+        steps.insert(3, CallRecorder(Path(log)))
+    pipeline = Pipeline(steps)
     worker = PipelineWorker(
         pipeline,
         params=PipelineParams(enable_metrics=True, enable_usage_metrics=True),

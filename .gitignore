@@ -28,6 +28,7 @@ storage-state-*.json
 
 # Local environment files; .env.example is the committed template
 .env
+eval-runs/
 .env.*
 !.env.example
 

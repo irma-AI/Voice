@@ -33,3 +33,9 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] Caller IPs can show in the runner's DEBUG logs on the first call, before run_call caps the level: declined; IPs are not in security.md's list and the runner resets the level itself. Revisit when a phone Channel logs numbers.
 [2026-10-12] sv-SE speech config might hinder the English switch: unverified; the PET-43 language-switch Scenario checks it, and a failure there reopens this choice.
 [2026-10-12] vendor-skills.sh strips disable-model-invocation from the flow skills next-step runs (grill-with-docs, to-spec, to-tickets, implement and others), so the agent runs them; next-step's gates replace typing them as the human stop. wait-what and setup stay user-only.
+[2026-10-12] Our own checks judge the eval call, from a log the agent writes when VOICE_CALL_LOG is set: Pipecat's harness has no usage data and its response checks need a local speech model; it only plays the Caller audio and ends the call.
+[2026-10-12] Added the cli extra to the pinned pipecat-ai: the eval suite lives behind it. Same package and version, no new vendor.
+[2026-10-12] Eval cost uses prices.json (USD per million tokens, from ai.google.dev) and 11 SEK per USD, a deliberately high round number: caps fail closed, so over-counting is the safe side.
+[2026-10-12] Usage reports are summed as deltas; if Gemini Live sends running totals this over-counts. The first paid run shows which, and the cost then gets corrected.
+[2026-10-12] The loop cap sums ledger runs that share EVAL_LOOP_ID; without it a loop is the single run. No loops are registered yet (.claude/loops.md), so the id is the only link.
+[2026-10-12] A cap is checked before and after each Scenario, not mid-call: one Scenario costs far less than a cap, and killing a live call mid-stream would lose its record.

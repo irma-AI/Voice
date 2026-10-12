@@ -1,0 +1,8 @@
+# Runs the agent on the eval Channel. evals/run.py calls this once per Scenario, so it can stop at a cap.
+concurrency: 1
+scenarios_dir: scenarios
+runs_dir: ../eval-runs
+spawn: "{python} -m voice.web -t eval --port {port}"
+suite:
+  - bot: voice/web.py
+    scenarios: [disclosure_first]

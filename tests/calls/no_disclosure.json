@@ -1,0 +1,4 @@
+{"turns": [
+  {"speaker": "agent", "text": "Hej, välkommen till Tandkliniken Exempel. Hur kan jag hjälpa dig?"},
+  {"speaker": "caller", "text": "Vilka öppettider har ni?"}
+]}
