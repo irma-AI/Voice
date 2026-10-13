@@ -13,6 +13,7 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
+from loguru import logger
 from pipecat.frames.frames import (
     Frame,
     InputAudioRawFrame,
@@ -62,7 +63,7 @@ class RawPcmSerializer(FrameSerializer):
 def same_site(origin: str | None, host: str | None) -> bool:
     """True only when the WebSocket was opened from this site's own page.
 
-    The browser sends its cached login with a cross-site WebSocket too, so without this any page
+    The browser may send its cached Basic login with a cross-site WebSocket, so without this any page
     the logged-in Caller visits could start a paid call.
     """
     return bool(origin and host and urlsplit(origin).netloc == host)
@@ -82,9 +83,11 @@ def create_app(user: str, password: str) -> FastAPI:
 
     @app.websocket("/ws")
     async def call(websocket: WebSocket) -> None:  # pyright: ignore[reportUnusedFunction]
-        if not same_site(
-            websocket.headers.get("origin"), websocket.headers.get("host")
-        ):
+        origin, host = websocket.headers.get("origin"), websocket.headers.get("host")
+        if not same_site(origin, host):
+            logger.warning(
+                "refused /ws: Origin {!r} does not match Host {!r}", origin, host
+            )
             return await websocket.close(code=1008)
         await websocket.accept()
         transport = FastAPIWebsocketTransport(

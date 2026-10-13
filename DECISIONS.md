@@ -123,3 +123,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] RESOLVED 2026-10-13: browser audio streams over a WebSocket like the last demo, so no relay (Petter's card). Replacing the address voice.petterannerwall.se is fine.
 [2026-10-13] Agents may set environment variables of the Voice app on Dokploy after Petter's go on a card; deploying stays the merge's job. Petter asked for this in the thread ("you do the changes on Dokploy"); other projects stay off limits.
 [2026-10-13] Declined from VOI-14 review: a cap on parallel calls, separate end messages for failure vs hang-up, a credentials type, one shared key check. All are small for a shared-password demo; the 10-minute cap bounds spend per call.
+[2026-10-13] VOI-15: the login also sets a cookie (HttpOnly, Secure, SameSite=Strict, derived from the password), and /ws accepts it: Petter's browser got 403 on /ws with only the cached Basic login. Refused handshakes now log why.
