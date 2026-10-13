@@ -19,7 +19,7 @@ Rules 1 to 5 are soft: no check yet. Promote a soft rule to a check once it has 
 
 Stop and ask; do not guess. How agents reach tickets, logs, errors and metrics, and what they may not touch there: `docs/agents/agent-access.md`. Petter decides each of these:
 
-- **Spend and billing**: raising a spend cap; adding eval runs, scenarios or call length; changing an API key, project or billing tier; every `make eval` and `make eval-audio` run (both spend Gemini credit, so ask before each, never in CI).
+- **Spend and billing**: raising a spend cap; adding eval runs, scenarios or call length; changing an API key, project or billing tier; every `make eval` and `make eval-audio` run (both spend Gemini credit, so ask before each; never on push or PR. `make eval` also runs from the manual Evals workflow, where Petter's Approve click is the go).
 - **Legal wording**: the AI disclosure line, caller notice text, anything else that informs callers.
 - **Real calls and people**: calling a number we don't own, recording a real person, putting personal data anywhere.
 - **Vendors and deploys**: adding a vendor or sub-processor (model, carrier, hosting), deploying anything.
@@ -43,7 +43,7 @@ Layers, dependency direction and the one interface per cross-cutting concern: `A
 
 Two seams:
 
-- **Eval channel** (`make eval`, paid, local only): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Aims at the prompt, the Business's facts and the disclosure; today only the disclosure is checked (PET-44 adds the rest). `tests/evals/run.py`.
+- **Eval channel** (`make eval`, paid; on Petter's PC or the manual Evals workflow, never automatic): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Aims at the prompt, the Business's facts and the disclosure; today only the disclosure is checked (PET-44 adds the rest). `tests/evals/run.py`.
 - **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`; the spend rule and cost sum sit beside them.
 
 Don't mock our own modules or add tests at other seams. A new seam needs this section updated through `/grill-with-docs` first.

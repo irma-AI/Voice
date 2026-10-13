@@ -19,7 +19,7 @@ up: ## Start the app with its services (agents run it in the background)
 down: ## Stop what `make up` started
 	pkill -f "[p]ython -m voice.web" || true
 
-eval: ## PAID, local only, ask Petter first: run the Scenarios (ONLY=<id> for one); a full pass writes eval-receipt.json
+eval: ## PAID, ask Petter first (local, or the manual Evals workflow): run the Scenarios (ONLY=<id> for one); a full pass writes eval-receipt.json
 	uv run python -m tests.evals.run $(ONLY)
 	$(if $(ONLY),,node scripts/eval-receipt.js write)
 
