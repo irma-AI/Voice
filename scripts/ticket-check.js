@@ -5,10 +5,18 @@
 // Known limit: Linear can't say who added the label, so an agent that labels its own ticket passes; this
 // catches skipped flows and invented ticket numbers, not a deliberate forgery.
 'use strict';
+const fs = require('fs');
+const path = require('path');
 const READY = 'ready-for-agent';
 const PROJECT = 'Voice';
 
-const ticketIds = (text) => [...new Set(String(text || '').match(/\bPET-\d+\b/gi) || [])].map((s) => s.toUpperCase());
+// The tickets a PR closes: "Closes PET-12", also Fixes/Resolves. A bare mention ("follows PET-47") does not count.
+const ticketIds = (text) => [...new Set([...String(text || '').matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(PET-\d+)\b/gi)].map((m) => m[1].toUpperCase()))];
+
+const FIX = 'Run /next-step PET-<n> for a ready ticket, and put "Closes PET-<n>" in the PR body.';
+
+// Whether an edit to this repo-relative path needs a ticket: everything outside "no_ticket" in scripts/low-risk-paths.json.
+const needsTicket = (root, rel) => !JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'low-risk-paths.json'), 'utf8')).no_ticket.some((g) => path.matchesGlob(rel, g));
 
 async function fetchIssue(id, token = process.env.LINEAR_API_TOKEN) {
   if (!token) throw new Error('LINEAR_API_TOKEN is not set');
@@ -39,4 +47,4 @@ function problem(id, issue) {
   return null;
 }
 
-module.exports = { ticketIds, fetchIssue, problem, READY };
+module.exports = { ticketIds, fetchIssue, problem, needsTicket, FIX };

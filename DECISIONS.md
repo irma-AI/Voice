@@ -90,3 +90,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] The hook finds the ticket from a marker in the git dir that /next-step writes, not the branch name: project threads run on harness-assigned branches (claude/project-thread-...), so PET-<n> is not in them.
 [2026-10-13] The ticket check reads Linear through its GraphQL API with fetch, not the linearis CLI: no install step in CI or the hook, and a bad token or network error is told apart from an unknown ticket.
 [2026-10-13] Edits to docs/**, DECISIONS.md and CONTEXT.md need no ticket (scripts/low-risk-paths.json "no_ticket"): grilling writes CONTEXT.md and ADRs before any ticket exists.
+[2026-10-13] no_ticket (docs/**, DECISIONS.md, CONTEXT.md) is its own list, not low_risk: it exempts docs/agents/** too, which merge-check never calls low-risk, so Petter still reads those PRs before merging; Petter chose "docs only".
+[2026-10-13] Declined a test for the edit hook: the only seams are the Scenarios and the guard fixtures (CLAUDE.md § Tests); a hook test needs a new seam via /grill-with-docs. The shared rule is covered by the guard fixture; the hook is checked by hand.
+[2026-10-13] The guard counts only "Closes/Fixes/Resolves PET-n" as the PR's ticket: a bare mention of an old ticket ("follows PET-47") must not fail an otherwise valid PR.
+[2026-10-13] Left Bash writes (sed -i, echo >) outside the edit hook: the CI guard still refuses the PR, and a commit-time hook would add a parser to maintain; add it if agents are seen working around the hook.

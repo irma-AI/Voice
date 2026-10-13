@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { ticketIds, fetchIssue, problem } = require('./ticket-check');
+const { fetchIssue, problem, needsTicket } = require('./ticket-check');
 
 const git = (...a) => execFileSync('git', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 const deny = (why) => { console.error(`Edit denied: ${why}`); process.exit(2); };
@@ -20,14 +20,15 @@ const deny = (why) => { console.error(`Edit denied: ${why}`); process.exit(2); }
   const target = input.tool_input?.file_path || input.tool_input?.notebook_path;
   if (!target) return deny('the tool call names no file, so the ticket rule cannot be checked');
   const root = git('rev-parse', '--show-toplevel');
-  const rel = path.relative(root, path.resolve(input.cwd || root, target));
+  let abs = path.resolve(input.cwd || root, target);
+  try { abs = fs.realpathSync(abs); } catch { /* a new file: nothing to resolve */ } // a symlink under docs/ must not hide code
+  const rel = path.relative(fs.realpathSync(root), abs);
   if (rel.startsWith('..')) return; // outside the repo: scratch files and memory
-  const cfg = JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'low-risk-paths.json'), 'utf8'));
-  if (cfg.no_ticket.some((g) => path.matchesGlob(rel, g))) return;
+  if (!needsTicket(root, rel)) return;
 
   let id = process.env.NEXT_STEP_TICKET;
   if (!id) { try { id = fs.readFileSync(git('rev-parse', '--git-path', 'next-step-ticket'), 'utf8').trim(); } catch { /* no marker */ } }
-  if (!id) id = ticketIds(git('branch', '--show-current'))[0];
+  if (!id) id = git('branch', '--show-current').match(/PET-\d+/i)?.[0].toUpperCase();
   const fix = 'Run the next-step skill. Once its ticket is labelled ready-for-agent, start work with `/next-step PET-<n>`, which records the ticket for this session.';
   if (!id) return deny(`${rel} needs a ready Linear ticket and this session has none. ${fix}`);
   let issue;

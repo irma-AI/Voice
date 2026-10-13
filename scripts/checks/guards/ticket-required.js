@@ -9,8 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const ROOT = process.env.GUARD_ROOT || process.cwd();
-const { ticketIds, fetchIssue, problem } = require(path.join(__dirname, '..', '..', 'ticket-check.js'));
-const { no_ticket: free } = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/low-risk-paths.json'), 'utf8'));
+const { ticketIds, fetchIssue, problem, needsTicket, FIX } = require(path.join(__dirname, '..', '..', 'ticket-check.js'));
 
 // A fixture has `.guard-changed-files`, `.guard-pr-text` and `.guard-tickets.json` (id to Linear issue) in place of
 // a git diff, the CI env and Linear.
@@ -32,10 +31,10 @@ function changedFiles() {
 (async () => {
   const changed = changedFiles();
   console.log(`#scanned ${changed.length + 1}`); // +1: the change set itself, which may be empty
-  if (changed.every((f) => free.some((g) => path.matchesGlob(f, g)))) return;
+  if (!changed.some((f) => needsTicket(ROOT, f))) return;
   const ids = ticketIds(fixture ? read('.guard-pr-text') : process.env.GUARD_PR_TEXT);
   if (!ids.length) {
-    console.log('no-ticket\tthis PR changes files that need a ticket and names none: run /next-step PET-<n> for a ready ticket and put "Closes PET-<n>" in the PR body (set GUARD_PR_TEXT in .github/workflows/ci.yml if CI does not pass the PR text)');
+    console.log(`no-ticket\tthis PR changes files that need a ticket and closes none. ${FIX}`);
     process.exitCode = 1;
     return;
   }
@@ -43,6 +42,6 @@ function changedFiles() {
   for (const id of ids) {
     let why;
     try { why = problem(id, tickets ? tickets[id] : await fetchIssue(id)); } catch (e) { why = `cannot ask Linear (${e.message}); set LINEAR_API_TOKEN for this CI step`; }
-    if (why) { console.log(`${id}\t${why}`); process.exitCode = 1; }
+    if (why) { console.log(`${id}\t${why}. ${FIX}`); process.exitCode = 1; }
   }
 })();
