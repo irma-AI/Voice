@@ -1,4 +1,13 @@
-{"turns": [
-  {"speaker": "agent", "text": "Hej och välkommen!"},
-  {"speaker": "agent", "text": "Du pratar med en AI-assistent."}
-]}
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: the disclosure comes second, after a greeting.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Hej och välkommen!"
+  },
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent."
+  }
+ ]
+}

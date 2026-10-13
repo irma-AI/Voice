@@ -12,8 +12,12 @@ scenarios:
       - expect:
           - event: bot_started_speaking
             within_ms: 15000
+          - event: bot_stopped_speaking
+            within_ms: 30000
       - user: "Vilka öppettider har ni?"
         audio: ../audio/opening_hours_sv.wav
         expect:
           - event: bot_started_speaking
             within_ms: 15000
+          - event: bot_stopped_speaking  # the whole reply, not its first word
+            within_ms: 30000

@@ -1,3 +1,9 @@
-{"turns": [
-  {"speaker": "caller", "text": "Hallå?"}
-]}
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: the agent never speaks.",
+ "turns": [
+  {
+   "speaker": "caller",
+   "text": "Hallå?"
+  }
+ ]
+}
