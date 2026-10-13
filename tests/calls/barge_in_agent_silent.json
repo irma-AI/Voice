@@ -1,0 +1,26 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good on purpose: the sound came while the agent was not speaking, so nothing was cut off.",
+ "events": [
+  {
+   "t": 0.0,
+   "e": "config",
+   "vad": {},
+   "model": "models/gemini-3.8-live"
+  },
+  {
+   "t": 2.5,
+   "e": "interrupt",
+   "bot_speaking": false,
+   "bot_ms": 0,
+   "peak_dbfs": -39.0,
+   "rms_dbfs": -48.0,
+   "src": "gemini"
+  },
+  {
+   "t": 9.0,
+   "e": "end",
+   "reason": "cancel",
+   "secs": 9.0
+  }
+ ]
+}

@@ -20,6 +20,10 @@ _Avoid_: transfer, escalation
 The business whose calls the agent answers, with its own facts and tools.
 _Avoid_: tenant, customer, clinic, client
 
+**Barge-in**:
+The Caller speaking while the agent talks, so the agent stops. A false barge-in is one where no words followed, usually noise.
+_Avoid_: interruption, cut-off
+
 **Scenario**:
 A scripted call on the eval channel: the caller's lines and what the checks expect.
 _Avoid_: test case, script

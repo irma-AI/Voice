@@ -1,0 +1,37 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good on purpose: no words followed, but the sound was loud enough that a Caller may have reacted.",
+ "events": [
+  {
+   "t": 0.0,
+   "e": "config",
+   "vad": {},
+   "model": "models/gemini-3.8-live"
+  },
+  {
+   "t": 0.4,
+   "e": "bot_speech",
+   "phase": "start"
+  },
+  {
+   "t": 2.5,
+   "e": "interrupt",
+   "bot_speaking": true,
+   "bot_ms": 2100,
+   "peak_dbfs": -9.0,
+   "rms_dbfs": -18.0,
+   "src": "gemini"
+  },
+  {
+   "t": 2.6,
+   "e": "bot_speech",
+   "phase": "stop",
+   "played_ms": 2200
+  },
+  {
+   "t": 9.0,
+   "e": "end",
+   "reason": "cancel",
+   "secs": 9.0
+  }
+ ]
+}

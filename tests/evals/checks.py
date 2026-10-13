@@ -347,3 +347,30 @@ def call_from_log(path: Path) -> Call:
             else:
                 turns[-1] = Turn("agent", turns[-1].text + e["text"])
     return Call(tuple(turns))
+
+
+# ponytail: first guesses, to calibrate from the log of a real noisy call (VOI-19): a barge-in
+# followed by no Caller words within BARGE_IN_WORDS_WITHIN_S and quieter than LOW_RMS_DBFS is noise.
+BARGE_IN_WORDS_WITHIN_S = 5.0
+LOW_RMS_DBFS = -35.0
+
+
+def events_from_record(path: Path) -> list[dict[str, Any]]:
+    """The events of a stored synthetic record (the same lines the agent logs on a call)."""
+    return json.loads(path.read_text("utf-8"))["events"]
+
+
+def false_barge_ins(events: list[dict[str, Any]]) -> Verdict:
+    """No quiet sound cut the agent off: every barge-in while it spoke was followed by Caller words."""
+    words_at = [e["t"] for e in events if e.get("e") == "caller_words"]
+    for e in events:
+        if e.get("e") != "interrupt" or not e["bot_speaking"]:
+            continue
+        if e["rms_dbfs"] >= LOW_RMS_DBFS:
+            continue
+        if not any(e["t"] <= t <= e["t"] + BARGE_IN_WORDS_WITHIN_S for t in words_at):
+            return Verdict(
+                False,
+                f"at {e['t']}s the agent was cut off by a quiet sound ({e['rms_dbfs']} dBFS) and no words followed",
+            )
+    return Verdict(True, "every barge-in while the agent spoke had words after it")
