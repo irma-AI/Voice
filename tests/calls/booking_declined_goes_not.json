@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: says booking does not work here, in other words than the prompt's.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Kan jag boka en tid på tisdag?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Det går tyvärr inte att boka här, men jag svarar gärna på frågor om kliniken."
+  }
+ ]
+}

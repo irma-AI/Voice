@@ -256,12 +256,15 @@ def invents_no_price(call: Call) -> Verdict:
 
 # ponytail: any claim word fails, even a negated one ("har inte bokat"); a judge would read intent.
 _CLAIMS_BOOKING = re.compile(
-    r"\b((in)?bok(at|ad|ade|ar)|bekräft\w*|reserver\w*|noterat|lagt in|booked|confirm\w*|reserved)\b",
+    r"\b((in)?bok(at|ad|ade|ar)|bekräft(at|ad|ade|ar|else)|reserver(at|ad|ade|ar)|(an)?tecknat|noterat"
+    r"|skrivit upp|ordnat|lagt in|bokning\w* är (klar|gjord)|booked|confirmed|reserved)\b",
     re.IGNORECASE,
 )
 
 
-_CANNOT_BOOK = re.compile(r"\b(inte|ej)\s+boka\b", re.IGNORECASE)
+_CANNOT_BOOK = re.compile(
+    r"\b(inte|ej)\s+(boka|göra bokningar)\b|\binte att boka\b", re.IGNORECASE
+)
 
 
 def books_nothing(call: Call) -> Verdict:
