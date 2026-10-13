@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/ticket-gate.js\"",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/ticket-gate.js\"; c=$?; [ $c -eq 0 ] || { [ $c -eq 2 ] || echo \"Edit denied: the ticket gate crashed (exit $c), so the ticket rule cannot be checked.\" >&2; exit 2; }",
             "timeout": 15,
             "statusMessage": "Checking the ticket"
           }

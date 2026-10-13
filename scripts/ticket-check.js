@@ -1,5 +1,5 @@
 // The one ticket rule, used by the edit hook (scripts/ticket-gate.js) and the CI guard
-// (scripts/checks/guards/ticket-required.js): work needs a ready Linear ticket in team PET, project Voice.
+// (scripts/checks/guards/ticket-required.js): work needs a ready Linear ticket in the team below.
 // "Ready" is the label to-tickets and triage put on a ticket (docs/agents/triage-labels.md); a done or
 // cancelled ticket backs no new work. Fails closed: no token or no answer from Linear is a problem, not a pass.
 // Known limit: Linear can't say who added the label, so an agent that labels its own ticket passes; this
@@ -8,12 +8,15 @@
 const fs = require('fs');
 const path = require('path');
 const READY = 'ready-for-agent';
-const PROJECT = 'Voice';
+// Keep equal to the team in docs/agents/issue-tracker.md; ticket ids are <TEAM>-<n>.
+const TEAM = 'VOI';
 
-// The tickets a PR closes: "Closes PET-12", also Fixes/Resolves. A bare mention ("follows PET-47") does not count.
-const ticketIds = (text) => [...new Set([...String(text || '').matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(PET-\d+)\b/gi)].map((m) => m[1].toUpperCase()))];
+// The tickets a PR closes: "Closes VOI-12", also Fixes/Resolves. A bare mention ("follows VOI-7") does not count.
+const ID = `${TEAM}-\\d+`;
+const ticketIds = (text) => [...new Set([...String(text || '').matchAll(new RegExp(`\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\s+(${ID})\\b`, 'gi'))].map((m) => m[1].toUpperCase()))];
+const idIn = (text) => String(text || '').match(new RegExp(`\\b${ID}\\b`, 'i'))?.[0].toUpperCase();
 
-const FIX = 'Run /next-step PET-<n> for a ready ticket, and put "Closes PET-<n>" in the PR body.';
+const FIX = `Run /next-step ${TEAM}-<n> for a ready ticket, and put "Closes ${TEAM}-<n>" in the PR body.`;
 
 // Whether an edit to this repo-relative path needs a ticket: everything outside "no_ticket" in scripts/low-risk-paths.json.
 const needsTicket = (root, rel) => !JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'low-risk-paths.json'), 'utf8')).no_ticket.some((g) => path.matchesGlob(rel, g));
@@ -24,7 +27,7 @@ async function fetchIssue(id, token = process.env.LINEAR_API_TOKEN) {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: token },
     body: JSON.stringify({
-      query: 'query($id:String!){issue(id:$id){identifier project{name} labels{nodes{name}} state{type}}}',
+      query: 'query($id:String!){issue(id:$id){identifier team{key} labels{nodes{name}} state{type}}}',
       variables: { id },
     }),
     signal: AbortSignal.timeout(10000),
@@ -41,10 +44,10 @@ async function fetchIssue(id, token = process.env.LINEAR_API_TOKEN) {
 // Returns why the ticket can't back work, or null when it can.
 function problem(id, issue) {
   if (!issue) return `${id} does not exist in Linear, or the API key cannot see it (a key limited to other teams or in another workspace gets "not found")`;
-  if (issue.project?.name !== PROJECT) return `${id} is not in the Linear project ${PROJECT}`;
+  if (issue.team?.key !== TEAM) return `${id} is not in the Linear team ${TEAM}`;
   if (!issue.labels.nodes.some((l) => l.name === READY)) return `${id} is not labelled ${READY}: it has not been through triage or to-tickets yet`;
   if (['completed', 'canceled'].includes(issue.state.type)) return `${id} is already done or cancelled`;
   return null;
 }
 
-module.exports = { ticketIds, fetchIssue, problem, needsTicket, FIX };
+module.exports = { ticketIds, idIn, fetchIssue, problem, needsTicket, FIX, TEAM };
