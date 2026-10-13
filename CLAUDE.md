@@ -84,6 +84,7 @@ This file holds what every session needs; keep it under about 120 lines. A rule 
 
 - Branches: `<linear-id>-<slug>`, or `<slug>` without an issue.
 - Research goes in `docs/research/<topic>.md`.
+- No Claude attribution in PRs or commits: no "Generated with Claude Code" footer, no claude.ai session link, no `Co-Authored-By` or `Claude-Session` trailers.
 - Every merge to the default branch auto-deploys to Dokploy (project `Voice`, app `app`, from `Dockerfile`); it fails until a Dockerfile exists.
 
 - Shared agent setup lives in the repo: settings, hooks, skills, rules and plans. A method the team relies on gets committed as one of those; personal settings stay in `.claude/settings.local.json`.
