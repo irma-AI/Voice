@@ -31,7 +31,7 @@ None of these is ticket-only: the PR is opened and waits for the answer.
 
 `make help` lists the targets, and `make check` runs what CI runs. CI, hooks and loops call only make targets, so a target's body is the one place a command lives.
 
-`make up` serves the browser call page at http://localhost:7860 (run it in the background; it needs `GOOGLE_API_KEY` in `.env`, and every call spends Gemini credit). `make seed` prints n/a: no demo data yet. `make eval` (`ONLY=<id>` for one Scenario) plays the Scenarios against the real agent under the caps in `tests/evals/caps.json`; a full pass writes `eval-receipt.json`, and the `eval-required` guard fails a change to the prompt, the Business's facts or the Pipecat pin (`scripts/eval-required.json`) without a matching receipt; `make eval-audio` renders the Caller audio once.
+`make up` serves the browser call page at http://localhost:7860 (run it in the background; it needs `GOOGLE_API_KEY` and `VOICE_PASSWORD` in `.env`, the browser asks for that password, and every call spends Gemini credit). `make seed` prints n/a: no demo data yet. `make eval` (`ONLY=<id>` for one Scenario) plays the Scenarios against the real agent under the caps in `tests/evals/caps.json`; a full pass writes `eval-receipt.json`, and the `eval-required` guard fails a change to the prompt, the Business's facts or the Pipecat pin (`scripts/eval-required.json`) without a matching receipt; `make eval-audio` renders the Caller audio once.
 
 ## Architecture
 
@@ -42,7 +42,7 @@ Layers, dependency direction and the one interface per cross-cutting concern: `A
 Two seams:
 
 - **Eval channel** (`make eval`, paid; on Petter's PC or the manual Evals workflow, never automatic): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Aims at the prompt, the Business's facts and the disclosure; seven Scenarios, one per behaviour. `tests/evals/run.py`.
-- **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`; the spend rule and cost sum sit beside them.
+- **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`; the spend rule, cost sum, login rule and web audio converter sit beside them.
 
 Don't mock our own modules or add tests at other seams. A new seam needs this section updated through `/grill-with-docs` first.
 
@@ -82,7 +82,7 @@ This file holds what every session needs; keep it under about 120 lines. A rule 
 - Branches: `<linear-id>-<slug>`, or `<slug>` without an issue.
 - Research goes in `docs/research/<topic>.md`.
 - No Claude attribution in PRs or commits: no "Generated with Claude Code" footer, no claude.ai session link, no `Co-Authored-By` or `Claude-Session` trailers.
-- Every merge to the default branch auto-deploys to Dokploy (project `Voice`, app `app`, from `Dockerfile`); it fails until a Dockerfile exists.
+- Every merge to the default branch auto-deploys to Dokploy (project `Voice`, app `app`, from `Dockerfile`).
 
 - Shared agent setup lives in the repo: settings, hooks, skills, rules and plans. A method the team relies on gets committed as one of those; personal settings stay in `.claude/settings.local.json`.
 - Merging: turn on auto-merge only when `make merge-check` says `LOW-RISK`; any other merge waits for the user's go-ahead for that PR. Nothing enforces this, since agents act as the user on GitHub.

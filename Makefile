@@ -14,10 +14,10 @@ setup: ## Install dependencies and tools
 	uv sync --frozen
 
 up: ## Start the app with its services (agents run it in the background)
-	uv run python -m voice.web -t webrtc
+	uv run python -m voice.serve
 
 down: ## Stop what `make up` started
-	pkill -f "[p]ython -m voice.web" || true
+	pkill -f "[p]ython -m voice.serve" || true
 
 eval: ## PAID, ask Petter first (local, or the manual Evals workflow): run the Scenarios (ONLY=<id> for one); a full pass writes eval-receipt.json
 	uv run python -m tests.evals.run $(ONLY)
@@ -52,7 +52,7 @@ generate-check: ## Fail when a generated file is stale, printing the command tha
 	@echo "n/a: no generated files yet"
 
 build: ## Build every configuration this repo ships
-	@echo "n/a: no image yet; becomes docker build when the Dokploy step adds the Dockerfile"
+	docker build -t voice .
 
 merge-check: ## Is this branch low-risk enough for an agent to turn on auto-merge? (scripts/low-risk-paths.json)
 	node scripts/merge-check.js
