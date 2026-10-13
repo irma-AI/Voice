@@ -113,7 +113,9 @@ def main() -> None:
     if not os.environ.get("GOOGLE_API_KEY", "").strip():
         sys.exit("GOOGLE_API_KEY is not set: put it in .env (see .env.example).")
     password = os.environ.get("VOICE_PASSWORD", "")
-    if not password:  # fail closed: without a login anyone could start a paid call
+    if (
+        not password.strip()
+    ):  # fail closed: without a login anyone could start a paid call
         sys.exit("VOICE_PASSWORD is not set: put it in .env (see .env.example).")
     app = create_app(os.environ.get("VOICE_USER", "voice"), password)
     uvicorn.run(

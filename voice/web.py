@@ -1,4 +1,4 @@
-"""The web Channel: Pipecat's built-in browser page. `make up` serves it."""
+"""The eval Channel: Pipecat's runner, which the eval suite spawns. The web Channel is voice/serve.py."""
 
 import os
 import sys

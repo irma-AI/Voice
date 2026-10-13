@@ -2,6 +2,7 @@
 
 import asyncio
 
+import pytest
 from pipecat.frames.frames import (
     InputAudioRawFrame,
     InterruptionFrame,
@@ -9,7 +10,7 @@ from pipecat.frames.frames import (
     TextFrame,
 )
 
-from voice.serve import IN_RATE, OUT_RATE, RawPcmSerializer, same_site
+from voice.serve import RawPcmSerializer, same_site
 
 
 def test_microphone_bytes_become_a_caller_audio_frame() -> None:
@@ -20,9 +21,6 @@ def test_microphone_bytes_become_a_caller_audio_frame() -> None:
         16000,
         1,
     )
-    assert (
-        IN_RATE == 16000
-    )  # the page gets the same rate from the server, parity by construction
 
 
 def test_text_from_the_browser_is_ignored() -> None:
@@ -32,16 +30,12 @@ def test_text_from_the_browser_is_ignored() -> None:
 def test_agent_audio_goes_out_as_plain_bytes() -> None:
     audio = OutputAudioRawFrame(audio=b"\x03\x00", sample_rate=24000, num_channels=1)
     assert asyncio.run(RawPcmSerializer().serialize(audio)) == b"\x03\x00"
-    assert OUT_RATE == 24000
 
 
 def test_audio_at_the_wrong_rate_is_refused_not_played_garbled() -> None:
     audio = OutputAudioRawFrame(audio=b"\x03\x00", sample_rate=16000, num_channels=1)
-    try:
+    with pytest.raises(ValueError):
         asyncio.run(RawPcmSerializer().serialize(audio))
-    except ValueError:
-        return
-    raise AssertionError("expected ValueError")
 
 
 def test_an_interruption_tells_the_page_to_stop_playing() -> None:

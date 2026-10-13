@@ -37,7 +37,7 @@ Every guardrail this template carries: where it lives, how strong it is, and whe
 | CI | Add one always-run job that sums up CI | a skipped required check counts as passing | day one | CI workflow `ci-summary` job | hard | yes |
 | CI | Lock down the CI supply chain | a moved tag can swap the code an action runs | day one | SHA-pinned actions, zizmor job | hard | yes |
 | CI | Pin fragile dependencies exactly, with the reason beside the pin | an unreviewed version bump can take down a feature | first month | stack recipe | soft | yes: `pipecat-ai` is pinned `==1.12.0` in `pyproject.toml`, reason in `DECISIONS.md` |
-| CI | Build every shipped configuration in PR CI | a configuration first built after merge breaks after merge | as you grow | CI workflow `build` job (`make build`) | hard | not yet: no image yet |
+| CI | Build every shipped configuration in PR CI | a configuration first built after merge breaks after merge | as you grow | CI workflow `build` job (`make build`) | hard | `make build` runs `docker build` (not checked yet in CI: its first run is the VOI-14 PR) |
 | CI | Auto-merge only low-risk paths | agents use your GitHub identity, so this is an instruction, not a CI check | first month | `scripts/low-risk-paths.json`, `make merge-check`, `CLAUDE.md` § Workflow | soft | yes |
 | Review | Record what happened to each AI review finding | the next session doesn't reopen a finding someone already declined | first month | `CLAUDE.md` § Decisions, `next-step` review step | soft | yes |
 | Review | Run an adversarial second-agent pass before the PR | an agent rarely finds the flaws in its own change | as you grow | `skeptic-pass` skill, `next-step` Feature flow | process | yes |

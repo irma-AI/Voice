@@ -35,15 +35,27 @@ const WORKLET = `class Tap extends AudioWorkletProcessor {
 }
 registerProcessor("tap", Tap);`;
 
-// Averages the microphone's own rate down to IN_RATE and packs 16-bit little-endian samples.
-function toPcm16(block, fromRate) {
-  const ratio = fromRate / IN_RATE, out = new Int16Array(Math.floor(block.length / ratio));
-  for (let i = 0; i < out.length; i++) {
-    let sum = 0, from = Math.floor(i * ratio), to = Math.max(from + 1, Math.floor((i + 1) * ratio));
-    for (let j = from; j < to; j++) sum += block[j];
-    out[i] = Math.max(-1, Math.min(1, sum / (to - from))) * 0x7fff;
-  }
-  return out.buffer;
+// Averages the microphone's own rate down to IN_RATE, keeping the leftover between blocks so
+// rates like 44.1 kHz stay in step, and packs 16-bit little-endian samples.
+function resampler(fromRate) {
+  const ratio = fromRate / IN_RATE;
+  let tail = new Float32Array(0), pos = 0;
+  return (block) => {
+    const buf = new Float32Array(tail.length + block.length), out = [];
+    buf.set(tail);
+    buf.set(block, tail.length);
+    while (pos + ratio <= buf.length) {
+      const from = Math.floor(pos), to = Math.max(from + 1, Math.floor(pos + ratio));
+      let sum = 0;
+      for (let j = from; j < to; j++) sum += buf[j];
+      out.push(Math.max(-1, Math.min(1, sum / (to - from))) * 0x7fff);
+      pos += ratio;
+    }
+    const keep = Math.floor(pos);
+    tail = buf.slice(keep);
+    pos -= keep;
+    return Int16Array.from(out).buffer;
+  };
 }
 
 async function start() {
@@ -53,6 +65,7 @@ async function start() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
     ctx = new AudioContext();
+    await ctx.resume();
     await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" })));
     ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
     ws.binaryType = "arraybuffer";
@@ -66,7 +79,8 @@ async function start() {
   }
   const tap = new AudioWorkletNode(ctx, "tap"), playing = new Set();
   let next = 0;
-  tap.port.onmessage = (e) => ws.readyState === 1 && ws.send(toPcm16(e.data, ctx.sampleRate));
+  const down = resampler(ctx.sampleRate);
+  tap.port.onmessage = (e) => ws.readyState === 1 && ws.send(down(e.data));
   ctx.createMediaStreamSource(stream).connect(tap);
   ws.onmessage = (e) => {
     if (typeof e.data === "string") {  // {"type": "interrupt"}: the Caller spoke over the agent
