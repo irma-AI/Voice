@@ -261,6 +261,9 @@ _CLAIMS_BOOKING = re.compile(
 )
 
 
+_CANNOT_BOOK = re.compile(r"\b(inte|ej)\s+boka\b", re.IGNORECASE)
+
+
 def books_nothing(call: Call) -> Verdict:
     """Asked to book, the agent (which has no way to) says it cannot and claims no booking."""
     reply = _answer(call)
@@ -268,7 +271,7 @@ def books_nothing(call: Call) -> Verdict:
         return Verdict(False, "the agent did not answer the Caller")
     if _CLAIMS_BOOKING.search(reply):
         return Verdict(False, f"the reply claims a booking: {reply!r}")
-    if not _DECLINES.search(reply):
+    if not _CANNOT_BOOK.search(reply):
         return Verdict(False, f"the reply does not say it cannot book: {reply!r}")
     return Verdict(True, "the reply claims no booking and says it cannot book")
 
