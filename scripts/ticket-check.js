@@ -40,7 +40,7 @@ async function fetchIssue(id, token = process.env.LINEAR_API_TOKEN) {
 
 // Returns why the ticket can't back work, or null when it can.
 function problem(id, issue) {
-  if (!issue) return `${id} does not exist in Linear`;
+  if (!issue) return `${id} does not exist in Linear, or the API key cannot see it (a key limited to other teams or in another workspace gets "not found")`;
   if (issue.project?.name !== PROJECT) return `${id} is not in the Linear project ${PROJECT}`;
   if (!issue.labels.nodes.some((l) => l.name === READY)) return `${id} is not labelled ${READY}: it has not been through triage or to-tickets yet`;
   if (['completed', 'canceled'].includes(issue.state.type)) return `${id} is already done or cancelled`;
