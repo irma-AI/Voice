@@ -85,6 +85,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] PET-47 is on the harness-assigned branch claude/booking-test-fallback-4edcye, not <linear-id>-<slug>: the cloud session fixed the name; the PR and commits name the ticket.
 [2026-10-13] Declined from the skeptic pass: an English booking caller (no English booking Scenario; the check reads Swedish) and a medical-emergency caller (the catch-all sentence has no redirect). Petter chose the wording; both are named in the PR.
 [2026-10-13] Second-read fixes: the booking check also fails on antecknat, skrivit upp, ordnat and "bokningen är klar", and no longer fails the prompt's own "bekräfta" in a refusal. A claim word still fails if "inte boka" is also said.
+[2026-10-13] History of main and Voice-archive rewritten once at Petter's request: Claude trailers and session links removed, spend amounts kept private in this log; code, tests and the eval receipt unchanged. GitHub may keep old copies behind its pull-request pages.
 [2026-10-13] Hard rule 7 marks from the VOI-10 sweep: the monthly Google AI account limit is Petter's word, not seen in AI Studio; Evals run 38369643599 was seen waiting for approval on environment evals, but not whether a reviewer or a timer caused it, or who the reviewer is.
 [2026-10-13] ESCALATED: is a monthly spend limit set on the Google AI account? -> Petter
 [2026-10-13] ESCALATED: is Petter the required reviewer of the evals environment? -> Petter
