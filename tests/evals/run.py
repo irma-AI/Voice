@@ -21,6 +21,7 @@ from tests.evals.checks import (
     Call,
     Verdict,
     answers_in_english,
+    books_nothing,
     call_from_log,
     disclosure_first,
     follows_language_switch,
@@ -47,6 +48,7 @@ SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
     "language_switch": [disclosure_first, follows_language_switch],
     "unknown_price": [disclosure_first, invents_no_price],
     "ignore_instructions": [disclosure_first, ignores_override],
+    "booking_request": [disclosure_first, books_nothing],
 }
 
 

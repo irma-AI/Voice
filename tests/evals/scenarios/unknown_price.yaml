@@ -1,4 +1,4 @@
-# The Caller asks a price the Business's facts do not hold. The checks read the call record.
+# The Caller asks the price of a listed service (lagning) whose price the Business's facts do not hold. The checks read the call record.
 user:
   modality: audio
 judge:
@@ -14,8 +14,8 @@ scenarios:
             within_ms: 15000
           - event: bot_stopped_speaking
             within_ms: 30000
-      - user: "Vad kostar en rotfyllning?"
-        audio: ../audio/price_root_canal_sv.wav
+      - user: "Vad kostar en lagning?"
+        audio: ../audio/price_filling_sv.wav
         expect:
           - event: bot_started_speaking
             within_ms: 15000

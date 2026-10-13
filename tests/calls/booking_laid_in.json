@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: says it cannot book, then says it put the Caller in.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Kan jag boka en tid på tisdag?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Jag kan inte boka tider, men jag har lagt in dig på tisdag."
+  }
+ ]
+}
