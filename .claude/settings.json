@@ -28,6 +28,30 @@
             "statusMessage": "Loading ponytail mode..."
           }
         ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/next-step-nudge.sh\"",
+            "timeout": 5,
+            "statusMessage": "Reminding to run next-step"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/ticket-gate.js\"",
+            "timeout": 15,
+            "statusMessage": "Checking the ticket"
+          }
+        ]
       }
     ],
     "PostToolUse": [
