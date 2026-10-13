@@ -4,16 +4,26 @@ The map an agent needs before changing structure: the layers, which way dependen
 
 ## Layers
 
-None yet: each layer is written here when its first code lands.
+Lowest first:
 
-<!-- One line per layer, lowest first: its name and what it holds. Example for a web app: types, config, data access, services, API, UI. Paths and allowed imports live only in scripts/checks/layers.json. -->
+- **Call record** (`voice/record.py`): writes what happened on a call to a JSONL file. Used on the eval Channel only.
+- **Agent** (`voice/agent.py`, `voice/business.txt`): the prompt, the disclosure line, the Business's facts, the Gemini Live service and the pipeline. `run_call(transport)` is the one way a call runs.
+- **Channel** (`voice/web.py`): turns a connection into a Pipecat transport and hands it to `run_call`. A phone Channel will sit beside it.
+
+`tests/evals/` is outside the layers. It starts the web Channel on Pipecat's eval transport and imports `BUSINESS` and `DISCLOSURE` from the agent, so those facts keep one home.
 
 ## Dependency direction
 
-Dependencies point down the list: a layer imports only the layers its `may_import` names in `scripts/checks/layers.json`, and the `layers` guard fails any other import.
+Dependencies point down the list: Channel imports Agent, Agent imports Call record, nothing imports upward. Not enforced yet: `scripts/checks/layers.json` does not exist, so the `layers` guard is off (`DECISIONS.md`). When it exists, a layer may import only the layers its `may_import` names, and the guard fails any other import.
 
 ## Cross-cutting concerns
 
 Each concern has one interface, and code reaches it only through that interface:
 
-<!-- One line each: auth, logging and telemetry, feature flags, configuration, and any other concern code everywhere needs. Name the module or function. -->
+- **Secrets and settings**: environment variables, listed in `.env.example`; `GOOGLE_API_KEY` is read in `run_call` and checked up front in `voice/web.py`.
+- **Logging**: Pipecat's loguru logger; `run_call` caps it at INFO so transcripts stay out of logs (`.claude/rules/security.md`).
+- **Call record**: `CallRecorder`, passed to `run_call` as `record_to`, set only on the eval transport.
+- **AI disclosure**: `DISCLOSURE` in `voice/agent.py`.
+- **Business facts**: `BUSINESS` in `voice/agent.py`, read from `voice/business.txt`.
+
+No auth, feature flags or telemetry exist yet.

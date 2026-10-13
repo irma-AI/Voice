@@ -6,17 +6,12 @@ paths:
 
 # Tests
 
-<!-- How tests are named and laid out per seam (CLAUDE.md § Tests), and which helpers and fixtures to use. -->
+Checks are `tests/test_<module>.py`; the ones that judge a call read the stored synthetic call records in `tests/calls/`. Scenarios, their Caller audio and the runner are `tests/evals/`. Each kind below catches what the others can't.
 
-Each layer below catches what the others can't. The file name or marker says which layer a test is in, so an agent picks the layer by naming the file.
-
-- **Real-store tests** (`make test-db`) run against the real engine, not a mock: they catch what a mock accepts and the engine refuses, such as constraints, permissions and query shapes. A test that the store refuses a bad write is the normal case, not an extra.
-- **Sweep tests** read the whole set from the source, such as the database catalog, the route table or the tool registry, and fail for any member that breaks a rule. A new table, route or tool is then checked even if its author never opens the test.
-- **Parity tests** cover a fact that lives in two places that can't share code (two endpoints for one action, application code and a database rule, a translation key set per language). The test reads both sides, and its failure names the side to edit.
-- **Performance budgets** are test assertions that fail when the code is slower, not sentences in a doc.
+- **Sweep tests** read the whole set from the source and fail for any member that breaks a rule, so a new member is checked even if its author never opens the test. Here: every Scenario is in the runner, the manifest, the Scenario files and the audio list (`tests/test_eval_run.py`).
+- **Parity tests** cover a fact that lives in two places that can't share code. The test reads both sides, and its failure names the side to edit. None yet.
 - **Flaky tests** get one rerun to confirm. A test that fails and then passes gets a ticket and a fix in this PR or the next; it is never skipped, quarantined or deleted to get green.
 
 ## Enforced by
 
-- Parity: every Scenario is in the runner, the manifest, the scenario files and the audio list (`tests/test_eval_run.py`).
 - `scripts/checks/guards/eval-required.js`: a change to what only the evals can test needs a receipt from a passing full `make eval` (`scripts/eval-required.json` lists it, `scripts/eval-receipt.js` hashes it). A hand-written receipt would pass; review checks the receipt came from `make eval`.
