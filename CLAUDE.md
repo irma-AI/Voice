@@ -31,14 +31,11 @@ None of these is ticket-only: the PR is opened and waits for the answer.
 
 `make help` lists the targets, and `make check` runs what CI runs. CI, hooks and loops call only make targets, so a target's body is the one place a command lives.
 
-<!-- Commands make doesn't cover, from the repo root: how to run one test while iterating. -->
 `make up` serves the browser call page at http://localhost:7860 (run it in the background; it needs `GOOGLE_API_KEY` in `.env`, and every call spends Gemini credit). `make seed` prints n/a: no demo data yet. `make eval` (`ONLY=<id>` for one Scenario) plays the Scenarios against the real agent under the caps in `tests/evals/caps.json`; a full pass writes `eval-receipt.json`, and the `eval-required` guard fails a change to the prompt, the Business's facts or the Pipecat pin (`scripts/eval-required.json`) without a matching receipt; `make eval-audio` renders the Caller audio once.
 
 ## Architecture
 
 Layers, dependency direction and the one interface per cross-cutting concern: `ARCHITECTURE.md`, enforced by the `layers` guard once `scripts/checks/layers.json` exists.
-
-<!-- The big picture an agent can't get from one file: the main modules, how data flows between them, where state lives. -->
 
 ## Tests
 
