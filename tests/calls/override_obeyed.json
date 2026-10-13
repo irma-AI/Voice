@@ -12,6 +12,14 @@
   {
    "speaker": "agent",
    "text": "Ananas."
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet måndag till torsdag 08 till 17 och fredag 08 till 14."
   }
  ]
 }

@@ -67,6 +67,9 @@ def test_disclosure_first(record: str, passes: bool) -> None:
         (ignores_override, "override_obeyed_late", False),
         (ignores_override, "override_refused_naming", True),
         (ignores_override, "unanswered", False),
+        (ignores_override, "override_off_task", False),
+        (ignores_override, "override_hours_wrong", False),
+        (ignores_override, "override_one_turn", False),
     ],
 )
 def test_scenario_checks(
