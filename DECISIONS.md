@@ -35,7 +35,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] vendor-skills.sh strips disable-model-invocation from the flow skills next-step runs (grill-with-docs, to-spec, to-tickets, implement and others), so the agent runs them; next-step's gates replace typing them as the human stop. wait-what and setup stay user-only.
 [2026-10-12] Our own checks judge the eval call, from a log the agent writes when VOICE_CALL_LOG is set: Pipecat's harness has no usage data and its response checks need a local speech model; it only plays the Caller audio and ends the call.
 [2026-10-12] Added the cli extra to the pinned pipecat-ai: the eval suite lives behind it. Same package and version, no new vendor.
-[2026-10-12] Eval cost uses prices.json (USD per million tokens, from ai.google.dev) and 11 SEK per USD, a deliberately high round number: caps fail closed, so over-counting is the safe side.
+[2026-10-12] Eval cost uses prices.json (USD per million tokens, from ai.google.dev) and a deliberately high round USD to SEK rate: caps fail closed, so over-counting is the safe side.
 [2026-10-12] Usage reports are summed as deltas; if Gemini Live sends running totals this over-counts. The first paid run shows which, and the cost then gets corrected.
 [2026-10-12] The loop cap sums ledger runs that share EVAL_LOOP_ID; without it a loop is the single run. No loops are registered yet (.claude/loops.md), so the id is the only link.
 [2026-10-12] A cap is checked before and after each Scenario, not mid-call: one Scenario costs far less than a cap, and killing a live call mid-stream would lose its record.
@@ -56,7 +56,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] The cloud sandbox cannot run `make eval`: its proxy drops the WebSocket upgrade to Gemini Live and no network setting changes that; hence the workflow above instead of a relay.
 [2026-10-13] The Evals workflow starts with an empty spend ledger, so the day cap does not see PC runs or earlier cloud runs: bounded by the run cap, Petter's per-run Approve and the monthly Gemini limit; persist the ledger (actions/cache) if that proves too loose.
 [2026-10-13] The Evals workflow prints the receipt in its log instead of committing it: a pushing job would need contents:write beside the key, and its pushes skip CI; the agent recomputes the receipt locally and commits it if equal.
-[2026-10-13] Claude attribution is off via the committed attribution setting in .claude/settings.json, not a written rule; object form (empty commit and pr, sessionUrl false) so older Claude Code versions don't skip the whole file.
+[2026-10-13] The attribution setting in .claude/settings.json (object form, so older Claude Code versions don't skip the file) is not seen to hold: PR #12 opened after it merged and still had the footer and session link, which the GitHub tool adds. Not checked.
 [2026-10-12] Not following Pipecat's eval docs on AI-judged replies and CI gating: Moonshine has no Swedish, a judge is a new vendor or a gigabyte local model, and CI repeats would put a paid key in CI. Code checks and PET-46's guard instead.
 [2026-10-12] Every Scenario turn waits for bot_stopped_speaking, so the harness hears the whole reply: it ended the call after the first word and the checks and cost saw half a reply.
 [2026-10-12] Language per reply is told by counting Swedish and English stopwords, not a detector library: replies are short and one-language; a tie fails closed. Swap for a detector if replies get long or mixed.
@@ -85,6 +85,17 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] PET-47 is on the harness-assigned branch claude/booking-test-fallback-4edcye, not <linear-id>-<slug>: the cloud session fixed the name; the PR and commits name the ticket.
 [2026-10-13] Declined from the skeptic pass: an English booking caller (no English booking Scenario; the check reads Swedish) and a medical-emergency caller (the catch-all sentence has no redirect). Petter chose the wording; both are named in the PR.
 [2026-10-13] Second-read fixes: the booking check also fails on antecknat, skrivit upp, ordnat and "bokningen är klar", and no longer fails the prompt's own "bekräfta" in a refusal. A claim word still fails if "inte boka" is also said.
+[2026-10-13] History of main and Voice-archive rewritten once at Petter's request: Claude trailers and session links removed, spend amounts kept private in this log; code, tests and the eval receipt unchanged. GitHub may keep old copies behind its pull-request pages.
+[2026-10-13] Hard rule 7 marks from the VOI-10 sweep: the monthly Google AI account limit is Petter's word, not seen in AI Studio; Evals run 38369643599 was seen waiting for approval on environment evals, but not whether a reviewer or a timer caused it, or who the reviewer is.
+[2026-10-13] ESCALATED: is a monthly spend limit set on the Google AI account? -> Petter
+[2026-10-13] ESCALATED: is Petter the required reviewer of the evals environment? -> Petter
+[2026-10-13] ESCALATED: may re-recorded Caller audio (make eval-audio) skip the evals-approved label, which now fences all of tests/evals/? -> Petter
+[2026-10-13] ARCHITECTURE.md names three layers (call record, agent, Channel) but no scripts/checks/layers.json yet: three files and one Channel leave nothing to enforce; add it with the phone Channel.
+[2026-10-13] The sweep left the guardrails map's "sweep for stale claims" row at "partly": claim-sweep runs by hand, and a loop is not worth it for three source files; register one in .claude/loops.md when the code grows.
+[2026-10-13] VOI-10 is on the harness-assigned branch claude/project-thread-aq38f9, not <linear-id>-<slug>: the cloud session fixed the name; the PR and commit name the ticket.
+[2026-10-13] RESOLVED 2026-10-13: a monthly spend limit is set on the Google AI account (Petter); the amount is kept private, so earlier lines no longer name one.
+[2026-10-13] RESOLVED 2026-10-13: re-recorded Caller audio needs the evals-approved label like any other tests/evals/ change (Petter: it costs money); the fence already covers tests/evals/audio/, so nothing to build.
+[2026-10-13] RESOLVED 2026-10-13: Petter approves each paid Evals run himself on the evals environment (his word). A run was seen waiting; the reviewer setting itself is not seen, as the proxy blocks it.
 [2026-10-13] Work needs a ready Linear ticket, enforced by a PreToolUse hook on edits and a CI guard on PRs, not by instructions: Petter wants the flow to bind agents without his manual steps; the start-up reminder is only a fallback.
 [2026-10-13] "Ready" means the ready-for-agent label on a not-done ticket in Linear team VOI (TEAM in ticket-check.js): Linear can't show who added the label, so an agent labelling its own ticket passes; this catches skipped flows and invented numbers.
 [2026-10-13] The hook finds the ticket from a marker in the git dir that /next-step writes, not the branch name: project threads run on harness-assigned branches (claude/project-thread-...), so PET-<n> is not in them.
