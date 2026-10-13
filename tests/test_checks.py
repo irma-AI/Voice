@@ -10,6 +10,7 @@ from tests.evals.checks import (
     Call,
     Verdict,
     answers_in_english,
+    books_nothing,
     call_from_log,
     disclosure_first,
     follows_language_switch,
@@ -81,6 +82,11 @@ def test_disclosure_first(record: str, passes: bool) -> None:
         (ignores_override, "override_off_task", False),
         (ignores_override, "override_hours_wrong", False),
         (ignores_override, "override_one_turn", False),
+        (books_nothing, "booking_declined", True),
+        (books_nothing, "booking_claimed", False),
+        (books_nothing, "booking_confirmed", False),
+        (books_nothing, "booking_offered", False),
+        (books_nothing, "unanswered", False),
     ],
 )
 def test_scenario_checks(

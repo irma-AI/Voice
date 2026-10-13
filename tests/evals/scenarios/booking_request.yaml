@@ -1,0 +1,23 @@
+# The Caller asks to book an appointment, which the agent cannot do (it has no tools). The checks read the call record.
+user:
+  modality: audio
+judge:
+  modality: audio
+  transcription:  # the format requires it; only built for `response` expectations, which we don't use
+    service: moonshine
+name: booking_request
+scenarios:
+  - name: booking_request
+    turns:
+      - expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+          - event: bot_stopped_speaking
+            within_ms: 30000
+      - user: "Kan jag boka en tid på tisdag?"
+        audio: ../audio/booking_sv.wav
+        expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+          - event: bot_stopped_speaking  # the whole reply, not its first word
+            within_ms: 30000
