@@ -82,7 +82,7 @@ async def run_call(
         steps.insert(
             2, CallRecorder(record_to)
         )  # the Caller's transcript, which travels upstream
-    # The barge-in events go to the server log in production, with an id for the call (never a number).
+    # The barge-in events (the first words after one, not the rest) go to the server log in production, with an id for the call (never a number).
     steps.insert(2, BargeInRecorder(uuid.uuid4().hex[:12], record_to))
     pipeline = Pipeline(steps)
     worker = PipelineWorker(

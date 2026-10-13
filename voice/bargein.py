@@ -58,7 +58,7 @@ class BargeInRecorder(FrameProcessor):
         # (arrival time, peak, sum of squares, samples) of recent Caller audio frames
         self._audio: deque[tuple[float, int, int, int]] = deque()
         self._bot_since: float | None = None
-        self._interrupted_at: float | None = None  # waiting for the Caller's words
+        self._barge_in_at: float | None = None  # waiting for the Caller's words
         self._resume_after: float | None = None  # waiting for the agent to speak again
         self._ended = False
         self._write(
@@ -110,7 +110,7 @@ class BargeInRecorder(FrameProcessor):
                 if self._resume_after is not None:
                     self._write(
                         e="resumed",
-                        after_interrupt_ms=round((now - self._resume_after) * 1000),
+                        after_barge_in_ms=round((now - self._resume_after) * 1000),
                     )
                     self._resume_after = None
             elif isinstance(frame, BotStoppedSpeakingFrame):
@@ -121,26 +121,27 @@ class BargeInRecorder(FrameProcessor):
                 peak, rms = self._loudness(now)
                 since = self._bot_since
                 self._write(
-                    e="interrupt",
+                    e="barge_in",
                     bot_speaking=since is not None,
-                    bot_ms=round((now - since) * 1000) if since is not None else 0,
+                    bot_ms=round((now - since) * 1000)
+                    if since is not None
+                    else 0,  # this stretch of speech
                     peak_dbfs=peak,
                     rms_dbfs=rms,
                     src="gemini",
                 )
-                self._interrupted_at = self._resume_after = now
+                self._barge_in_at = now
+                self._resume_after = now if since is not None else None
             elif isinstance(frame, TranscriptionFrame):
                 words = len(frame.text.split())
-                if words:
-                    cut = self._interrupted_at
+                cut = self._barge_in_at
+                if words and cut is not None:  # only the first words after a barge-in
                     self._write(
                         e="caller_words",
                         words=words,
-                        after_interrupt_ms=round((now - cut) * 1000)
-                        if cut is not None
-                        else None,
+                        after_barge_in_ms=round((now - cut) * 1000),
                     )
-                    self._interrupted_at = None
+                    self._barge_in_at = None
         elif isinstance(frame, (EndFrame, CancelFrame)) and not self._ended:
             self._ended = True
             self._write(

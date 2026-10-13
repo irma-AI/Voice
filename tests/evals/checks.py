@@ -361,16 +361,18 @@ def events_from_record(path: Path) -> list[dict[str, Any]]:
 
 
 def false_barge_ins(events: list[dict[str, Any]]) -> Verdict:
-    """No quiet sound cut the agent off: every barge-in while it spoke was followed by Caller words."""
+    """No quiet sound interrupted the agent: each barge-in while it spoke was loud or followed by Caller words."""
     words_at = [e["t"] for e in events if e.get("e") == "caller_words"]
     for e in events:
-        if e.get("e") != "interrupt" or not e["bot_speaking"]:
+        if e.get("e") != "barge_in" or not e["bot_speaking"]:
             continue
         if e["rms_dbfs"] >= LOW_RMS_DBFS:
             continue
         if not any(e["t"] <= t <= e["t"] + BARGE_IN_WORDS_WITHIN_S for t in words_at):
             return Verdict(
                 False,
-                f"at {e['t']}s the agent was cut off by a quiet sound ({e['rms_dbfs']} dBFS) and no words followed",
+                f"at {e['t']}s a quiet sound interrupted the agent ({e['rms_dbfs']} dBFS) and no words followed",
             )
-    return Verdict(True, "every barge-in while the agent spoke had words after it")
+    return Verdict(
+        True, "every quiet barge-in while the agent spoke had words after it"
+    )
