@@ -10,7 +10,6 @@ from pipecat.runner.utils import create_transport  # pyright: ignore[reportUnkno
 from pipecat.transports.base_transport import TransportParams
 
 from voice.agent import run_call
-from voice.auth import BasicAuth
 
 
 async def bot(runner_args: RunnerArguments) -> None:
@@ -36,15 +35,9 @@ async def bot(runner_args: RunnerArguments) -> None:
 
 
 if __name__ == "__main__":
-    from pipecat.runner.run import app, main  # importing it loads .env
+    from pipecat.runner.run import main  # importing it loads .env
 
     if not os.environ.get("GOOGLE_API_KEY", "").strip():
         sys.exit("GOOGLE_API_KEY is not set: put it in .env (see .env.example).")
-    password = os.environ.get("VOICE_PASSWORD", "")
-    if not password:  # fail closed: without a login anyone could start a paid call
-        sys.exit("VOICE_PASSWORD is not set: put it in .env (see .env.example).")
-    app.add_middleware(
-        BasicAuth, user=os.environ.get("VOICE_USER", "voice"), password=password
-    )
 
     main()

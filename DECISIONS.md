@@ -116,3 +116,9 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] The image runs the venv's python as a non-root user, not `uv run`: uv needs a writable cache at start and the runtime has no use for it.
 [2026-10-13] ESCALATED: how browser audio reaches the container (a relay on Petter's server or a hosted one; without one the page loads but a call probably won't connect) -> Petter
 [2026-10-13] The deploy PR is on the harness-assigned branch claude/project-thread-es7w35, not <slug>: the cloud session fixed the name.
+[2026-10-13] The deployed page streams audio over a WebSocket with our own small script (voice/serve.py), not Pipecat's WebRTC page: no relay or open UDP ports needed. Pipecat calls it a prototype path; upgrade in docs/research/pipecat-browser-audio-deployment.md.
+[2026-10-13] The WebSocket accepts only its own site as Origin: the browser sends its cached login with a cross-site WebSocket too, so otherwise any page the logged-in Caller visits could start a paid call.
+[2026-10-13] A call is cut after 10 minutes (MAX_CALL_SECS) so a forgotten tab can't spend Gemini credit all night; raise it only if real calls need longer.
+[2026-10-13] Test kind for the WebSocket Channel is the free pure-function seam (tests/test_serve.py), picked by Petter's card; the page was checked by hand in headless Chromium with a fake microphone and a loopback agent, not committed. The real Gemini conversation is untested from the cloud.
+[2026-10-13] RESOLVED 2026-10-13: browser audio streams over a WebSocket like the last demo, so no relay (Petter's card). Replacing the address voice.petterannerwall.se is fine.
+[2026-10-13] Agents may set environment variables of the Voice app on Dokploy after Petter's go on a card; deploying stays the merge's job. Petter asked for this in the thread ("you do the changes on Dokploy"); other projects stay off limits.

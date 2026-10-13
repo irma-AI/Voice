@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 1.125rem/1.5 system-ui, sans-serif; max-width: 28rem; margin: 3rem auto; padding: 0 1rem; }
+  button { font: inherit; padding: .75rem 1.5rem; }
+  #status { margin-top: 1rem; min-height: 1.5em; }
+</style>
+</head>
+<body>
+<h1>Voice</h1>
+<button id="go" type="button">Starta samtal</button>
+<p id="status" role="status" aria-live="polite"></p>
+<script>
+// ponytail: plain page and a hand-written audio path; swap for Pipecat's browser client if barge-in or reconnects need more than this.
+const IN_RATE = __IN_RATE__, OUT_RATE = __OUT_RATE__;
+const go = document.getElementById("go"), statusEl = document.getElementById("status");
+let call = null;
+
+// Runs in the audio thread: hands the microphone over in blocks of 2048 samples.
+const WORKLET = `class Tap extends AudioWorkletProcessor {
+  constructor() { super(); this.buf = new Float32Array(2048); this.n = 0; }
+  process(inputs) {
+    const ch = inputs[0][0];
+    if (ch) for (const s of ch) {
+      this.buf[this.n++] = s;
+      if (this.n === this.buf.length) { this.port.postMessage(this.buf.slice()); this.n = 0; }
+    }
+    return true;
+  }
+}
+registerProcessor("tap", Tap);`;
+
+// Averages the microphone's own rate down to IN_RATE and packs 16-bit little-endian samples.
+function toPcm16(block, fromRate) {
+  const ratio = fromRate / IN_RATE, out = new Int16Array(Math.floor(block.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    let sum = 0, from = Math.floor(i * ratio), to = Math.max(from + 1, Math.floor((i + 1) * ratio));
+    for (let j = from; j < to; j++) sum += block[j];
+    out[i] = Math.max(-1, Math.min(1, sum / (to - from))) * 0x7fff;
+  }
+  return out.buffer;
+}
+
+async function start() {
+  go.disabled = true;
+  statusEl.textContent = "Ansluter …";
+  let stream, ctx, ws;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    ctx = new AudioContext();
+    await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" })));
+    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+    ws.binaryType = "arraybuffer";
+    await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = () => fail(new Error("ws")); });
+  } catch (e) {
+    stream?.getTracks().forEach((t) => t.stop());
+    ctx?.close();
+    go.disabled = false;
+    statusEl.textContent = e.name === "NotAllowedError" ? "Mikrofonen är blockerad. Tillåt den och försök igen." : "Kunde inte ansluta.";
+    return;
+  }
+  const tap = new AudioWorkletNode(ctx, "tap"), playing = new Set();
+  let next = 0;
+  tap.port.onmessage = (e) => ws.readyState === 1 && ws.send(toPcm16(e.data, ctx.sampleRate));
+  ctx.createMediaStreamSource(stream).connect(tap);
+  ws.onmessage = (e) => {
+    if (typeof e.data === "string") {  // {"type": "interrupt"}: the Caller spoke over the agent
+      playing.forEach((s) => s.stop());
+      next = 0;
+      return;
+    }
+    const pcm = new Int16Array(e.data), buf = ctx.createBuffer(1, pcm.length, OUT_RATE);
+    buf.copyToChannel(Float32Array.from(pcm, (v) => v / 0x8000), 0);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.onended = () => playing.delete(src);
+    next = Math.max(next, ctx.currentTime);
+    src.start(next);
+    next += buf.duration;
+    playing.add(src);
+  };
+  function end(msg) {
+    call = null;
+    stream.getTracks().forEach((t) => t.stop());
+    ws.close();
+    ctx.close();
+    go.textContent = "Starta samtal";
+    go.disabled = false;
+    statusEl.textContent = msg;
+  }
+  ws.onclose = () => call && end("Samtalet är slut.");
+  call = () => end("Samtalet är slut.");
+  go.textContent = "Lägg på";
+  go.disabled = false;
+  statusEl.textContent = "Samtal pågår.";
+}
+go.onclick = () => (call ? call() : start());
+</script>
+</body>
+</html>
