@@ -1,8 +1,8 @@
 """`make eval`: runs each Scenario on the eval Channel, checks the call and prints a table.
 
-Paid (every call spends Gemini credit) and local only: an agent asks Petter before each run
-(CLAUDE.md § Stop and ask), and CI never runs it. Exit 0 all passed, 1 a Scenario failed, 2 bad
-Scenario id, 3 a spend cap stopped the run.
+Paid (every call spends Gemini credit), never automatic: an agent asks Petter before each run
+(CLAUDE.md § Stop and ask), and only his PC or the manual Evals workflow runs it. Exit 0 all
+passed, 1 a Scenario failed, 2 bad Scenario id, 3 a spend cap stopped the run.
 """
 
 import json
