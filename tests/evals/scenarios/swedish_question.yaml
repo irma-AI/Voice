@@ -1,0 +1,23 @@
+# The Caller asks the price of a cleaning, which the Business's facts hold. The checks read the call record.
+user:
+  modality: audio
+judge:
+  modality: audio
+  transcription:  # the format requires it; only built for `response` expectations, which we don't use
+    service: moonshine
+name: swedish_question
+scenarios:
+  - name: swedish_question
+    turns:
+      - expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+          - event: bot_stopped_speaking
+            within_ms: 30000
+      - user: "Vad kostar en tandrengöring?"
+        audio: ../audio/price_cleaning_sv.wav
+        expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+          - event: bot_stopped_speaking  # the whole reply, not its first word
+            within_ms: 30000

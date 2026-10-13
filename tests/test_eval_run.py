@@ -1,11 +1,13 @@
 """Seam 1 without spend: a cap already reached stops `make eval` before anything is played."""
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
 from tests.evals.checks import Verdict
-from tests.evals.run import Row, main, report
+from tests.evals.render_audio import LINES
+from tests.evals.run import ROOT, SCENARIOS, Row, main, missing_audio, report
 from tests.evals.spend import Caps
 
 
@@ -19,7 +21,7 @@ def test_a_reached_day_cap_stops_with_exit_3_before_any_spend(tmp_path: Path) ->
     (tmp_path / "ledger.jsonl").write_text(json.dumps(entry) + "\n", "utf-8")
     caps = Caps(per_run_sek=10, per_loop_sek=30, per_day_sek=0.5)
 
-    assert main(None, runs=tmp_path, caps=caps) == 3
+    assert main("disclosure_first", runs=tmp_path, caps=caps) == 3
     assert (
         not (tmp_path / "ledger.jsonl").read_text("utf-8").count("\n") > 1
     )  # nothing new was spent
@@ -34,3 +36,28 @@ def test_the_table_and_exit_code_follow_the_verdicts(tmp_path: Path) -> None:
     assert report([Row("a", {"c": ok}, 0.5, 100, 1.2)], tmp_path, 0.5, None, 0) == 0
     assert report([Row("a", {"c": bad}, 0.5, 100, None)], tmp_path, 0.5, None, 0) == 1
     assert report([], tmp_path, 10, "run cap 10 SEK", 1) == 3
+
+
+def test_every_scenario_is_in_the_runner_the_manifest_and_the_audio_list() -> None:
+    evals = ROOT / "tests" / "evals"
+    files = {p.stem for p in (evals / "scenarios").glob("*.yaml")}
+    manifest = (evals / "manifest.yaml").read_text("utf-8")
+    listed = re.search(r"scenarios: \[(.*)\]", manifest)
+    assert listed
+    assert set(SCENARIOS) == files == set(re.split(r",\s*", listed.group(1)))
+    for f in files:
+        yaml = (evals / "scenarios" / f"{f}.yaml").read_text("utf-8")
+        for audio in re.findall(r"audio: \.\./audio/(\w+)\.wav", yaml):
+            assert audio in LINES, (
+                f"{f} plays {audio}, which make eval-audio does not render"
+            )
+
+
+def test_missing_audio_is_found_before_any_scenario_is_played(tmp_path: Path) -> None:
+    (tmp_path / "a.yaml").write_text(
+        "turns:\n  - user: hej\n    audio: ../audio/x.wav\n", "utf-8"
+    )
+    assert missing_audio(["a"], tmp_path) == "../audio/x.wav"
+    (tmp_path.parent / "audio").mkdir(exist_ok=True)
+    (tmp_path.parent / "audio" / "x.wav").write_bytes(b"")
+    assert missing_audio(["a"], tmp_path) is None

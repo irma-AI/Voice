@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: no price, but the agent mentions opening hours (figures that are not prices).",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vad kostar en rotfyllning?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet 08 till 17 men priset vet jag inte."
+  }
+ ]
+}

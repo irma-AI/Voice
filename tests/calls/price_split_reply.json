@@ -1,0 +1,21 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: the answer arrives in two agent turns and is read whole.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vad kostar en tandrengöring?"
+  },
+  {
+   "speaker": "agent",
+   "text": "En tandrengöring"
+  },
+  {
+   "speaker": "agent",
+   "text": "kostar 850 kronor."
+  }
+ ]
+}
