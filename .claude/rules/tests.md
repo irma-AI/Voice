@@ -19,3 +19,4 @@ Each layer below catches what the others can't. The file name or marker says whi
 ## Enforced by
 
 - Parity: every Scenario is in the runner, the manifest, the scenario files and the audio list (`tests/test_eval_run.py`).
+- `scripts/checks/guards/eval-required.js`: a change to what only the evals can test needs a receipt from a passing full `make eval` (`scripts/eval-required.json` lists it, `scripts/eval-receipt.js` hashes it). A hand-written receipt would pass; review checks the receipt came from `make eval`.
