@@ -86,6 +86,7 @@ This file holds what every session needs; keep it under about 120 lines. A rule 
 
 - Shared agent setup lives in the repo: settings, hooks, skills, rules and plans. A method the team relies on gets committed as one of those; personal settings stay in `.claude/settings.local.json`.
 - Merging: turn on auto-merge only when `make merge-check` says `LOW-RISK`; any other merge waits for the user's go-ahead for that PR. Nothing enforces this, since agents act as the user on GitHub.
+- Tickets: an edit outside the `no_ticket` paths of `scripts/low-risk-paths.json` needs a ready Linear ticket (label `ready-for-agent`) that `/next-step` records; a hook is meant to deny the edit (not checked: not yet seen to deny in a real session), and the `ticket-required` guard fails a PR that closes no ready ticket (`scripts/ticket-check.js`).
 - Scheduled agents (loops) follow `.claude/loops.md`: they propose, and merge only under the rule above. When its registry has rows, run its § Checking loops at session start.
 - Guardrail work outranks ponytail: a test, check, rule update or `DECISIONS.md` line that the Definition of Done, a rule or a guard requires is part of the change. Ponytail decides how much product code to write.
 - Mark deliberate shortcuts with a `ponytail:` comment naming the limit and the upgrade path.
@@ -104,7 +105,7 @@ Everything under `.claude/skills/`, `.claude/vendor-licenses/`, `.claude/agents/
 
 ### Issue tracker
 
-Linear, team `PET`, project `Voice`, through `linearis`. See `docs/agents/issue-tracker.md`.
+Linear, team `VOI`, project `Voice`, through `linearis`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

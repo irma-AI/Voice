@@ -5,8 +5,8 @@ name: CI
 
 on:
   pull_request:
-    # labeled/unlabeled: the fenced-paths guard reads the PR's labels, so a label change re-runs CI.
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    # labeled/unlabeled: the fenced-paths guard reads the PR's labels, so a label change re-runs CI. edited: ticket-required reads the PR text.
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
   push:
     branches: [main]
 
@@ -39,6 +39,9 @@ jobs:
           TARGETS: ${{ matrix.targets }}
           GUARD_BASE: ${{ github.base_ref && format('origin/{0}', github.base_ref) || '' }}
           GUARD_PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          # ticket-required guard: the PR text names the ticket; the Linear key (read-only, set by Petter) goes only to the guards leg.
+          GUARD_PR_TEXT: ${{ format('{0}\n{1}', github.event.pull_request.title, github.event.pull_request.body) }}
+          LINEAR_API_TOKEN: ${{ matrix.targets == 'lint typecheck guards generate-check' && secrets.LINEAR_API_TOKEN || '' }}
 
   workflow-lint:
     runs-on: ubuntu-latest

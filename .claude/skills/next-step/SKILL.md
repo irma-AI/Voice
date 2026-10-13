@@ -33,6 +33,7 @@ Stop and wait for the user. Pushing and opening a PR are not gates; the one hard
 The flows below name these:
 
 - **branch**: before the first edit, if on the default branch, branch from it up to date, named by `CLAUDE.md` § Workflow's convention (the spec's or issue's id where there is one). Never commit to the default branch.
+- **ticket**: before the first edit outside the `no_ticket` paths of `scripts/low-risk-paths.json`, the work needs a ready ticket (label `ready-for-agent`), because a hook denies the edit and a CI guard fails the PR without one. A Small change or Bug with none gets one now: create it with `linearis` (`docs/agents/issue-tracker.md`) and label it ready once the user's go for the flow is given. Then record it for the hook: `echo <issue-id> > "$(git rev-parse --git-path next-step-ticket)"`. The PR body says `Closes <issue-id>`.
 - **implement**: follow `implement`, with two overrides: its `/code-review` is the **review** step below, and its commit is the **commit** step.
 - **review**: `code-review` against `git merge-base origin/<default branch> HEAD`. Diff the working tree against the merge base (`git diff <merge-base>`), which covers commits and uncommitted changes, not `...HEAD`. Give it the ticket or spec as the spec, and `CLAUDE.md`, every `.claude/rules/` file whose `paths:` match the diff (plus `DESIGN.md` if the repo has one) as the standards. Fix what it finds that holds up; list anything you disagree with for the user, and log each finding you decline (`CLAUDE.md` § Decisions).
 - **commit**: commit on the branch as often as the work needs, never on the default branch.
@@ -82,21 +83,21 @@ The UI flows (New view, New component, Visual tweak) apply only to repos with a 
 - [ ] research, only for an unverified external fact (an API, a third-party behaviour); wait for its file before the grilling closes
 - [ ] to-spec (seam check ⏸)
 - [ ] to-tickets ⏸
-- [ ] per ticket: /clear, /next-step <issue-id> → branch → implement → review → commit → skeptic-pass (when the ticket touches a CLAUDE.md § Stop and ask area) → pr → merge → in review
+- [ ] per ticket: /clear, /next-step <issue-id> → branch → ticket → implement → review → commit → skeptic-pass (when the ticket touches a CLAUDE.md § Stop and ask area) → pr → merge → in review
 ```
 
 ### Small change
 
 ```
 - [ ] grill-with-docs ⏸ (skip when the ask is already precise)
-- [ ] branch → implement → review, in this session
+- [ ] branch → ticket → implement → review, in this session
 - [ ] commit → pr → merge
 ```
 
 ### Bug
 
 ```
-- [ ] branch
+- [ ] branch → ticket
 - [ ] diagnosing-bugs: one command that goes red on this bug, before any theory
 - [ ] tdd: regression test at the seam the bug shows through (CLAUDE.md § Tests)
 - [ ] fix → full suite green
