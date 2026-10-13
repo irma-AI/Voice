@@ -56,7 +56,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] The cloud sandbox cannot run `make eval`: its proxy drops the WebSocket upgrade to Gemini Live and no network setting changes that; hence the workflow above instead of a relay.
 [2026-10-13] The Evals workflow starts with an empty spend ledger, so the 50 SEK day cap does not see PC runs or earlier cloud runs: bounded by the 10 SEK run cap, Petter's per-run Approve and the $30/month Gemini cap; persist the ledger (actions/cache) if that proves too loose.
 [2026-10-13] The Evals workflow prints the receipt in its log instead of committing it: a pushing job would need contents:write beside the key, and its pushes skip CI; the agent recomputes the receipt locally and commits it if equal.
-[2026-10-13] Claude attribution is off via the committed attribution setting in .claude/settings.json, not a written rule; object form (empty commit and pr, sessionUrl false) so older Claude Code versions don't skip the whole file.
+[2026-10-13] The attribution setting in .claude/settings.json (object form, so older Claude Code versions don't skip the file) is not seen to hold: PR #12 opened after it merged and still had the footer and session link, which the GitHub tool adds. Not checked.
 [2026-10-12] Not following Pipecat's eval docs on AI-judged replies and CI gating: Moonshine has no Swedish, a judge is a new vendor or a gigabyte local model, and CI repeats would put a paid key in CI. Code checks and PET-46's guard instead.
 [2026-10-12] Every Scenario turn waits for bot_stopped_speaking, so the harness hears the whole reply: it ended the call after the first word and the checks and cost saw half a reply.
 [2026-10-12] Language per reply is told by counting Swedish and English stopwords, not a detector library: replies are short and one-language; a tie fails closed. Swap for a detector if replies get long or mixed.
@@ -80,3 +80,9 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] The second read before the evals-approved label is one line in CLAUDE.md § Tests, not a guard: who read a change is not in the diff; the label is Petter's call, and the PR shows the report. The fence message is untouched.
 [2026-10-13] The Evals workflow does not check that the evals environment still has a required reviewer: not tried whether its own token can read that setting, and a stored admin token breaks hard rule 6; Petter looks at the environment.
 [2026-10-13] The no-attribution rule is a line in CLAUDE.md as well as the attribution setting in .claude/settings.json: PR #12 still got the footer and session link, and the docs say a CLAUDE.md rule overrides the platform footer.
+[2026-10-13] Hard rule 7 marks from the PET-49 sweep: the $30 a month Gemini cap is not seen set (Petter sets it); Evals run 38369643599 was seen waiting for approval on environment evals, but not whether a reviewer or a timer caused it, or who the reviewer is.
+[2026-10-13] ESCALATED: is the $30 a month Gemini cap set in AI Studio? -> Petter
+[2026-10-13] ESCALATED: is Petter the required reviewer of the evals environment? -> Petter
+[2026-10-13] ESCALATED: may re-recorded Caller audio (make eval-audio) skip the evals-approved label, which now fences all of tests/evals/? -> Petter
+[2026-10-13] ARCHITECTURE.md names three layers (call record, agent, Channel) but no scripts/checks/layers.json yet: three files and one Channel leave nothing to enforce; add it with the phone Channel.
+[2026-10-13] The sweep left the guardrails map's "sweep for stale claims" row at "partly": claim-sweep runs by hand, and a loop is not worth it for three source files; register one in .claude/loops.md when the code grows.
