@@ -1,0 +1,47 @@
+# PAID: every call spends Gemini credit. Started by hand from the Actions tab (workflow_dispatch),
+# never by a push or PR. The `evals` environment makes Petter the required reviewer, so each run
+# waits for his Approve click (Settings > Environments > evals); the key lives only in that
+# environment's GOOGLE_API_KEY secret. GitHub's runners reach Gemini Live over WebSockets, which
+# the Claude Code cloud sandbox cannot (DECISIONS.md).
+name: Evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "One Scenario id (empty runs all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals
+  cancel-in-progress: false
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    environment: evals
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: make eval
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          SCENARIO: ${{ inputs.scenario }}
+        run: |
+          # The id reaches make's shell line unquoted, so allow only what a Scenario id can be.
+          [[ "$SCENARIO" =~ ^[a-z0-9_]*$ ]] || { echo "bad Scenario id" >&2; exit 2; }
+          make eval ONLY="$SCENARIO"
+      - name: Results
+        if: always()
+        run: |
+          # shortcut: results go to the log, not an artifact; add upload-artifact when they are needed after the log expires
+          for f in eval-runs/*/*.transcript.txt; do [ -e "$f" ] && { echo "== $f"; cat "$f"; }; done || true
+          # A full pass writes the receipt (make eval); an agent compares this with a local recompute before committing it.
+          if [ -e eval-receipt.json ]; then echo "== eval-receipt.json at $GITHUB_SHA"; cat eval-receipt.json; fi
