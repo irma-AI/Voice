@@ -11,7 +11,7 @@ A guard is one file in `guards/`. It:
 3. Prints one line per violation: `<stable id><TAB><message>`. The message ends with the exact fix: the helper to use, the lines to add, the command to run.
 4. Exits 1 when it printed a violation, 0 otherwise. Anything on stderr shows as a note.
 
-Every guard has a fixture, `fixtures/<guard name>/`, laid out like a repo, that must make it fail. The self-test runs the guard there first.
+Every guard has a fixture, `fixtures/<guard name>/`, laid out like a repo, that must make it fail. The self-test runs the guard there first. A guard that reads a pull request's changed files lets the fixture list them in `.guard-changed-files` (and its labels in `.guard-labels`, a JSON list) instead of a git diff and CI's env.
 
 ## Baselines
 
