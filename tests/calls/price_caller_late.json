@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good, and how a real run looks: Gemini Live delivers the Caller's words after the answer has started.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "agent",
+   "text": "En tandrengöring kostar 850 kronor."
+  },
+  {
+   "speaker": "caller",
+   "text": "Vad kostar en tandrengöring?"
+  }
+ ]
+}

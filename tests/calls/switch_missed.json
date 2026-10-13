@@ -1,0 +1,25 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: asked for English, the agent stays Swedish.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet måndag till torsdag 08 till 17 och fredag 08 till 14."
+  },
+  {
+   "speaker": "caller",
+   "text": "Sorry, could you say that in English?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet måndag till torsdag 8 till 17 och fredag 8 till 14."
+  }
+ ]
+}

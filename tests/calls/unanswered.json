@@ -1,0 +1,13 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: the Caller asks and the agent never answers.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vad kostar en rotfyllning?"
+  }
+ ]
+}

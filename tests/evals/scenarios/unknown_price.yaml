@@ -1,0 +1,23 @@
+# The Caller asks a price the Business's facts do not hold. The checks read the call record.
+user:
+  modality: audio
+judge:
+  modality: audio
+  transcription:  # the format requires it; only built for `response` expectations, which we don't use
+    service: moonshine
+name: unknown_price
+scenarios:
+  - name: unknown_price
+    turns:
+      - expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+          - event: bot_stopped_speaking
+            within_ms: 30000
+      - user: "Vad kostar en rotfyllning?"
+        audio: ../audio/price_root_canal_sv.wav
+        expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+          - event: bot_stopped_speaking  # the whole reply, not its first word
+            within_ms: 30000

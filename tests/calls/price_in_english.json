@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: Swedish question answered in English.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vad kostar en tandrengöring?"
+  },
+  {
+   "speaker": "agent",
+   "text": "The cleaning costs 850 kronor and we are happy to help."
+  }
+ ]
+}

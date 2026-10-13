@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: says it does not know and gives the clinic's address, whose postcode is not a price.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vad kostar en rotfyllning?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Det vet jag tyvärr inte, men vi finns på Exempelgatan 1, 123 45 Exempelstad."
+  }
+ ]
+}

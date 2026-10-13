@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: a made-up price spelled out in words, no currency word.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vad kostar en rotfyllning?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Det blir runt tretusen, tyvärr kan jag inte vara exakt."
+  }
+ ]
+}

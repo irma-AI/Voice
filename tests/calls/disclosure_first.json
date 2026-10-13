@@ -1,4 +1,17 @@
-{"turns": [
-  {"speaker": "agent", "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"},
-  {"speaker": "caller", "text": "Vilka öppettider har ni?"}
-]}
+{
+ "note": "Made up for the unit tests, not a real call. Good: the agent opens with the disclosure and gives the hours.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet måndag till torsdag 08 till 17 och fredag 08 till 14."
+  }
+ ]
+}
