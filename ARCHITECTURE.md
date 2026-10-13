@@ -21,7 +21,7 @@ Dependencies point down the list: Channel imports Agent, Agent imports Call reco
 Each concern has one interface, and code reaches it only through that interface:
 
 - **Secrets and settings**: environment variables, listed in `.env.example`; `GOOGLE_API_KEY` is read in `run_call` and checked up front in `voice/serve.py` and `voice/web.py`.
-- **Auth for the web Channel**: `voice.auth.BasicAuth`, the one login in front of every route (`voice/serve.py` adds it; it needs `VOICE_PASSWORD`, and `/ws` also accepts only its own site as Origin).
+- **Auth for the web Channel**: `voice.auth.BasicAuth`, the one login in front of every route: the Basic login, or the cookie the page sets after it, because browsers don't reliably send the Basic login on a WebSocket (`voice/serve.py` adds it; it needs `VOICE_PASSWORD`, and `/ws` also accepts only its own site as Origin).
 - **Logging**: Pipecat's loguru logger; `run_call` caps it at INFO so transcripts stay out of logs (`.claude/rules/security.md`).
 - **Call record**: `CallRecorder`, passed to `run_call` as `record_to`, set only on the eval transport.
 - **AI disclosure**: `DISCLOSURE` in `voice/agent.py`.
