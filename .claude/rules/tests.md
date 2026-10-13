@@ -19,3 +19,5 @@ Each layer below catches what the others can't. The file name or marker says whi
 ## Enforced by
 
 <!-- The guards, sweep and parity tests this repo has, one line each with its file. -->
+
+- `scripts/checks/guards/eval-required.js`: a change to what only the evals can test needs a receipt from a passing full `make eval` (`scripts/eval-required.json` lists it, `scripts/eval-receipt.js` hashes it). A hand-written receipt would pass; review checks the receipt came from `make eval`.
