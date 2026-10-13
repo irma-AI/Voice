@@ -226,6 +226,8 @@ def call_from_log(path: Path) -> Call:
 
     Caller pieces join into one turn until an agent response starts; agent pieces join into one
     turn per response. Agent text comes from the speech events when there are any, else the model's.
+    Gemini Live can send the Caller's transcript after it has started to answer; such a piece goes
+    before that answer, where the Caller said it.
     """
     events = read_events(path)
     agent_kind = (
@@ -233,11 +235,19 @@ def call_from_log(path: Path) -> Call:
     )
     turns: list[Turn] = []
     new_agent_turn = True
+    late: int | None = (
+        None  # index of a Caller turn placed before the answer it arrived after
+    )
     for e in events:
         if e.get("e") == "agent_start":
             new_agent_turn = True
         elif e.get("e") == "caller":
-            if turns and turns[-1].speaker == "caller":
+            if late is not None and turns[-1].speaker == "agent":
+                turns[late] = Turn("caller", f"{turns[late].text} {e['text']}".strip())
+            elif len(turns) > 1 and turns[-1].speaker == turns[-2].speaker == "agent":
+                late = len(turns) - 1
+                turns.insert(late, Turn("caller", e["text"].strip()))
+            elif turns and turns[-1].speaker == "caller":
                 turns[-1] = Turn("caller", f"{turns[-1].text} {e['text']}".strip())
             else:
                 turns.append(Turn("caller", e["text"].strip()))
@@ -245,6 +255,7 @@ def call_from_log(path: Path) -> Call:
             if new_agent_turn or not turns or turns[-1].speaker != "agent":
                 turns.append(Turn("agent", e["text"]))
                 new_agent_turn = False
+                late = None
             else:
                 turns[-1] = Turn("agent", turns[-1].text + e["text"])
     return Call(tuple(turns))

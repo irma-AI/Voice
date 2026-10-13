@@ -102,3 +102,29 @@ def test_a_log_cut_short_by_a_killed_run_still_reads(tmp_path: Path) -> None:
         "utf-8",
     )
     assert disclosure_first(call_from_log(log)).passed
+
+
+def test_every_stored_call_says_it_is_made_up_and_what_it_shows() -> None:
+    for f in CALLS.glob("*.json"):
+        note = json.loads(f.read_text("utf-8")).get("note", "")
+        assert note.startswith("Made up"), f"{f.name} needs a note saying what it shows"
+
+
+def test_a_caller_transcript_that_arrives_after_the_answer_is_placed_before_it(
+    tmp_path: Path,
+) -> None:
+    log = tmp_path / "call.jsonl"
+    events = [
+        {"e": "agent_start"},
+        {"e": "agent_tts", "text": "Du pratar med en AI-assistent."},
+        {"e": "agent_start"},
+        {"e": "agent_tts", "text": "En tandrengöring kostar 850 kronor."},
+        {"e": "caller", "text": "Vad kostar"},
+        {"e": "caller", "text": "en tandrengöring?"},
+    ]
+    log.write_text("\n".join(json.dumps(e) for e in events), "utf-8")
+    assert [(t.speaker, t.text) for t in call_from_log(log).turns] == [
+        ("agent", "Du pratar med en AI-assistent."),
+        ("caller", "Vad kostar en tandrengöring?"),
+        ("agent", "En tandrengöring kostar 850 kronor."),
+    ]

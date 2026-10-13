@@ -1,4 +1,5 @@
 {
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: the second half of a split answer makes up a price.",
  "turns": [
   {
    "speaker": "agent",

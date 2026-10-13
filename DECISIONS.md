@@ -66,3 +66,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] The five Scenarios are the rest of Petter's "Conversation 6" (PET-41, tickets approved by him); a full run is about 2.5 SEK against the 10 SEK run cap.
 [2026-10-12] The agent's replies are the agent turns after its first, joined, not the turn after each Caller turn: Gemini Live can deliver the Caller's transcript after the answer starts, and a reply can arrive in two turns.
 [2026-10-12] bot_stopped_speaking may fire at a pause inside a long reply (Pipecat sends replies in segments); the first paid run shows whether replies are cut, and the Scenarios then wait on silence instead.
+[2026-10-13] A Caller transcript that arrives after the answer started is placed before it in the call record: Gemini Live sends it late (seen in the first cloud run), and the saved transcript read as if the agent answered unasked.
