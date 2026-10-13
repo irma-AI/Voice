@@ -34,4 +34,4 @@ const deny = (why) => { console.error(`Edit denied: ${why}`); process.exit(2); }
   try { issue = await fetchIssue(id); } catch (e) { return deny(`cannot ask Linear about ${id} (${e.message}), so the ticket rule cannot be checked. Fix the Linear access and retry.`); }
   const why = problem(id, issue);
   if (why) deny(`${why}. ${fix}`);
-})();
+})().catch((e) => deny(`the ticket rule crashed (${e.message}), so it cannot be checked`)); // a crash must not read as "allowed"
