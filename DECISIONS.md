@@ -54,4 +54,5 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-12] The evals fence trusts the label as a convention: agents act as Petter on GitHub, so no check sees who added it. The guard covers pull requests only; a push to main is the ruleset's to stop.
 [2026-10-13] The receipt is written by the make eval target through scripts/eval-receipt.js, not by run.py: the guard and the writer share one hashing function (hard rule 5), and run.py is fenced and being rewritten in PET-44.
 [2026-10-13] Eval-required files are voice/agent.py, voice/business.txt and the pipecat-ai line of pyproject.toml; web.py and record.py are left out (channel plumbing), and Scenarios and checks stay under the PET-45 fence. Revisit when barge-in settings live elsewhere.
+[2026-10-13] The eval-required guard refuses when CI names a base it cannot reach, and passes with a stderr note only when no base is set (local run, push to main).
 [2026-10-13] Declined to build the offer to let re-recorded Caller audio skip the evals-approved label: Petter has not answered it, and it is a separate ticket.
