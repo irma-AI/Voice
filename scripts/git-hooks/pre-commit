@@ -1,0 +1,4 @@
+#!/bin/sh
+# Installed by the SessionStart hook in .claude/settings.json (core.hooksPath). Runs the ticket rule on the staged
+# files; exit 2 from the gate (and any crash) refuses the commit.
+node "$(git rev-parse --show-toplevel)/scripts/ticket-gate.js" --staged || exit 1
