@@ -86,6 +86,8 @@ def test_disclosure_first(record: str, passes: bool) -> None:
         (books_nothing, "booking_claimed", False),
         (books_nothing, "booking_confirmed", False),
         (books_nothing, "booking_offered", False),
+        (books_nothing, "booking_present_tense", False),
+        (books_nothing, "booking_inbokad", False),
         (books_nothing, "unanswered", False),
     ],
 )
