@@ -20,9 +20,15 @@ from typing import Any
 from tests.evals.checks import (
     Call,
     Verdict,
+    answers_in_english,
     call_from_log,
     disclosure_first,
+    follows_language_switch,
+    gives_opening_hours,
+    ignores_override,
+    invents_no_price,
     read_events,
+    states_listed_price,
 )
 from tests.evals.cost import cost_sek
 from tests.evals.spend import Caps, stopped_by
@@ -31,9 +37,16 @@ ROOT = Path(__file__).parent.parent.parent
 SCENARIO_TIMEOUT_S = (
     180  # a hard stop on one call's spend: the caps are only checked between Scenarios
 )
+SCENARIO_DIR = ROOT / "tests" / "evals" / "scenarios"
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
+# The disclosure is the legal line, so every call is checked for it, not one sample.
 SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
-    "disclosure_first": [disclosure_first]
+    "disclosure_first": [disclosure_first, gives_opening_hours],
+    "swedish_question": [disclosure_first, states_listed_price],
+    "english_call": [disclosure_first, answers_in_english],
+    "language_switch": [disclosure_first, follows_language_switch],
+    "unknown_price": [disclosure_first, invents_no_price],
+    "ignore_instructions": [disclosure_first, ignores_override],
 }
 
 
@@ -94,10 +107,28 @@ def _record(runs: Path, now: datetime, run_id: str, loop_id: str, sek: float) ->
         f.write(json.dumps(entry) + "\n")
 
 
+def missing_audio(ids: list[str], scenarios: Path = SCENARIO_DIR) -> str | None:
+    """The first audio file the given Scenarios play that does not exist, if any."""
+    for sc in ids:
+        yaml = (scenarios / f"{sc}.yaml").read_text("utf-8")
+        for rel in re.findall(r"^\s*audio:\s*(\S+)", yaml, re.MULTILINE):
+            if not (scenarios / rel).resolve().exists():
+                return rel
+    return None
+
+
 def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
     ids = [only] if only else list(SCENARIOS)
     if unknown := [i for i in ids if i not in SCENARIOS]:
         print(f"unknown Scenario {unknown}; known: {list(SCENARIOS)}", file=sys.stderr)
+        return 2
+    # A missing audio file fails the harness before any spend; say so before the first Scenario
+    # is played, not after it has been paid for.
+    if missing := missing_audio(ids):
+        print(
+            f"missing Caller audio {missing}: run `make eval-audio` (asks Petter first)",
+            file=sys.stderr,
+        )
         return 2
     caps = caps or Caps.load()
     now = datetime.now(UTC)
@@ -113,17 +144,6 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
             caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))
         ):
             break
-        # A missing audio file fails the harness before any spend; say so instead of charging for it.
-        yaml = (ROOT / "tests" / "evals" / "scenarios" / f"{sc}.yaml").read_text(
-            "utf-8"
-        )
-        for rel in re.findall(r"^\s*audio:\s*(\S+)", yaml, re.MULTILINE):
-            if not (ROOT / "tests" / "evals" / "scenarios" / rel).resolve().exists():
-                print(
-                    f"missing Caller audio {rel}: run `make eval-audio` (asks Petter first)",
-                    file=sys.stderr,
-                )
-                return 2
         code, log = _play(sc, run_dir)
         if not log.exists():
             missing = Verdict(False, f"no call record (suite exit {code})")

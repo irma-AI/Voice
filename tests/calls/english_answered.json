@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: English Caller, English answer with the check-up price.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Hi, how much is a check-up?"
+  },
+  {
+   "speaker": "agent",
+   "text": "A check-up costs 950 kronor."
+  }
+ ]
+}

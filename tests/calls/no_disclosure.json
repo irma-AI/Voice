@@ -1,4 +1,13 @@
-{"turns": [
-  {"speaker": "agent", "text": "Hej, välkommen till Tandkliniken Exempel. Hur kan jag hjälpa dig?"},
-  {"speaker": "caller", "text": "Vilka öppettider har ni?"}
-]}
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: the agent greets without the disclosure.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Hej, välkommen till Tandkliniken Exempel. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  }
+ ]
+}

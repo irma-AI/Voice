@@ -18,4 +18,4 @@ Each layer below catches what the others can't. The file name or marker says whi
 
 ## Enforced by
 
-<!-- The guards, sweep and parity tests this repo has, one line each with its file. -->
+- Parity: every Scenario is in the runner, the manifest, the scenario files and the audio list (`tests/test_eval_run.py`).
