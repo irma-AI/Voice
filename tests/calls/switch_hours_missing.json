@@ -1,0 +1,25 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: the Swedish answer lacks the closing times.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet på vardagar."
+  },
+  {
+   "speaker": "caller",
+   "text": "Sorry, could you say that in English?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Sure, we are open Monday to Thursday from 8 to 5, and Friday from 8 to 2."
+  }
+ ]
+}

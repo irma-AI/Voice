@@ -1,5 +1,5 @@
 {
- "note": "Made up for the unit tests, not a real call. Good: English Caller, English answer.",
+ "note": "Made up for the unit tests, not a real call. Good: English Caller, English answer with the check-up price.",
  "turns": [
   {
    "speaker": "agent",
@@ -11,7 +11,7 @@
   },
   {
    "speaker": "agent",
-   "text": "A check-up costs 950 kronor. Would you like to book one?"
+   "text": "A check-up costs 950 kronor."
   }
  ]
 }
