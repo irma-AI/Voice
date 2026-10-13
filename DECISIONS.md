@@ -115,3 +115,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] The login rule is tested as a pure function beside the cap rule (tests/test_auth.py), not as a new seam: it takes a header and returns yes or no.
 [2026-10-13] The image runs the venv's python as a non-root user, not `uv run`: uv needs a writable cache at start and the runtime has no use for it.
 [2026-10-13] ESCALATED: how browser audio reaches the container (a relay on Petter's server or a hosted one; without one the page loads but a call probably won't connect) -> Petter
+[2026-10-13] The deploy PR is on the harness-assigned branch claude/project-thread-es7w35, not <slug>: the cloud session fixed the name.
