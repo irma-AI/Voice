@@ -12,8 +12,9 @@ Voice is the voice core: it connects a phone or browser call to a live AI voice 
 4. **Closed sets are exhaustive**: a new value fails the typecheck, or a test that enumerates the set, until every place handles it.
 5. **A fact lives in one place**: a second copy is generated from it (`make generate`), or a parity test reads both and names the side to edit.
 6. **Secrets stay out of the repo**: none in code, committed settings or `.env` files (only `.env.example`), and cloud environments hold only low-risk, tightly scoped tokens. Enforced by the `no-committed-secrets` guard.
+7. **Seen to hold before claimed**: a setting, check or doc line protects nothing until it has been seen to hold once (a required reviewer that actually pauses a run); until then say "not checked".
 
-Rules 1 to 5 are soft: no check yet. Promote a soft rule to a check once it has been skipped.
+Rules 1 to 5 and 7 are soft: no check yet. Promote a soft rule to a check once it has been skipped.
 
 ## Stop and ask
 
@@ -47,6 +48,8 @@ Two seams:
 - **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`; the spend rule and cost sum sit beside them.
 
 Don't mock our own modules or add tests at other seams. A new seam needs this section updated through `/grill-with-docs` first.
+
+A change to the eval checks or Scenarios gets a second read before Petter adds the `evals-approved` label: a session that did not write it reads it and reports (a `skeptic-pass`, or a note in `docs/research/` or the PR).
 
 ## Fix from first principles
 
