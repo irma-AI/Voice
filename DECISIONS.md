@@ -85,3 +85,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] PET-47 is on the harness-assigned branch claude/booking-test-fallback-4edcye, not <linear-id>-<slug>: the cloud session fixed the name; the PR and commits name the ticket.
 [2026-10-13] Declined from the skeptic pass: an English booking caller (no English booking Scenario; the check reads Swedish) and a medical-emergency caller (the catch-all sentence has no redirect). Petter chose the wording; both are named in the PR.
 [2026-10-13] Second-read fixes: the booking check also fails on antecknat, skrivit upp, ordnat and "bokningen är klar", and no longer fails the prompt's own "bekräfta" in a refusal. A claim word still fails if "inte boka" is also said.
+[2026-10-13] The call page's login is one shared name and password (HTTP Basic) checked in the app, not a Dokploy-side prompt: the repo can then prove it with a test, and the app refuses to start without VOICE_PASSWORD. Per-person login (Pocket ID) waits until needed.
+[2026-10-13] The login rule is tested as a pure function beside the cap rule (tests/test_auth.py), not as a new seam: it takes a header and returns yes or no.
+[2026-10-13] The image runs the venv's python as a non-root user, not `uv run`: uv needs a writable cache at start and the runtime has no use for it.
+[2026-10-13] ESCALATED: how browser audio reaches the container (a relay on Petter's server or a hosted one; without one the page loads but a call probably won't connect) -> Petter

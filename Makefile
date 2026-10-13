@@ -52,7 +52,7 @@ generate-check: ## Fail when a generated file is stale, printing the command tha
 	@echo "n/a: no generated files yet"
 
 build: ## Build every configuration this repo ships
-	@echo "n/a: no image yet; becomes docker build when the Dokploy step adds the Dockerfile"
+	docker build -t voice .
 
 merge-check: ## Is this branch low-risk enough for an agent to turn on auto-merge? (scripts/low-risk-paths.json)
 	node scripts/merge-check.js

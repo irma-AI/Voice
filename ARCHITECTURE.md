@@ -17,3 +17,5 @@ Dependencies point down the list: a layer imports only the layers its `may_impor
 Each concern has one interface, and code reaches it only through that interface:
 
 <!-- One line each: auth, logging and telemetry, feature flags, configuration, and any other concern code everywhere needs. Name the module or function. -->
+
+- Auth for the web Channel: `voice.auth.BasicAuth`, the one login in front of every route (`voice/web.py` adds it; it needs `VOICE_PASSWORD`).
