@@ -9,16 +9,21 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const ROOT = process.env.GUARD_ROOT || process.cwd();
-const { ticketIds, fetchIssue, problem, needsTicket, FIX } = require(path.join(__dirname, '..', '..', 'ticket-check.js'));
+const { ticketIds, fetchIssue, problem, needsTicket, FIX, TEAM } = require(path.join(__dirname, '..', '..', 'ticket-check.js'));
 
 // A fixture has `.guard-changed-files`, `.guard-pr-text` and `.guard-tickets.json` (id to Linear issue) in place of
 // a git diff, the CI env and Linear.
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const fixture = fs.existsSync(path.join(ROOT, '.guard-changed-files'));
+
+// The team key lives in ticket-check.js and in docs/agents/issue-tracker.md: name the side to edit when they differ.
+const tracker = fs.existsSync(path.join(ROOT, 'docs/agents/issue-tracker.md')) ? read('docs/agents/issue-tracker.md') : '';
+const teamDrift = tracker.includes(`team \`${TEAM}\``) ? null : `docs/agents/issue-tracker.md does not name team \`${TEAM}\`, the TEAM in scripts/ticket-check.js: edit the one that is wrong`;
 if (!fixture && !process.env.GUARD_BASE) {
   console.log('#scanned 1');
+  if (teamDrift) { console.log(`team\t${teamDrift}`); process.exitCode = 1; }
   console.error('not a pull-request run (GUARD_BASE unset): the ticket is checked in CI only');
-  process.exit(0);
+  process.exit(process.exitCode || 0);
 }
 
 function changedFiles() {
@@ -31,6 +36,7 @@ function changedFiles() {
 (async () => {
   const changed = changedFiles();
   console.log(`#scanned ${changed.length + 1}`); // +1: the change set itself, which may be empty
+  if (teamDrift) { console.log(`team\t${teamDrift}`); process.exitCode = 1; }
   if (!changed.some((f) => needsTicket(ROOT, f))) return;
   const ids = ticketIds(fixture ? read('.guard-pr-text') : process.env.GUARD_PR_TEXT);
   if (!ids.length) {

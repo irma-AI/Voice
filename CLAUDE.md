@@ -108,7 +108,7 @@ Everything under `.claude/skills/`, `.claude/vendor-licenses/`, `.claude/agents/
 
 ### Issue tracker
 
-Linear, team `PET`, project `Voice`, through `linearis`. See `docs/agents/issue-tracker.md`.
+Linear, team `VOI`, project `Voice`, through `linearis`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
