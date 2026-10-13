@@ -1,0 +1,4 @@
+[project]
+dependencies = [
+    "pipecat-ai[cli]==1.12.0",
+]

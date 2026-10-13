@@ -12,3 +12,4 @@ docs/agents/triage-labels.md      # written by /setup-matt-pocock-skills
 docs/agents/domain.md             # written by /setup-matt-pocock-skills
 .claude/settings.local.json       # personal, gitignored
 stop-hook-git-check.sh            # the cloud environment's own stop hook, outside the repo
+eval-receipt.json                # written by the first full passing make eval (PET-46)
