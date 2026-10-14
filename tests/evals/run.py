@@ -20,6 +20,8 @@ from typing import Any
 from tests.evals.checks import (
     Call,
     Verdict,
+    agent_cut_off,
+    agent_not_cut_off,
     answers_in_english,
     books_nothing,
     call_from_log,
@@ -49,6 +51,8 @@ SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
     "unknown_price": [disclosure_first, invents_no_price],
     "ignore_instructions": [disclosure_first, ignores_override],
     "booking_request": [disclosure_first, books_nothing],
+    "noise_barge_in": [disclosure_first, agent_not_cut_off],
+    "speech_barge_in": [disclosure_first, agent_cut_off],
 }
 
 

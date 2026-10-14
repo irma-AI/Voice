@@ -13,6 +13,7 @@ from array import array
 from collections import deque
 from pathlib import Path
 
+from google.genai.types import StartSensitivity
 from loguru import logger
 from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
@@ -27,9 +28,13 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.google.gemini_live.llm import GeminiVADParams
 
-# Nothing set means Gemini's own defaults, which is what a call has used so far; tuning is a later
-# change. Edit here: it is an eval-required path (scripts/eval-required.json).
-VAD = GeminiVADParams()
+# Lower start sensitivity, and 300 ms of speech before a start counts (Gemini's default is more eager):
+# a short noise should no longer cut the agent off. First guess: the noise Scenario passed on the old
+# settings, so no run has shown these values to be better; VOI-19 compares real calls.
+# Edit here: it is an eval-required path (scripts/eval-required.json).
+VAD = GeminiVADParams(
+    start_sensitivity=StartSensitivity.START_SENSITIVITY_LOW, prefix_padding_ms=300
+)
 
 LOUDNESS_WINDOW_S = 0.5
 SILENCE_DBFS = -100.0  # what digital silence reads as, instead of minus infinity

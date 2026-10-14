@@ -8,7 +8,7 @@ paths:
 
 Checks are `tests/test_<module>.py`; the ones that judge a call read the stored synthetic call records in `tests/calls/`. Scenarios, their Caller audio and the runner are `tests/evals/`. Each kind below catches what the others can't.
 
-- **Sweep tests** read the whole set from the source and fail for any member that breaks a rule, so a new member is checked even if its author never opens the test. Here: every Scenario is in the runner, the manifest, the Scenario files and the audio list (`tests/test_eval_run.py`).
+- **Sweep tests** read the whole set from the source and fail for any member that breaks a rule, so a new member is checked even if its author never opens the test. Here: every Scenario is in the runner, the manifest and the Scenario files, and every Caller audio file it plays is either rendered by `make eval-audio` or has a `<name>.licence.md` beside it (`tests/test_eval_run.py`).
 - **Parity tests** cover a fact that lives in two places that can't share code. The test reads both sides, and its failure names the side to edit. None yet.
 - **Flaky tests** get one rerun to confirm. A test that fails and then passes gets a ticket and a fix in this PR or the next; it is never skipped, quarantined or deleted to get green.
 

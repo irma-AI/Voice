@@ -9,6 +9,8 @@ import pytest
 from tests.evals.checks import (
     Call,
     Verdict,
+    agent_cut_off,
+    agent_not_cut_off,
     answers_in_english,
     books_nothing,
     call_from_log,
@@ -117,6 +119,28 @@ def test_scenario_checks(
 )
 def test_false_barge_ins(record: str, passes: bool) -> None:
     verdict = false_barge_ins(events_from_record(CALLS / f"barge_in_{record}.json"))
+    assert verdict.passed is passes, verdict.reason
+    assert verdict.reason
+
+
+@pytest.mark.parametrize(
+    ("check", "record", "passes"),
+    [
+        (agent_not_cut_off, "none", True),
+        (agent_not_cut_off, "short_reply", False),
+        (agent_not_cut_off, "agent_silent", False),
+        (agent_not_cut_off, "noise_only", False),
+        (agent_not_cut_off, "loud_no_words", False),
+        (agent_cut_off, "words_follow", True),
+        (agent_cut_off, "noise_only", True),
+        (agent_cut_off, "none", False),
+        (agent_cut_off, "agent_silent", False),
+    ],
+)
+def test_cut_off_checks(
+    check: Callable[[Call], Verdict], record: str, passes: bool
+) -> None:
+    verdict = check(Call.load(CALLS / f"barge_in_{record}.json"))
     assert verdict.passed is passes, verdict.reason
     assert verdict.reason
 
