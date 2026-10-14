@@ -11,9 +11,10 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from portal.accounts.models import LANGUAGES, Account, Business, clean_email
+from portal.accounts.ticket import mint
 
 
 class LoginForm(AuthenticationForm):
@@ -74,6 +75,20 @@ def business_settings(request: HttpRequest) -> HttpResponse:
         "accounts/settings.html",
         {"form": form, "saved": "saved" in request.GET},
     )
+
+
+@login_required
+@require_POST
+def test_call(request: HttpRequest) -> HttpResponse:
+    """The one way a browser gets to call for a Business: a ticket for the logged-in Business, and nothing else it could name."""
+    business = get_object_or_404(Business, account=request.user)
+    # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
+    if not settings.CORE_SECRET:
+        return HttpResponse(
+            "Test calls are not set up: CORE_SECRET is empty.", status=503
+        )
+    ticket = mint(settings.CORE_SECRET, business.pk)
+    return redirect(f"{settings.CORE_URL.rstrip('/')}/?ticket={ticket}")
 
 
 @require_GET

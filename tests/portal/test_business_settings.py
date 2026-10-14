@@ -11,24 +11,16 @@ from django.test import Client
 
 from portal.accounts.models import Account, Business
 from tests.portal.contract import schema_errors
+from tests.portal.helpers import business_with_login
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
 SECRET = "a-secret-for-tests"
-PASSWORD = "a-long-passphrase-for-tests"
 
 
 @pytest.fixture(autouse=True)
 def core_secret(settings: Any) -> None:
     settings.CORE_SECRET = SECRET
-
-
-def business_with_login(email: str, name: str) -> tuple[Business, Client]:
-    account = Account.objects.create_user(email, PASSWORD)
-    business = Business.objects.create(account=account, name=name)
-    client = Client()
-    assert client.login(email=email, password=PASSWORD)
-    return business, client
 
 
 def ask_core(business_id: int, secret: str | None = SECRET) -> Any:

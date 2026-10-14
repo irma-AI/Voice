@@ -29,6 +29,7 @@ from pipecat.transports.websocket.fastapi import (
 from voice.agent import run_call
 from voice.auth import BasicAuth
 from voice.settings import describe_source
+from voice.ticket import from_query, ticket_business
 
 # What Gemini Live takes in and gives out; the page is served with these two numbers.
 IN_RATE = 16000
@@ -70,9 +71,11 @@ def same_site(origin: str | None, host: str | None) -> bool:
     return bool(origin and host and urlsplit(origin).netloc == host)
 
 
-def create_app(user: str, password: str) -> FastAPI:
+def create_app(user: str, password: str, ticket_secret: str = "") -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-    app.add_middleware(BasicAuth, user=user, password=password)
+    app.add_middleware(
+        BasicAuth, user=user, password=password, ticket_secret=ticket_secret
+    )
 
     @app.get("/")
     async def page() -> HTMLResponse:  # pyright: ignore[reportUnusedFunction]
@@ -90,6 +93,17 @@ def create_app(user: str, password: str) -> FastAPI:
                 "refused /ws: Origin {!r} does not match Host {!r}", origin, host
             )
             return await websocket.close(code=1008)
+        # A ticket from the Portal names the Business this call is for; one that does not check out refuses the call,
+        # even for the shared login, so a call never falls back to a Business the Caller did not ask for.
+        business_id = None
+        sent = from_query(
+            websocket.scope["query_string"]
+        )  # the same reading the login middleware made
+        if sent is not None:
+            business_id = ticket_business(sent, ticket_secret)
+            if business_id is None:
+                logger.warning("refused /ws: the call ticket is wrong or has expired")
+                return await websocket.close(code=1008)
         await websocket.accept()
         transport = FastAPIWebsocketTransport(
             websocket,
@@ -107,7 +121,7 @@ def create_app(user: str, password: str) -> FastAPI:
         async def _time_up(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
             await websocket.close()
 
-        await run_call(transport)
+        await run_call(transport, business_id=business_id)
 
     return app
 
@@ -124,7 +138,11 @@ def main() -> None:
     logger.info(
         describe_source()
     )  # a core with no settings source starts, and refuses every call
-    app = create_app(os.environ.get("VOICE_USER", "voice"), password)
+    app = create_app(
+        os.environ.get("VOICE_USER", "voice"),
+        password,
+        os.environ.get("CORE_SECRET", ""),
+    )
     uvicorn.run(
         app,
         host=os.environ.get("HOST", "127.0.0.1"),
