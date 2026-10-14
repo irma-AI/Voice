@@ -40,6 +40,10 @@ PORTAL_URL = required("PORTAL_URL") or "http://localhost:8000"
 CORE_SECRET = required("CORE_SECRET")
 # Where the core's call page is: the test call button sends a Business's browser there, never to an address taken from a request.
 CORE_URL = required("CORE_URL") or "http://localhost:7860"
+if not DEBUG and not CORE_URL.startswith(
+    "https://"
+):  # the ticket travels in this address
+    raise ImproperlyConfigured("CORE_URL must be an https address outside a local run")
 
 INSTALLED_APPS = [
     "django.contrib.auth",

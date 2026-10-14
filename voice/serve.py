@@ -147,6 +147,7 @@ def main() -> None:
         app,
         host=os.environ.get("HOST", "127.0.0.1"),
         port=int(os.environ.get("PORT", "7860")),
+        access_log=False,  # a Portal call ticket is in the request address: it must not reach the logs
     )
 
 

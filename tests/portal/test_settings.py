@@ -51,6 +51,10 @@ def test_production_refuses_to_start_without_any_one_of_its_values(
     assert not ok and "ImproperlyConfigured" in out
 
 
+def test_the_core_address_must_be_https_in_production() -> None:
+    assert not starts(**{**PRODUCTION, "CORE_URL": "http://voice.example.com"})[0]
+
+
 def test_debug_is_refused_in_production_and_without_an_environment() -> None:
     assert not starts(**PRODUCTION, DEBUG="1")[0]
     assert not starts(DEBUG="1")[0]  # DEBUG alone must not pass for a local run
