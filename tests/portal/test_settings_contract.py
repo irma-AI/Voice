@@ -17,7 +17,7 @@ def test_the_schema_itself_is_valid() -> None:
 
 def test_what_the_portal_serves_matches_the_schema() -> None:
     served = Business(
-        name="Anna's Salon", hours="mån-fre 8-17", languages=["sv", "en"]
+        name="Anna's Salon", facts="Öppet mån-fre 8-17.", languages=["sv", "en"]
     ).as_settings()
     errors = schema_errors(served)
     assert not errors, f"edit Business.as_settings or the schema: {errors}"

@@ -17,7 +17,7 @@ Passing a call to a person, or taking a message, when the agent cannot finish it
 _Avoid_: transfer, escalation
 
 **Business**:
-The business whose calls the agent answers, with its own facts and Modules. One Business is one Portal account.
+The business whose calls the agent answers, with its own facts and Modules. One Business is one Portal account. Its settings are a name, free-text facts and languages; anything more structured for the agent comes as a Module, never as a fixed Portal field.
 _Avoid_: tenant, customer, clinic, client, agency
 
 **Barge-in**:

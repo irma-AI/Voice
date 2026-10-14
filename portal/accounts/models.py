@@ -55,8 +55,6 @@ class Business(models.Model):
         Account, on_delete=models.PROTECT, related_name="business"
     )
     name = models.CharField(max_length=200)
-    hours = models.CharField(max_length=1000, blank=True, default="")
-    prices = models.CharField(max_length=2000, blank=True, default="")
     facts = models.CharField(max_length=5000, blank=True, default="")
     languages = ArrayField(
         models.CharField(max_length=2, choices=list(LANGUAGES.items())),
@@ -93,8 +91,6 @@ class Business(models.Model):
         """What the settings address serves: exactly the properties of contract/business-settings.schema.json."""
         return {
             "name": self.name,
-            "hours": self.hours,
-            "prices": self.prices,
             "facts": self.facts,
             "languages": self.languages,
         }

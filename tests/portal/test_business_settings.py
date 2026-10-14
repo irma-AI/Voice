@@ -44,9 +44,7 @@ def test_editing_in_the_portal_changes_what_the_core_is_told() -> None:
         "/settings/",
         {
             "name": "Anna's Hair",
-            "hours": "mon-fri 8-17",
-            "prices": "cut: 400 kr",
-            "facts": "Closed in July.",
+            "facts": "Open mon-fri 8-17. A cut costs 400 kr. Closed in July.",
             "languages": ["sv", "en"],
         },
     )
@@ -56,9 +54,7 @@ def test_editing_in_the_portal_changes_what_the_core_is_told() -> None:
     told = ask_core(business.pk).json()
     assert told == {
         "name": "Anna's Hair",
-        "hours": "mon-fri 8-17",
-        "prices": "cut: 400 kr",
-        "facts": "Closed in July.",
+        "facts": "Open mon-fri 8-17. A cut costs 400 kr. Closed in July.",
         "languages": ["sv", "en"],
     }
     assert not schema_errors(told)

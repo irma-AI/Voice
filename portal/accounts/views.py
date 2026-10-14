@@ -53,11 +53,12 @@ class SettingsForm(forms.ModelForm):
 
     class Meta:
         model = Business
-        fields = ("name", "hours", "prices", "facts", "languages")
+        fields = ("name", "facts", "languages")
         widgets = {  # noqa: RUF012 (Django reads Meta as plain attributes)
-            "hours": forms.Textarea(attrs={"rows": 2}),
-            "prices": forms.Textarea(attrs={"rows": 4}),
-            "facts": forms.Textarea(attrs={"rows": 8}),
+            "facts": forms.Textarea(attrs={"rows": 12})
+        }
+        help_texts = {  # noqa: RUF012
+            "facts": "Everything the agent should know about your business, in your own words: what you do, where, when you are open, what things cost."
         }
 
 
