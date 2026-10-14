@@ -142,3 +142,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-14] Sign-in is an emailed invite plus a password (Django's own); self sign-up and single sign-on were declined: self sign-up lets strangers spend Google credit, single sign-on adds a vendor.
 [2026-10-14] Callers start with a per-Business call link, then a pasted-in button on the same page; browser only first, phone waits (Petter's card). Limits on calls and minutes per Business are part of the link.
 [2026-10-14] The first Module is a tiny free test Module that proves the MCP path and the paid test calls; a message-taking or booking Module needs a vendor or privacy work and waits for Petter's yes.
+[2026-10-14] If checks are already green when Petter says "merge", the thread merges directly: GitHub refuses auto-merge on a clean PR (PR #25), and the merge word is still the only approval.
