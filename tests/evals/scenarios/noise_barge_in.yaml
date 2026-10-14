@@ -1,0 +1,29 @@
+# Street noise plays over the agent's answer and must not cut it off (the check reads the barge-in events).
+user:
+  modality: audio
+judge:
+  modality: audio
+  transcription:  # the format requires it; only built for `response` expectations, which we don't use
+    service: moonshine
+name: noise_barge_in
+scenarios:
+  - name: noise_barge_in
+    turns:
+      - expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+          - event: bot_stopped_speaking
+            within_ms: 30000
+      - user: "Vilka öppettider har ni?"
+        audio: ../audio/opening_hours_sv.wav
+        expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+      - user: "(street noise, no words)"  # what the judge would see; the clip has no speech
+        audio: ../audio/street_noise.wav
+        send_after:
+          event: bot_started_speaking
+          delay_ms: 800
+        expect:
+          - event: bot_stopped_speaking
+            within_ms: 30000
