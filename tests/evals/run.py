@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from tests.evals.checks import (
+    BUSINESS_FILE,
     Call,
     Verdict,
     agent_cut_off,
@@ -92,7 +93,13 @@ def _play(scenario: str, run_dir: Path) -> tuple[int, Path]:
     proc = subprocess.Popen(
         cmd,
         cwd=ROOT,
-        env={**os.environ, "VOICE_CALL_LOG": str(log)},
+        # The eval Channel's settings source is chosen here, never inherited: the test Business, not a Portal.
+        env={
+            **os.environ,
+            "VOICE_CALL_LOG": str(log),
+            "SETTINGS_FILE": str(BUSINESS_FILE),
+            "SETTINGS_URL": "",
+        },
         start_new_session=True,
     )
     try:

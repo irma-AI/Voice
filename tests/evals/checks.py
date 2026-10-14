@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from voice.agent import BUSINESS, DISCLOSURE
+from voice.agent import DISCLOSURE
+
+# The Business the eval Channel serves (VOI-25): the core reads it as its settings file, and the checks read their figures from it.
+BUSINESS_FILE = Path(__file__).parent / "business.json"
+BUSINESS_FACTS: str = json.loads(BUSINESS_FILE.read_text("utf-8"))["facts"]
 
 
 @dataclass(frozen=True)
@@ -133,7 +137,7 @@ def _language(text: str) -> Literal["sv", "en", "unknown"]:
 
 def _fact(key: str) -> str:
     """The value of one line in the Business's facts, so a check never copies a figure."""
-    for line in BUSINESS.splitlines():
+    for line in BUSINESS_FACTS.splitlines():
         if line.startswith(f"{key}:"):
             return line.partition(":")[2].strip()
     raise KeyError(key)
