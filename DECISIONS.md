@@ -136,4 +136,10 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-13] Barge-in plan is log first, then lower Google's start sensitivity; no gate or noise filter yet: Google's detector alone decides and defaults to most sensitive, and a gate's thresholds would be guesses without a log (docs/research/barge-in-and-call-metrics.md).
 [2026-10-13] The barge-in noise test prefers a free public street recording (DEMAND is the candidate) if its licence and quality beat generated noise: Petter said public data is optional, better quality wins. No clip with voices.
 [2026-10-14] After Petter says "merge" a thread turns on GitHub auto-merge and ends its turn instead of waiting for CI: threads stalled on CI events that never arrived (PR #24); his "merge" stays the only approval.
+[2026-10-14] Agencies are who we sell to first, not a concept in the product: there are only Businesses (Petter); no agency accounts, roles or per-agency clients in the Portal.
+[2026-10-14] Hosted calls run on Petter's Google key for a few invited Businesses, with no billing yet: billing and a per-Business spend cap wait for the first outside use (Petter's card).
+[2026-10-14] A Module holds its own credentials and the Portal stores only its address: we then hold no client secrets, and an MCP server already manages its own login (Petter's card).
+[2026-10-14] Sign-in is an emailed invite plus a password (Django's own); self sign-up and single sign-on were declined: self sign-up lets strangers spend Google credit, single sign-on adds a vendor.
+[2026-10-14] Callers start with a per-Business call link, then a pasted-in button on the same page; browser only first, phone waits (Petter's card). Limits on calls and minutes per Business are part of the link.
+[2026-10-14] The first Module is a tiny free test Module that proves the MCP path and the paid test calls; a message-taking or booking Module needs a vendor or privacy work and waits for Petter's yes.
 [2026-10-14] If checks are already green when Petter says "merge", the thread merges directly: GitHub refuses auto-merge on a clean PR (PR #25), and the merge word is still the only approval.
