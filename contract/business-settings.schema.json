@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "business-settings",
+  "title": "What the Portal tells the core about one Business at call start",
+  "description": "The one definition of the settings shape. The Portal serves it (portal/accounts/models.py as_settings) and the core reads it (VOI-25); tests/portal/test_settings_contract.py fails when either side drifts. The AI notice is not a setting and has no property here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "hours", "prices", "facts", "languages"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "hours": { "type": "string", "maxLength": 1000 },
+    "prices": { "type": "string", "maxLength": 2000 },
+    "facts": { "type": "string", "maxLength": 5000 },
+    "languages": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["sv", "en"] }
+    }
+  }
+}
