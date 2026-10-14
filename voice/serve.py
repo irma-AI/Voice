@@ -28,6 +28,7 @@ from pipecat.transports.websocket.fastapi import (
 
 from voice.agent import run_call
 from voice.auth import BasicAuth
+from voice.settings import describe_source
 
 # What Gemini Live takes in and gives out; the page is served with these two numbers.
 IN_RATE = 16000
@@ -120,6 +121,9 @@ def main() -> None:
         not password.strip()
     ):  # fail closed: without a login anyone could start a paid call
         sys.exit("VOICE_PASSWORD is not set: put it in .env (see .env.example).")
+    logger.info(
+        describe_source()
+    )  # a core with no settings source starts, and refuses every call
     app = create_app(os.environ.get("VOICE_USER", "voice"), password)
     uvicorn.run(
         app,

@@ -8,5 +8,5 @@ COPY voice ./voice
 RUN useradd --system app
 USER app
 EXPOSE 8000
-# GOOGLE_API_KEY and VOICE_PASSWORD come from the environment (Dokploy); the app refuses to start without them.
+# GOOGLE_API_KEY and VOICE_PASSWORD come from the environment (Dokploy); the app refuses to start without them. PORTAL_URL, CORE_SECRET and BUSINESS_ID tell it where its Business's settings are; without them it starts and refuses every call.
 CMD ["python", "-m", "voice.serve"]
