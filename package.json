@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Builds the Portal's stylesheet (make generate); nothing from here runs in production.",
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.3"
+  }
+}

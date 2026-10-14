@@ -8,19 +8,29 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ruff", "pyright", "pytest"]
+dev = ["ruff", "pyright", "pytest", "pytest-django", "django-stubs"]
+# The Portal's own runtime; the core image leaves it out (Dockerfile, ADR 0002).
+portal = ["django", "psycopg[binary]", "dj-database-url"]
 
 [tool.uv]
 package = false
+default-groups = ["dev", "portal"]
 
 [tool.ruff]
 target-version = "py313"
-extend-exclude = [".claude", "docs", "scripts/checks/fixtures"]  # vendored skills, template docs and guard fixtures that break rules on purpose
+extend-exclude = [".claude", "docs", "scripts/checks/fixtures", "portal/accounts/migrations"]  # vendored skills, template docs and guard fixtures that break rules on purpose; generated migrations
+
+[tool.ruff.lint.per-file-ignores]
+"portal/**/models.py" = ["RUF012"]  # Django reads Meta.constraints as a plain list
 
 [tool.pyright]
-include = ["voice", "tests"]
+include = ["voice", "portal", "tests"]
+exclude = ["portal/accounts/migrations"]  # generated
 typeCheckingMode = "strict"
 pythonVersion = "3.13"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+DJANGO_SETTINGS_MODULE = "tests.portal_settings"
+addopts = "--strict-markers -m 'not db'"  # a bare pytest skips what needs Postgres; make test-db overrides it
+markers = ["db: needs the real Postgres, so it runs under make test-db and not under make test"]

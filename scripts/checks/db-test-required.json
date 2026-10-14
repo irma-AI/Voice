@@ -1,0 +1,4 @@
+{
+  "migrations": ["portal/**/migrations/*.py"],
+  "tests": ["tests/portal/**"]
+}

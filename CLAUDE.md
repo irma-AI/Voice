@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Voice is the voice core: it connects a phone or browser call to a live AI voice model and runs the call. Glossary: `CONTEXT.md`. Decisions: `docs/adr/` and `DECISIONS.md`.
+Voice is the voice core: it connects a phone or browser call to a live AI voice model and runs the call. `portal/` is the Portal, the Django web app where a Business logs in (ADR 0002). Glossary: `CONTEXT.md`. Decisions: `docs/adr/` and `DECISIONS.md`.
 
 ## Hard rules
 
@@ -31,7 +31,7 @@ None of these is ticket-only: the PR is opened and waits for the answer.
 
 `make help` lists the targets, and `make check` runs what CI runs. CI, hooks and loops call only make targets, so a target's body is the one place a command lives.
 
-`make up` serves the browser call page at http://localhost:7860 (run it in the background; it needs `GOOGLE_API_KEY` and `VOICE_PASSWORD` in `.env`, the browser asks for that password, and every call spends Gemini credit). `make seed` prints n/a: no demo data yet. `make eval` (`ONLY=<id>` for one Scenario) plays the Scenarios against the real agent under the caps in `tests/evals/caps.json`; a full pass writes `eval-receipt.json`, and the `eval-required` guard fails a change to the prompt, the Business's facts or the Pipecat pin (`scripts/eval-required.json`) without a matching receipt; `make eval-audio` renders the Caller audio once.
+`make up` serves the browser call page at http://localhost:7860 (run it in the background; it needs `GOOGLE_API_KEY` and `VOICE_PASSWORD` in `.env`, the browser asks for that password, and every call spends Gemini credit). `make portal-up` serves the Portal at http://localhost:8000 with its own Postgres in Docker (invite a Business: `DJANGO_SETTINGS_MODULE=portal.settings python -m django invite_business <email> <name> --target local`, see `.claude/rules/prod-scripts.md`). `make seed` prints n/a: no demo data yet. `make eval` (`ONLY=<id>` for one Scenario) plays the Scenarios against the real agent under the caps in `tests/evals/caps.json`; a full pass writes `eval-receipt.json`, and the `eval-required` guard fails a change to the prompt, the Business's facts or the Pipecat pin (`scripts/eval-required.json`) without a matching receipt; `make eval-audio` renders the Caller audio once.
 
 ## Architecture
 
@@ -39,9 +39,10 @@ Layers, dependency direction and the one interface per cross-cutting concern: `A
 
 ## Tests
 
-Two seams:
+Three seams:
 
 - **Eval channel** (`make eval`, paid; on Petter's PC or the manual Evals workflow, never automatic): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Aims at the prompt, the Business's facts, the disclosure and the barge-in settings; nine Scenarios, one per behaviour (the noise call and its speech twin read the barge-in events). `tests/evals/run.py`.
+- **Portal** (`make test-db`, free, in CI): the Portal through Django's test client against a real Postgres, in `tests/portal/`: login, invite, password reset, and each rule the database must refuse. `tests/portal/test_routes.py` (no database, runs under `make test`) sweeps every page for a login gate.
 - **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`, which also reads stored barge-in event records (`tests/calls/barge_in_*.json`); the spend rule, cost sum, login rule and web audio converter sit beside them.
 
 Don't mock our own modules or add tests at other seams. A new seam needs this section updated through `/grill-with-docs` first.
@@ -75,7 +76,7 @@ This file holds what every session needs; keep it under about 120 lines. A rule 
 
 - `.claude/rules/security.md`: secrets and personal data (Python files, `.env.example`).
 - `.claude/rules/tests.md`: test layers (the tests folder and `test_*.py` files).
-- `.claude/rules/api.md`, `.claude/rules/data.md`, `.claude/rules/prod-scripts.md`: not active yet; fill in their globs when the admin API, a data store or ops scripts arrive.
+- `.claude/rules/api.md` (Portal pages), `.claude/rules/data.md` (Portal models and migrations), `.claude/rules/prod-scripts.md` (Portal management commands).
 
 ## Workflow
 

@@ -1,0 +1,9 @@
+# A real Postgres for `make test-db`. The image comes from Google's Docker Hub mirror because
+# anonymous Docker Hub pulls are rate-limited in cloud sessions (429).
+services:
+  postgres:
+    image: mirror.gcr.io/library/postgres:16-alpine
+    environment: { POSTGRES_PASSWORD: test, POSTGRES_DB: portal_test }
+    ports: ["127.0.0.1:55432:5432"]
+    tmpfs: ["/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "postgres"], interval: 1s, retries: 30 }

@@ -11,6 +11,8 @@ Lowest first:
 - **Agent** (`voice/agent.py`, `voice/business.txt`): the prompt, the disclosure line, the Business's facts, the Gemini Live service and the pipeline. `run_call(transport)` is the one way a call runs.
 - **Channel**: turns a connection into a Pipecat transport and hands it to `run_call`. `voice/serve.py` is the web Channel (one page and a WebSocket, what `make up` and the Dockerfile run); `voice/web.py` is Pipecat's runner, kept for the eval Channel only. A phone Channel will sit beside them.
 
+The **Portal** (`portal/`, ADR 0002) is a second service beside these layers: a Django app with its own Postgres where a Business logs in. It does not import `voice/`, and `voice/` never imports it or reads its database; the core will ask it for a Business's settings over a web address (VOI-24, VOI-25). Inside it: `portal/accounts/models.py` (the database rules) is under `invite.py` and the views, which sit under the URLs; nothing imports upward.
+
 `tests/evals/` is outside the layers. It starts the web Channel on Pipecat's eval transport and imports `BUSINESS` and `DISCLOSURE` from the agent, so those facts keep one home.
 
 ## Dependency direction
@@ -23,6 +25,8 @@ Each concern has one interface, and code reaches it only through that interface:
 
 - **Secrets and settings**: environment variables, listed in `.env.example`; `GOOGLE_API_KEY` is read in `run_call` and checked up front in `voice/serve.py` and `voice/web.py`.
 - **Auth for the web Channel**: `voice.auth.BasicAuth`, the one login in front of every route: the Basic login, or the cookie the page sets after it, because browsers don't reliably send the Basic login on a WebSocket (`voice/serve.py` adds it; it needs `VOICE_PASSWORD`, and `/ws` also accepts only its own site as Origin).
+- **Portal accounts**: `portal.accounts.models.Account` is the only login (`AUTH_USER_MODEL`); a Business is a `Business` row pointing at its Account. `portal.accounts.invite.invite` is the one way the app creates them and sends an invite, called by the `invite_business` command; there is no sign-up page. Nothing stops other code from creating an Account (not enforced yet).
+- **Portal settings**: `portal/settings.py`, from environment variables listed in `.env.example`; outside a local run (`DEBUG` off) a missing value stops the Portal.
 - **Logging**: Pipecat's loguru logger; `run_call` caps it at INFO so transcripts stay out of logs (`.claude/rules/security.md`).
 - **Barge-in log**: `BargeInRecorder`, the only writer of the events `config`, `bot_speech`, `barge_in`, `caller_words`, `resumed` and `end`, one JSON line each with the call id and seconds since the call began. In production a line goes to the server log at INFO, prefixed `barge-in`; on the eval Channel the same line also lands in the call's JSONL file. A production line may hold only the fields in `.claude/rules/security.md`.
 - **Call record**: `CallRecorder`, passed to `run_call` as `record_to`, set only on the eval transport.

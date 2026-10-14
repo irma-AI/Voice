@@ -1,14 +1,19 @@
 ---
 paths:
-  - "__fill-in__/**"  # replace with the globs this rule covers, e.g. "app/api/**" or "*/views.py"
+  - "portal/urls.py"
+  - "portal/**/views.py"
+  - "portal/**/forms.py"
 ---
 
 # Request handlers
 
-<!-- The pattern every request handler follows: how it authenticates, parses input, calls the domain layer and shapes errors. Name the wrapper or base class to use, and the one file that shows it. -->
+Every Portal page is a Django view that shows its own state (`portal/accounts/views.py` is the example).
 
-- **Parse, don't validate.** A handler parses its input once, at the boundary, into a typed value (a schema, form, DTO or dataclass). Code past the boundary takes that value and never re-checks raw input.
+- **Parse, don't validate.** A handler parses its input once, at the boundary, into a typed value (a Django form or the framework's own view). Code past the boundary takes that value and never re-checks raw input.
+- **Behind the login by default.** A page for a Business is a `@login_required` view that reads only `request.user`'s Business. A page open to visitors is listed in `OPEN` in `tests/portal/test_routes.py` with its reason.
+- **Fail closed.** A page that cannot tell who is asking refuses (the login redirect), never shows.
 
 ## Enforced by
 
-<!-- The check, test or constraint that fails when a rule above is broken, one line each. "None yet" marks a soft rule; promote it to a check once it has been skipped. -->
+- `tests/portal/test_routes.py`: every route outside `OPEN` sends a visitor to the login.
+- One Business never reads another's data: none yet (the first page that shows Business data adds its test).
