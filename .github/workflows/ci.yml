@@ -35,6 +35,7 @@ jobs:
         env:
           TARGETS: ${{ matrix.targets }}
           GUARD_BASE: ${{ github.base_ref && format('origin/{0}', github.base_ref) || '' }}
+          GUARD_HEAD: ${{ github.event.pull_request.head.sha || '' }} # the PR's own tip: the checkout is a synthetic merge commit
           GUARD_PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
           # ticket-required guard: the PR text names the ticket; the Linear key (read-only, set by Petter) goes only to the guards leg.
           GUARD_PR_TEXT: ${{ format('{0}\n{1}', github.event.pull_request.title, github.event.pull_request.body) }}
