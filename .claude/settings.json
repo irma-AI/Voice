@@ -50,6 +50,17 @@
             "statusMessage": "Installing the ticket check for commits"
           }
         ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PROJECT_DIR}/scripts/git-identity.sh\"",
+            "timeout": 5,
+            "statusMessage": "Committing as Petter, not Claude"
+          }
+        ]
       }
     ],
     "PreToolUse": [
