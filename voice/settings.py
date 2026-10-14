@@ -7,7 +7,6 @@ Anything else (nothing set, both set, the Portal down, a reply that breaks the s
 one that was switched off (ADR 0002). The Portal never imports this, and this never imports the Portal.
 """
 
-import http.client
 import json
 import os
 import urllib.error
@@ -16,7 +15,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 
 # Edit with contract/business-settings.schema.json: tests/test_settings_port.py reads both and fails on drift.
 LANGUAGES = {"sv": "Swedish", "en": "English"}
@@ -62,7 +61,7 @@ def parse(data: object) -> Settings:
     if not (
         isinstance(languages, list)
         and languages
-        and all(lang in LANGUAGES for lang in languages)  # pyright: ignore[reportUnknownVariableType]
+        and all(isinstance(lang, str) and lang in LANGUAGES for lang in languages)  # pyright: ignore[reportUnknownVariableType]
     ):
         raise SettingsRefused("settings languages are empty or not known")
     return Settings(name, facts, tuple(languages))  # pyright: ignore[reportUnknownArgumentType]
@@ -71,40 +70,50 @@ def parse(data: object) -> Settings:
 def _from_file(path: str) -> Settings:
     try:
         return parse(json.loads(Path(path).read_text("utf-8")))
-    except (OSError, ValueError) as e:
-        raise SettingsRefused(f"settings file {path} cannot be read: {e}") from None
+    except SettingsRefused:
+        raise
+    except Exception as e:  # noqa: BLE001  fail closed: unreadable, not JSON, too deep: all refuse
+        raise SettingsRefused(
+            f"settings file {path} cannot be read ({type(e).__name__})"
+        ) from None
 
 
 def _from_portal(url: str, secret: str, business_id: str) -> Settings:
+    parts = urlsplit(url)
+    host = (
+        parts.hostname
+    )  # the log names the host only: the address could hold a password
+    if parts.scheme not in ("http", "https") or not host:
+        raise SettingsRefused("SETTINGS_URL must be an http or https address")
     # The id is the Portal's database id until VOI-29 adds the public call link.
-    address = f"{url.rstrip('/')}/api/settings/{quote(business_id, safe='')}/"
-    request = urllib.request.Request(
-        address, headers={"Authorization": f"Bearer {secret}"}
-    )
+    if not business_id.isascii() or not business_id.isdigit():
+        raise SettingsRefused("BUSINESS_ID must be the Business's number in the Portal")
+    address = f"{url.rstrip('/')}/api/settings/{business_id}/"
     try:
+        request = urllib.request.Request(
+            address, headers={"Authorization": f"Bearer {secret}"}
+        )
         with urllib.request.build_opener(_NoRedirect).open(
             request, timeout=PORTAL_TIMEOUT_S
         ) as reply:
             return parse(json.loads(reply.read(MAX_REPLY_BYTES)))
+    except SettingsRefused:
+        raise
     except urllib.error.HTTPError as e:
-        raise SettingsRefused(f"the Portal answered {e.code} for {address}") from None
-    except (
-        OSError,
-        ValueError,
-        http.client.HTTPException,
-    ) as e:  # unreachable, timed out, cut short, or not JSON
+        raise SettingsRefused(f"the Portal at {host} answered {e.code}") from None
+    except Exception as e:  # noqa: BLE001  fail closed: unreachable, cut short, not JSON, too deep: all refuse, and only the kind is logged (a message could hold the secret)
         raise SettingsRefused(
-            f"the Portal at {address} gave no settings: {e}"
+            f"the Portal at {host} gave no settings ({type(e).__name__})"
         ) from None
 
 
 def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
     """The settings for the next call, read fresh each time so a Portal change shows up in it."""
-    portal = env.get("PORTAL_URL", "").strip()
+    portal = env.get("SETTINGS_URL", "").strip()
     file = env.get("SETTINGS_FILE", "").strip()
     if portal and file:
         raise SettingsRefused(
-            "both PORTAL_URL and SETTINGS_FILE are set: set only one settings source"
+            "both SETTINGS_URL and SETTINGS_FILE are set: set only one settings source"
         )
     if file:
         return _from_file(file)
@@ -115,22 +124,22 @@ def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
         )
         if not secret or not business:
             raise SettingsRefused(
-                "PORTAL_URL is set but CORE_SECRET or BUSINESS_ID is missing"
+                "SETTINGS_URL is set but CORE_SECRET or BUSINESS_ID is missing"
             )
         return _from_portal(portal, secret, business)
     raise SettingsRefused(
-        "no settings source: set PORTAL_URL (with CORE_SECRET and BUSINESS_ID), or SETTINGS_FILE for evals and local runs"
+        "no settings source: set SETTINGS_URL (with CORE_SECRET and BUSINESS_ID), or SETTINGS_FILE for evals and local runs"
     )
 
 
 def describe_source(env: Mapping[str, str] = os.environ) -> str:
     """One line for the start-up log: which source calls will use, or that they will be refused."""
-    portal = env.get("PORTAL_URL", "").strip()
+    portal = env.get("SETTINGS_URL", "").strip()
     file = env.get("SETTINGS_FILE", "").strip()
     if portal and file:
-        return "settings: both PORTAL_URL and SETTINGS_FILE are set, so every call will be refused"
+        return "settings: both SETTINGS_URL and SETTINGS_FILE are set, so every call will be refused"
     if file:
         return f"settings: file {file}"
     if portal:
         return f"settings: the Portal at {urlsplit(portal).hostname}"  # never the whole address: it could hold a password
-    return "settings: no source set (PORTAL_URL or SETTINGS_FILE), so every call will be refused"
+    return "settings: no source set (SETTINGS_URL or SETTINGS_FILE), so every call will be refused"

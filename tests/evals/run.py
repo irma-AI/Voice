@@ -98,7 +98,7 @@ def _play(scenario: str, run_dir: Path) -> tuple[int, Path]:
             **os.environ,
             "VOICE_CALL_LOG": str(log),
             "SETTINGS_FILE": str(BUSINESS_FILE),
-            "PORTAL_URL": "",
+            "SETTINGS_URL": "",
         },
         start_new_session=True,
     )
