@@ -126,11 +126,14 @@ def test_false_barge_ins(record: str, passes: bool) -> None:
 @pytest.mark.parametrize(
     ("check", "record", "passes"),
     [
-        (agent_not_cut_off, "agent_silent", True),
+        (agent_not_cut_off, "none", True),
+        (agent_not_cut_off, "short_reply", False),
+        (agent_not_cut_off, "agent_silent", False),
         (agent_not_cut_off, "noise_only", False),
         (agent_not_cut_off, "loud_no_words", False),
         (agent_cut_off, "words_follow", True),
         (agent_cut_off, "noise_only", True),
+        (agent_cut_off, "none", False),
         (agent_cut_off, "agent_silent", False),
     ],
 )

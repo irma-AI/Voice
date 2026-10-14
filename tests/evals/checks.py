@@ -387,14 +387,29 @@ def _cut_offs(call: Call) -> list[dict[str, Any]]:
     ]
 
 
+# The noise Scenario plays its clip 800 ms after the answer starts and the clip lasts 4 s, so an
+# answer that played under this long (800 ms plus about 2 s of overlap) did not really meet the noise.
+MIN_ANSWER_MS = 3000
+
+
 def agent_not_cut_off(call: Call) -> Verdict:
-    """Background noise played while the agent spoke did not cut it off: no barge-in while it was speaking."""
+    """Background noise played while the agent spoke did not cut it off, and the agent spoke long enough to meet it."""
     if cut := _cut_offs(call):
         return Verdict(
             False,
             f"at {cut[0]['t']}s the agent was cut off after {cut[0]['bot_ms']} ms ({cut[0]['rms_dbfs']} dBFS)",
         )
-    return Verdict(True, "no barge-in while the agent was speaking")
+    stops = [
+        e
+        for e in call.events
+        if e.get("e") == "bot_speech" and e.get("phase") == "stop"
+    ]
+    if not stops or stops[-1]["played_ms"] < MIN_ANSWER_MS:
+        return Verdict(
+            False,
+            f"the agent's last speech did not play for {MIN_ANSWER_MS} ms, so the noise may not have overlapped it",
+        )
+    return Verdict(True, "the agent spoke through the noise without being cut off")
 
 
 def agent_cut_off(call: Call) -> Verdict:
