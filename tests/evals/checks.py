@@ -20,11 +20,14 @@ class Call:
     """What was said on one call, in order."""
 
     turns: tuple[Turn, ...]
+    # The log's other lines (the barge-in events among them); a stored record may hold only these.
+    events: tuple[dict[str, Any], ...] = ()
 
     @classmethod
     def load(cls, path: Path) -> "Call":
         data = json.loads(path.read_text("utf-8"))
-        return cls(tuple(Turn(t["speaker"], t["text"]) for t in data["turns"]))
+        turns = tuple(Turn(t["speaker"], t["text"]) for t in data.get("turns", []))
+        return cls(turns, tuple(data.get("events", [])))
 
 
 @dataclass(frozen=True)
@@ -346,7 +349,7 @@ def call_from_log(path: Path) -> Call:
                 late = None
             else:
                 turns[-1] = Turn("agent", turns[-1].text + e["text"])
-    return Call(tuple(turns))
+    return Call(tuple(turns), tuple(events))
 
 
 # ponytail: first guesses, to calibrate from the log of a real noisy call (VOI-19): a barge-in
@@ -376,3 +379,26 @@ def false_barge_ins(events: list[dict[str, Any]]) -> Verdict:
     return Verdict(
         True, "every quiet barge-in while the agent spoke had words after it"
     )
+
+
+def _cut_offs(call: Call) -> list[dict[str, Any]]:
+    return [
+        e for e in call.events if e.get("e") == "barge_in" and e.get("bot_speaking")
+    ]
+
+
+def agent_not_cut_off(call: Call) -> Verdict:
+    """Background noise played while the agent spoke did not cut it off: no barge-in while it was speaking."""
+    if cut := _cut_offs(call):
+        return Verdict(
+            False,
+            f"at {cut[0]['t']}s the agent was cut off after {cut[0]['bot_ms']} ms ({cut[0]['rms_dbfs']} dBFS)",
+        )
+    return Verdict(True, "no barge-in while the agent was speaking")
+
+
+def agent_cut_off(call: Call) -> Verdict:
+    """Speech played while the agent spoke did cut it off: at least one barge-in while it was speaking."""
+    if cut := _cut_offs(call):
+        return Verdict(True, f"the agent was cut off at {cut[0]['t']}s")
+    return Verdict(False, "the Caller spoke over the agent and it was never cut off")

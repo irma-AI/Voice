@@ -48,8 +48,9 @@ def test_every_scenario_is_in_the_runner_the_manifest_and_the_audio_list() -> No
     for f in files:
         yaml = (evals / "scenarios" / f"{f}.yaml").read_text("utf-8")
         for audio in re.findall(r"audio: \.\./audio/(\w+)\.wav", yaml):
-            assert audio in LINES, (
-                f"{f} plays {audio}, which make eval-audio does not render"
+            licence = evals / "audio" / f"{audio}.licence.md"
+            assert audio in LINES or licence.exists(), (
+                f"{f} plays {audio}: make eval-audio does not render it and {licence.name} is missing"
             )
 
 

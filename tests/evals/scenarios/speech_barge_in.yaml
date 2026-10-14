@@ -1,0 +1,33 @@
+# The twin of noise_barge_in: speech plays at the same point and must cut the agent off.
+user:
+  modality: audio
+judge:
+  modality: audio
+  transcription:  # the format requires it; only built for `response` expectations, which we don't use
+    service: moonshine
+name: speech_barge_in
+scenarios:
+  - name: speech_barge_in
+    turns:
+      - expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+          - event: bot_stopped_speaking
+            within_ms: 30000
+      - user: "Vilka öppettider har ni?"
+        audio: ../audio/opening_hours_sv.wav
+        expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+      - user: "Vad kostar en tandrengöring?"
+        audio: ../audio/price_cleaning_sv.wav
+        send_after:
+          event: bot_started_speaking
+          delay_ms: 800
+        expect:
+          - event: bot_stopped_speaking  # cut off
+            within_ms: 30000
+          - event: bot_started_speaking  # then answers the new question
+            within_ms: 30000
+          - event: bot_stopped_speaking
+            within_ms: 30000
