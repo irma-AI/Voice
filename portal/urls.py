@@ -7,6 +7,12 @@ from portal.accounts import views
 urlpatterns = [
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("settings/", views.business_settings, name="business_settings"),
+    path(
+        "api/settings/<int:business_id>/",
+        views.settings_for_core,
+        name="settings_for_core",
+    ),
     path("login/", views.Login.as_view(), name="login"),
     path("logout/", auth.LogoutView.as_view(), name="logout"),
     path(

@@ -13,6 +13,7 @@ PRODUCTION = {
     "PORTAL_URL": "https://portal.example.com",
     "EMAIL_HOST": "smtp.example.com",
     "EMAIL_FROM": "voice@example.com",
+    "CORE_SECRET": "not-the-local-one-either",
 }
 
 

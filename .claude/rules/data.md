@@ -16,5 +16,5 @@ The Portal's system of record is Postgres (`DATABASE_URL`), with no cache or que
 ## Enforced by
 
 - `db-test-required` guard (`scripts/checks/db-test-required.json`): a changed migration needs a change under `tests/portal/`, or `db-test: skip <reason>`.
-- The refusals themselves: `tests/portal/test_accounts.py` (second Business on an account, duplicate or upper-case email, negative limit, empty name).
+- The refusals themselves: `tests/portal/test_accounts.py` (second Business on an account, duplicate or upper-case email, negative limit, empty name) and `tests/portal/test_business_settings.py` (no language or an unknown one, a setting longer than the contract allows).
 - Catalog sweep tests: none yet.

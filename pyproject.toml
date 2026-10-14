@@ -8,7 +8,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ruff", "pyright", "pytest", "pytest-django", "django-stubs"]
+dev = ["ruff", "pyright", "pytest", "pytest-django", "django-stubs", "jsonschema"]
 # The Portal's own runtime; the core image leaves it out (Dockerfile, ADR 0002).
 portal = ["django", "psycopg[binary]", "dj-database-url"]
 
