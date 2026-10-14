@@ -13,6 +13,8 @@ from tests.evals.checks import (
     books_nothing,
     call_from_log,
     disclosure_first,
+    events_from_record,
+    false_barge_ins,
     follows_language_switch,
     gives_opening_hours,
     ignores_override,
@@ -99,6 +101,22 @@ def test_scenario_checks(
     check: Callable[[Call], Verdict], record: str, passes: bool
 ) -> None:
     verdict = check(Call.load(CALLS / f"{record}.json"))
+    assert verdict.passed is passes, verdict.reason
+    assert verdict.reason
+
+
+@pytest.mark.parametrize(
+    ("record", "passes"),
+    [
+        ("words_follow", True),
+        ("noise_only", False),
+        ("loud_no_words", True),
+        ("agent_silent", True),
+        ("words_too_late", False),
+    ],
+)
+def test_false_barge_ins(record: str, passes: bool) -> None:
+    verdict = false_barge_ins(events_from_record(CALLS / f"barge_in_{record}.json"))
     assert verdict.passed is passes, verdict.reason
     assert verdict.reason
 

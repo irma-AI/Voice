@@ -7,6 +7,7 @@ The map an agent needs before changing structure: the layers, which way dependen
 Lowest first:
 
 - **Call record** (`voice/record.py`): writes what happened on a call to a JSONL file. Used on the eval Channel only.
+- **Barge-in** (`voice/bargein.py`): the Gemini detector settings (`VAD`) and `BargeInRecorder`, which writes a timings-only event for every barge-in. Used by the Agent on every Channel.
 - **Agent** (`voice/agent.py`, `voice/business.txt`): the prompt, the disclosure line, the Business's facts, the Gemini Live service and the pipeline. `run_call(transport)` is the one way a call runs.
 - **Channel**: turns a connection into a Pipecat transport and hands it to `run_call`. `voice/serve.py` is the web Channel (one page and a WebSocket, what `make up` and the Dockerfile run); `voice/web.py` is Pipecat's runner, kept for the eval Channel only. A phone Channel will sit beside them.
 
@@ -14,7 +15,7 @@ Lowest first:
 
 ## Dependency direction
 
-Dependencies point down the list: Channel imports Agent, Agent imports Call record, nothing imports upward. Not enforced yet: `scripts/checks/layers.json` does not exist, so the `layers` guard is off (`DECISIONS.md`). When it exists, a layer may import only the layers its `may_import` names, and the guard fails any other import.
+Dependencies point down the list: Channel imports Agent, Agent imports Barge-in and Call record, nothing imports upward. Not enforced yet: `scripts/checks/layers.json` does not exist, so the `layers` guard is off (`DECISIONS.md`). When it exists, a layer may import only the layers its `may_import` names, and the guard fails any other import.
 
 ## Cross-cutting concerns
 
@@ -23,8 +24,9 @@ Each concern has one interface, and code reaches it only through that interface:
 - **Secrets and settings**: environment variables, listed in `.env.example`; `GOOGLE_API_KEY` is read in `run_call` and checked up front in `voice/serve.py` and `voice/web.py`.
 - **Auth for the web Channel**: `voice.auth.BasicAuth`, the one login in front of every route: the Basic login, or the cookie the page sets after it, because browsers don't reliably send the Basic login on a WebSocket (`voice/serve.py` adds it; it needs `VOICE_PASSWORD`, and `/ws` also accepts only its own site as Origin).
 - **Logging**: Pipecat's loguru logger; `run_call` caps it at INFO so transcripts stay out of logs (`.claude/rules/security.md`).
+- **Barge-in log**: `BargeInRecorder`, the only writer of the events `config`, `bot_speech`, `barge_in`, `caller_words`, `resumed` and `end`, one JSON line each with the call id and seconds since the call began. In production a line goes to the server log at INFO, prefixed `barge-in`; on the eval Channel the same line also lands in the call's JSONL file. A production line may hold only the fields in `.claude/rules/security.md`.
 - **Call record**: `CallRecorder`, passed to `run_call` as `record_to`, set only on the eval transport.
 - **AI disclosure**: `DISCLOSURE` in `voice/agent.py`.
 - **Business facts**: `BUSINESS` in `voice/agent.py`, read from `voice/business.txt`.
 
-No feature flags or telemetry exist yet.
+No feature flags exist yet; the barge-in log is the only telemetry.

@@ -2,6 +2,7 @@
 
 import os
 import sys
+import uuid
 from pathlib import Path
 
 from loguru import logger
@@ -17,6 +18,7 @@ from pipecat.transcriptions.language import Language
 from pipecat.transports.base_transport import BaseTransport
 from pipecat.workers.runner import WorkerRunner
 
+from voice.bargein import VAD, BargeInRecorder
 from voice.record import CallRecorder
 
 MODEL = "models/gemini-3.8-live"
@@ -64,6 +66,7 @@ async def run_call(
             model=MODEL,
             system_instruction=SYSTEM_INSTRUCTION,
             language=Language.SV_SE,
+            vad=VAD,
         ),
     )
     # Pipecat's Gemini Live service sends nothing to the model for an empty context, so the agent
@@ -79,6 +82,8 @@ async def run_call(
         steps.insert(
             2, CallRecorder(record_to)
         )  # the Caller's transcript, which travels upstream
+    # The barge-in events (the first words after one, not the rest) go to the server log in production, with an id for the call (never a number).
+    steps.insert(2, BargeInRecorder(uuid.uuid4().hex[:12], record_to))
     pipeline = Pipeline(steps)
     worker = PipelineWorker(
         pipeline,
