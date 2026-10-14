@@ -8,6 +8,8 @@ Businesses configure their Modules and settings in a Portal (Django, Tailwind, h
 - Postgres for hosted and a single file for self-hosters: easier to start, two setups to keep working.
 - A separate Portal repo: cleaner split, but rules, checks and the settings shape would be kept twice.
 
-## Update 2026-10-14: the Portal is optional for the core
+## Update 2026-10-14: the core is a hub with ports, not tied to the Portal
 
-The core loads a Business's settings through one loader with two sources: the Portal's settings address, or a file in the same shape (`contract/business-settings.schema.json`). With no Portal address configured, the core runs standalone from the file and logs that it does. With an address configured and the Portal unreachable, the call is refused with a spoken reason: a fallback would serve another Business's facts, or a Business that was switched off. Reports back to the Portal, such as call records, never block a call. Modules depend on neither.
+The core runs on its own as a process, but does nothing useful alone: it is a hub with lines in, each a port with one interface, and adapters that plug into them. The Portal is one adapter (the Business's settings, later call records), Modules are another (Actions), and the web, eval and later phone Channels are others. Pipecat's transports and model services already serve as the Channel and model ports (`DECISIONS.md`, 2026-10-12); the core adds its own only for settings, Actions and call reports. A new line in is a new adapter behind an existing port, not a change to the call logic.
+
+With no settings source configured the core starts, says so in the log and refuses calls with a spoken reason. A file source in the same shape (`contract/business-settings.schema.json`) is chosen explicitly for evals and local runs. With a Portal configured but unreachable, the call is refused too: a fallback would serve another Business's facts, or one that was switched off. Reports back to the Portal never block a call. Modules depend on neither. MVP: one adapter per port, chosen by one setting, with no plugin registry.
