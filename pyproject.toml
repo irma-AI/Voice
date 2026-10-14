@@ -32,5 +32,5 @@ pythonVersion = "3.13"
 [tool.pytest.ini_options]
 pythonpath = ["."]
 DJANGO_SETTINGS_MODULE = "tests.portal_settings"
-addopts = "--strict-markers"
+addopts = "--strict-markers -m 'not db'"  # a bare pytest skips what needs Postgres; make test-db overrides it
 markers = ["db: needs the real Postgres, so it runs under make test-db and not under make test"]

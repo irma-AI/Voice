@@ -10,26 +10,30 @@ from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent
 
-DEBUG = os.environ.get("DEBUG") == "1"
-if DEBUG and os.environ.get("ENVIRONMENT") == "production":
+# Fail closed: the Portal says where it runs, and DEBUG (which switches off every required value below) is allowed only locally.
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "")
+if ENVIRONMENT not in ("local", "production"):
     raise ImproperlyConfigured(
-        "DEBUG is on in production: it switches off every check in this file"
+        "ENVIRONMENT must be local or production (see .env.example)"
+    )
+DEBUG = os.environ.get("DEBUG") == "1"
+if DEBUG and ENVIRONMENT != "local":
+    raise ImproperlyConfigured(
+        "DEBUG is on outside a local run: it switches off every check in this file"
     )
 
 
 def required(name: str) -> str:
-    # Fail closed: a missing value outside local runs stops the Portal instead of falling back to a guess.
     value = os.environ.get(name, "")
     if not value and not DEBUG:
         raise ImproperlyConfigured(f"{name} is not set (see .env.example)")
     return value
 
 
-ENVIRONMENT = os.environ.get("ENVIRONMENT") or (
-    "local" if DEBUG else required("ENVIRONMENT")
-)
 SECRET_KEY = required("DJANGO_SECRET_KEY") or "local-only-not-secret"
-ALLOWED_HOSTS = ["*"] if DEBUG else required("ALLOWED_HOSTS").split(",")
+ALLOWED_HOSTS = (
+    ["*"] if DEBUG else [h.strip() for h in required("ALLOWED_HOSTS").split(",")]
+)
 # The address invite links point at; never taken from a request's Host header.
 PORTAL_URL = required("PORTAL_URL") or "http://localhost:8000"
 

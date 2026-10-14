@@ -64,11 +64,11 @@ guards: ## Guard scripts, self-tests first (scripts/checks/README.md)
 tailwind := npx --no-install @tailwindcss/cli -i portal/static/portal/tailwind.css --minify
 
 generate: ## Regenerate every generated file (the Portal's migrations and stylesheet)
-	DEBUG=1 DJANGO_SETTINGS_MODULE=portal.settings uv run python -m django makemigrations
+	ENVIRONMENT=local DEBUG=1 DJANGO_SETTINGS_MODULE=portal.settings uv run python -m django makemigrations
 	$(tailwind) -o portal/static/portal/portal.css
 
 generate-check: ## Fail when a generated file is stale, printing the command that fixes it
-	DEBUG=1 DJANGO_SETTINGS_MODULE=portal.settings uv run python -m django makemigrations --check --dry-run || { echo "models changed without a migration: run make generate" >&2; exit 1; }
+	ENVIRONMENT=local DEBUG=1 DJANGO_SETTINGS_MODULE=portal.settings uv run python -m django makemigrations --check --dry-run || { echo "models changed without a migration: run make generate" >&2; exit 1; }
 	css=$$(mktemp) && $(tailwind) -o "$$css" && cmp -s "$$css" portal/static/portal/portal.css || { echo "portal.css is stale: run make generate" >&2; exit 1; }
 
 build: ## Build every configuration this repo ships

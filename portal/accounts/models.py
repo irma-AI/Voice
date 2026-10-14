@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.db import models
-from django.db.models.functions import Lower
+from django.db.models.functions import Lower, Trim
 
 
 def clean_email(email: str) -> str:
-    """The one spelling an email is stored and looked up in (the database refuses any other)."""
+    """The one spelling an email is stored and looked up in: trimmed and lower case (the database refuses any other)."""
     return email.strip().lower()
 
 
@@ -36,8 +36,8 @@ class Account(AbstractBaseUser):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(email=Lower("email")),
-                name="account_email_must_be_lowercase",
+                condition=models.Q(email=Lower(Trim("email"))),
+                name="account_email_must_be_clean",
             ),
         ]
 

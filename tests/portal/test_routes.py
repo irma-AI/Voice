@@ -20,7 +20,10 @@ def route_names(patterns: list[URLPattern | URLResolver]) -> list[str]:
     for p in patterns:
         if isinstance(p, URLResolver):
             names += route_names(p.url_patterns)
-        elif p.name:
+        else:
+            assert p.name, (
+                f"name the route {p.pattern}: the sweep checks routes by name"
+            )
             names.append(p.name)
     return names
 

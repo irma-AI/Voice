@@ -3,7 +3,7 @@ services:
   postgres:
     image: mirror.gcr.io/library/postgres:16-alpine
     environment: { POSTGRES_PASSWORD: dev, POSTGRES_DB: portal }
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck: { test: ["CMD", "pg_isready", "-U", "postgres"], interval: 1s, retries: 30 }
 volumes:

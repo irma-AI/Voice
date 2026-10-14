@@ -6,20 +6,18 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
-from portal.accounts.models import Account, Business
+from portal.accounts.models import Account, Business, clean_email
 
 
 class LoginForm(AuthenticationForm):
     def clean_username(self) -> str:
-        return (
-            self.cleaned_data["username"].strip().lower()
-        )  # emails are stored in lower case
+        return clean_email(self.cleaned_data["username"])
 
 
 class ResetForm(PasswordResetForm):
     def get_users(self, email):
         # Django's form skips an account with no password yet, which would leave an invitee with an expired link stuck.
-        return Account.objects.filter(email__iexact=email, is_active=True)
+        return Account.objects.filter(email=clean_email(email), is_active=True)
 
 
 class Login(auth.LoginView):

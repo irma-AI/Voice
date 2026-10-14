@@ -11,9 +11,10 @@ import pytest
 from django.core import mail
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import Client
 
+from portal.accounts.invite import invite
 from portal.accounts.models import Account, Business
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
@@ -120,6 +121,15 @@ def test_a_forgotten_password_is_reset_by_email() -> None:
     )
 
 
+def test_a_reset_mails_only_the_exact_address_not_a_lookalike() -> None:
+    Account.objects.create_user("admin@example.com")
+    Account.objects.create_user(
+        "adm\u0131n@example.com"
+    )  # dotless i: Postgres upper-cases it to I
+    Client().post("/password-reset/", {"email": "admin@example.com"})
+    assert [m.to for m in mail.outbox] == [["admin@example.com"]]
+
+
 def test_a_reset_for_an_unknown_email_looks_the_same_and_sends_nothing() -> None:
     response = Client().post("/password-reset/", {"email": "nobody@example.com"})
     assert response["Location"] == "/password-reset/sent/"
@@ -203,7 +213,7 @@ def test_a_second_account_for_the_same_email_is_refused_in_any_case() -> None:
     Account.objects.create_user(EMAIL)
     with refused("accounts_account_email_key"):
         Account.objects.create(email=EMAIL)
-    with refused("account_email_must_be_lowercase"):
+    with refused("account_email_must_be_clean"):
         Account.objects.create(email=EMAIL.upper())
 
 
@@ -217,3 +227,50 @@ def test_a_negative_limit_or_an_empty_name_is_refused() -> None:
         Business.objects.create(account=account, name="")
     with refused("business_name_must_not_be_blank"):
         Business.objects.create(account=account, name="  ")
+
+
+def test_an_email_with_spaces_or_capitals_is_refused_even_by_raw_sql() -> None:
+    with connection.cursor() as cur:
+        for bad in (" anna@example.com ", "Anna@example.com"):
+            with refused("account_email_must_be_clean"), transaction.atomic():
+                cur.execute(
+                    "insert into accounts_account (password, email, is_active) values ('', %s, true)",
+                    [bad],
+                )
+
+
+def test_an_invite_for_a_bad_address_or_a_blank_name_is_refused_and_leaves_nothing() -> (
+    None
+):
+    for email, name in (
+        ("", "Anna's Salon"),
+        ("not an email", "Anna's Salon"),
+        (EMAIL, "  "),
+    ):
+        with pytest.raises(ValueError):
+            invite(name, email)
+    assert (Account.objects.count(), Business.objects.count(), mail.outbox) == (
+        0,
+        0,
+        [],
+    )
+
+
+def test_an_invite_that_cannot_be_sent_leaves_no_account_and_does_not_name_the_address(
+    settings: Any,
+) -> None:
+    # A real mail connection to a port nobody listens on.
+    settings.MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+            "OPTIONS": {"host": "127.0.0.1", "port": 1},
+        }
+    }
+    with pytest.raises(ValueError) as refused_invite:
+        invite("Anna's Salon", EMAIL)
+    assert (
+        EMAIL not in str(refused_invite.value)
+        and refused_invite.value.__cause__ is None
+        and refused_invite.value.__suppress_context__
+    )
+    assert (Account.objects.count(), Business.objects.count()) == (0, 0)
