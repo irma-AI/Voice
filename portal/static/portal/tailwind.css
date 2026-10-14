@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@source "../../templates";
+
+@layer base {
+  form div { @apply space-y-1; }
+  form label { @apply block text-sm font-medium; }
+  form input:not([type="hidden"]) { @apply w-full rounded border border-stone-300 bg-white px-3 py-2; }
+  form .errorlist { @apply text-sm text-red-700; }
+  form .helptext { @apply text-sm text-stone-600; }
+}

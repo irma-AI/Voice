@@ -38,3 +38,4 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 eval-runs/
+node_modules/
