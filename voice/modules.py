@@ -9,6 +9,7 @@ the call goes on without it. The core never imports a Module, and a Module never
 import asyncio
 import os
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 
 from loguru import logger
 from mcp import StdioServerParameters
@@ -22,6 +23,10 @@ from voice.settings import Module
 MODULE_TIMEOUT_S = 5
 
 
+# ponytail: one cap for the whole call; the right size is unknown until a real Business has several Modules.
+MAX_ACTIONS = 20
+
+
 class ModuleSkipped(Exception):
     """This Module is not used on this call. The message goes in the log, so it holds no address and no secret."""
 
@@ -31,9 +36,23 @@ def local_modules_allowed(env: Mapping[str, str] = os.environ) -> bool:
     return env.get("ALLOW_LOCAL_MODULES", "").strip() == "1"
 
 
+@dataclass
+class Connected:
+    """The Actions the call may offer and the connections behind them. `close` ends every connection, however the call ends."""
+
+    actions: list[FunctionSchema] = field(default_factory=list[FunctionSchema])
+    clients: list[MCPClient] = field(default_factory=list[MCPClient])
+
+    async def close(self) -> None:
+        for client in (
+            self.clients
+        ):  # close() is safe to repeat: Pipecat also closes them at call end
+            await client.close()
+
+
 async def _actions(
-    module: Module, allow_local: bool, timeout: float
-) -> tuple[MCPClient, list[FunctionSchema]]:
+    module: Module, allow_local: bool, timeout: float, connected: Connected
+) -> list[FunctionSchema]:
     if module.command is not None:
         if not allow_local:
             raise ModuleSkipped("a local Module is not allowed here")
@@ -48,45 +67,61 @@ async def _actions(
     except BaseException:
         await client.close()
         raise
-    return client, tools.standard_tools  # pyright: ignore[reportReturnType]  # the client only builds FunctionSchemas
+    connected.clients.append(client)
+    return tools.standard_tools  # pyright: ignore[reportReturnType]  # the client only builds FunctionSchemas
+
+
+def admit(
+    actions: Sequence[FunctionSchema], offered: Sequence[FunctionSchema]
+) -> tuple[list[FunctionSchema], list[str]]:
+    """The offered Actions that may join `actions`, and the names of those that may not.
+
+    A name already taken is refused, so a call never goes to the wrong Module and Gemini never sees two
+    declarations of one name; so is anything past MAX_ACTIONS, so a Module cannot swell the call's setup.
+    """
+    names = {a.name for a in actions}
+    kept: list[FunctionSchema] = []
+    dropped: list[str] = []
+    for action in offered:
+        if action.name in names or len(actions) + len(kept) >= MAX_ACTIONS:
+            dropped.append(action.name)
+        else:
+            names.add(action.name)
+            kept.append(action)
+    return kept, dropped
 
 
 async def connect_modules(
     modules: Sequence[Module],
     allow_local: bool = False,
     timeout: float = MODULE_TIMEOUT_S,
-) -> list[FunctionSchema]:
+) -> Connected:
     """The Actions of every Module that could be used, each with the call handler that reaches its Module.
 
-    A skipped Module is logged by name and the kind of failure only: its address could hold a password.
-    A second Action with a name already taken is dropped, so a call never goes to the wrong Module.
+    The caller closes the result when the call ends, whatever ends it. A skipped Module is logged by
+    name and the kind of failure only: its address could hold a password. Actions `admit` refuses are
+    dropped and logged by name.
     """
-    results = await asyncio.gather(
-        *(_actions(m, allow_local, timeout) for m in modules), return_exceptions=True
-    )
-    actions: list[FunctionSchema] = []
-    for module, result in zip(modules, results, strict=True):
-        if isinstance(result, BaseException):
-            why = (
-                str(result)
-                if isinstance(result, ModuleSkipped)
-                else type(result).__name__
-            )
-            logger.error("Module {} skipped: {}", module.name, why)
-            continue
-        client, offered = result
-        taken = {a.name for a in actions}
-        for action in offered:
-            if action.name in taken:
-                logger.error(
-                    "Module {} skipped its Action {}: the name is taken",
-                    module.name,
-                    action.name,
+    connected = Connected()
+    try:
+        results = await asyncio.gather(
+            *(_actions(m, allow_local, timeout, connected) for m in modules),
+            return_exceptions=True,
+        )
+        for module, result in zip(modules, results, strict=True):
+            if isinstance(result, BaseException):
+                why = (
+                    str(result)
+                    if isinstance(result, ModuleSkipped)
+                    else type(result).__name__
                 )
-            else:
-                actions.append(action)
-        if not any(a in actions for a in offered):
-            await (
-                client.close()
-            )  # nothing of it reaches the model, so nothing would close it at call end
-    return actions
+                logger.error("Module {!r} skipped: {}", module.name, why)
+                continue
+            kept, dropped = admit(connected.actions, result)
+            connected.actions += kept
+            for name in dropped:
+                logger.error("Module {!r} skipped its Action {!r}", module.name, name)
+    except BaseException:
+        await connected.close()  # cancelled mid-connect: the Modules that did connect must not outlive the call
+        raise
+    return connected

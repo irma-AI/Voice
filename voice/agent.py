@@ -24,7 +24,7 @@ from pipecat.transports.base_transport import BaseTransport
 from pipecat.workers.runner import WorkerRunner
 
 from voice.bargein import VAD, BargeInRecorder
-from voice.modules import connect_modules, local_modules_allowed
+from voice.modules import Connected, connect_modules, local_modules_allowed
 from voice.record import CallRecorder
 from voice.settings import LANGUAGES, Settings, SettingsRefused, load_settings
 
@@ -106,15 +106,38 @@ async def run_call(
     # The Business's settings come fresh from the settings port at every call start; without safe ones
     # the call is refused out loud and logged, never served from a fallback (ADR 0002).
     refused = False
-    actions: list[FunctionSchema] = []
+    modules = Connected()
     try:
         settings = await asyncio.to_thread(load_settings)
         # The Business's Modules are read once, here: Gemini Live fixes its tool list when the call starts.
-        actions = await connect_modules(settings.modules, local_modules_allowed())
-        instruction = system_instruction(settings, has_actions=bool(actions))
+        modules = await connect_modules(settings.modules, local_modules_allowed())
+        instruction = system_instruction(settings, has_actions=bool(modules.actions))
     except SettingsRefused as e:
         logger.error("call refused: {}", e)
         instruction, refused = refusal_instruction(), True
+    try:
+        await _run(
+            transport,
+            instruction,
+            refused,
+            modules.actions,
+            idle_timeout_secs,
+            record_to,
+            handle_sigint,
+        )
+    finally:
+        await modules.close()  # a call that fails before its pipeline starts must not leave a Module running
+
+
+async def _run(
+    transport: BaseTransport,
+    instruction: str,
+    refused: bool,
+    actions: list[FunctionSchema],
+    idle_timeout_secs: float | None,
+    record_to: Path | None,
+    handle_sigint: bool,
+) -> None:
     llm = GeminiLiveLLMService(
         api_key=os.environ["GOOGLE_API_KEY"],
         # At init, not in the context: tools in the first context make Gemini Live reconnect, which delays the greeting.

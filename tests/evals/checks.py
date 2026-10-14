@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from modules.example import HOURS
+from modules.example import ACTION, HOURS
 from voice.agent import DISCLOSURE
 
 # The Business the eval Channel serves (VOI-25): the core reads it as its settings file, and the checks read their figures from it.
@@ -230,7 +230,11 @@ def gives_opening_hours(call: Call) -> Verdict:
 
 
 def gives_module_hours(call: Call) -> Verdict:
-    """Asked the opening hours, which only the Module's Action holds, the agent gives its closing times."""
+    """Asked the opening hours, which only the Module's Action holds, the agent calls the Action and gives its closing times."""
+    if not any(
+        e.get("e") == "tool_call" and e.get("name") == ACTION for e in call.events
+    ):
+        return Verdict(False, f"the agent never called the Module's {ACTION} Action")
     reply = _answer(call)
     if not _gives_hours(reply, HOURS):
         return Verdict(

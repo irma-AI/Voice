@@ -10,10 +10,13 @@ from mcp.server.mcpserver import MCPServer
 # Not the eval Business's own hours, so an answer with these closing times can only have come from the Action.
 HOURS = "måndag till fredag 09-19, lördag 10-15, söndag stängt"
 
+# The Action's name, which the eval's check looks for in the call record.
+ACTION = "opening_hours"
+
 server = MCPServer("example")
 
 
-@server.tool()
+@server.tool(name=ACTION)
 def opening_hours() -> str:
     """The Business's opening hours."""
     return HOURS
