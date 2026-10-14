@@ -64,6 +64,7 @@ name: {settings.name}
 {settings.facts}"""
 
 
+# ponytail: the refused call ends on the model's first finished turn; if the caller talks over it or the model never answers, the line stays open until the caller leaves or the Channel's time cap. Add a timeout of its own if that is ever seen.
 class HangUpWhenDone(FrameProcessor):
     """Ends a refused call once the model has said its one sentence."""
 
@@ -92,11 +93,9 @@ async def run_call(
     logger.add(sys.stderr, level="INFO")
     # The Business's settings come fresh from the settings port at every call start; without safe ones
     # the call is refused out loud and logged, never served from a fallback (ADR 0002).
+    refused = False
     try:
-        instruction, refused = (
-            system_instruction(await asyncio.to_thread(load_settings)),
-            False,
-        )
+        instruction = system_instruction(await asyncio.to_thread(load_settings))
     except SettingsRefused as e:
         logger.error("call refused: {}", e)
         instruction, refused = refusal_instruction(), True

@@ -44,6 +44,8 @@ def fake_portal(status: int = 200, body: object = GOOD) -> Generator[str]:
             seen.append(self.path)
             ok = self.headers.get("Authorization") == "Bearer s3cret"
             self.send_response(status if ok else 401)
+            if status == 302:
+                self.send_header("Location", "http://127.0.0.1:1/elsewhere")
             self.end_headers()
             self.wfile.write(json.dumps(body if ok else {"error": "no"}).encode())
 
@@ -130,7 +132,7 @@ def test_a_portal_address_needs_its_secret_and_business() -> None:
             load_settings(env)
 
 
-def test_the_eval_channels_test_business_is_valid_settings(tmp_path: Path) -> None:
+def test_the_eval_channels_test_business_is_valid_settings() -> None:
     got = load_settings({"SETTINGS_FILE": str(BUSINESS_FILE)})
     assert got.name == "Tandkliniken Exempel" and got.languages == ("sv", "en")
     assert not schema_errors(json.loads(BUSINESS_FILE.read_text("utf-8")))
@@ -171,6 +173,10 @@ def test_a_wrong_secret_a_bad_reply_or_a_down_portal_refuses() -> None:
         load_settings(portal_env(url))
     with fake_portal(status=404) as url, pytest.raises(SettingsRefused, match="404"):
         load_settings(portal_env(url))
+    with fake_portal(status=302) as url, pytest.raises(SettingsRefused, match="302"):
+        load_settings(
+            portal_env(url)
+        )  # a moved Portal is refused, never followed with the secret
     with fake_portal() as url:  # the server has stopped by the time we ask
         pass
     with pytest.raises(SettingsRefused, match="no settings"):

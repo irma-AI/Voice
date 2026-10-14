@@ -7,6 +7,7 @@ Anything else (nothing set, both set, the Portal down, a reply that breaks the s
 one that was switched off (ADR 0002). The Portal never imports this, and this never imports the Portal.
 """
 
+import http.client
 import json
 import os
 import urllib.error
@@ -15,14 +16,24 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
-# Edit with contract/business-settings.schema.json: tests/test_settings.py reads both and fails on drift.
+# Edit with contract/business-settings.schema.json: tests/test_settings_port.py reads both and fails on drift.
 LANGUAGES = {"sv": "Swedish", "en": "English"}
 NAME_MAX = 200
 FACTS_MAX = 5000
 # ponytail: a call waits this long in silence for the Portal before it is refused; make it a setting if the Portal is slow in practice.
 PORTAL_TIMEOUT_S = 5
+MAX_REPLY_BYTES = (
+    64_000  # a reply longer than the schema allows is cut and then fails to parse
+)
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect would carry the secret to wherever it points; a moved Portal is a refused call."""
+
+    def redirect_request(self, *_: Any, **__: Any) -> None:
+        return None
 
 
 class SettingsRefused(Exception):
@@ -71,11 +82,17 @@ def _from_portal(url: str, secret: str, business_id: str) -> Settings:
         address, headers={"Authorization": f"Bearer {secret}"}
     )
     try:
-        with urllib.request.urlopen(request, timeout=PORTAL_TIMEOUT_S) as reply:
-            return parse(json.loads(reply.read()))
+        with urllib.request.build_opener(_NoRedirect).open(
+            request, timeout=PORTAL_TIMEOUT_S
+        ) as reply:
+            return parse(json.loads(reply.read(MAX_REPLY_BYTES)))
     except urllib.error.HTTPError as e:
         raise SettingsRefused(f"the Portal answered {e.code} for {address}") from None
-    except (OSError, ValueError) as e:  # unreachable, timed out, or not JSON
+    except (
+        OSError,
+        ValueError,
+        http.client.HTTPException,
+    ) as e:  # unreachable, timed out, cut short, or not JSON
         raise SettingsRefused(
             f"the Portal at {address} gave no settings: {e}"
         ) from None
@@ -115,5 +132,5 @@ def describe_source(env: Mapping[str, str] = os.environ) -> str:
     if file:
         return f"settings: file {file}"
     if portal:
-        return f"settings: the Portal at {portal}"
+        return f"settings: the Portal at {urlsplit(portal).hostname}"  # never the whole address: it could hold a password
     return "settings: no source set (PORTAL_URL or SETTINGS_FILE), so every call will be refused"

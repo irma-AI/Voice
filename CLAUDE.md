@@ -43,7 +43,7 @@ Three seams:
 
 - **Eval channel** (`make eval`, paid; on Petter's PC or the manual Evals workflow, never automatic): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Aims at the prompt, the Business's facts, the disclosure and the barge-in settings; nine Scenarios, one per behaviour (the noise call and its speech twin read the barge-in events). `tests/evals/run.py`.
 - **Portal** (`make test-db`, free, in CI): the Portal through Django's test client against a real Postgres, in `tests/portal/`: login, invite, password reset, and each rule the database must refuse. `tests/portal/test_routes.py` (no database, runs under `make test`) sweeps every page for a login gate.
-- **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`, which also reads stored barge-in event records (`tests/calls/barge_in_*.json`); the spend rule, cost sum, login rule and web audio converter sit beside them.
+- **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`, which also reads stored barge-in event records (`tests/calls/barge_in_*.json`); the spend rule, cost sum, login rule, web audio converter and settings port (`tests/test_settings_port.py`, a real local server standing in for the Portal) sit beside them.
 
 Don't mock our own modules or add tests at other seams. A new seam needs this section updated through `/grill-with-docs` first.
 
