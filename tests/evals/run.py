@@ -19,6 +19,7 @@ from typing import Any
 
 from tests.evals.checks import (
     BUSINESS_FILE,
+    MODULE_BUSINESS_FILE,
     Call,
     Verdict,
     agent_cut_off,
@@ -28,6 +29,7 @@ from tests.evals.checks import (
     call_from_log,
     disclosure_first,
     follows_language_switch,
+    gives_module_hours,
     gives_opening_hours,
     ignores_override,
     invents_no_price,
@@ -54,7 +56,10 @@ SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
     "booking_request": [disclosure_first, books_nothing],
     "noise_barge_in": [disclosure_first, agent_not_cut_off],
     "speech_barge_in": [disclosure_first, agent_cut_off],
+    "module_hours": [disclosure_first, gives_module_hours],
 }
+# Every Scenario runs the test Business except the one that needs a Business with a Module.
+SETTINGS_FILES = {"module_hours": MODULE_BUSINESS_FILE}
 
 
 @dataclass(frozen=True)
@@ -93,12 +98,14 @@ def _play(scenario: str, run_dir: Path) -> tuple[int, Path]:
     proc = subprocess.Popen(
         cmd,
         cwd=ROOT,
-        # The eval Channel's settings source is chosen here, never inherited: the test Business, not a Portal.
+        # The eval Channel's settings source is chosen here, never inherited: a test Business, not a Portal.
+        # A local run may start the test Module (voice/modules.py), which the hosted service never allows.
         env={
             **os.environ,
             "VOICE_CALL_LOG": str(log),
-            "SETTINGS_FILE": str(BUSINESS_FILE),
+            "SETTINGS_FILE": str(SETTINGS_FILES.get(scenario, BUSINESS_FILE)),
             "SETTINGS_URL": "",
+            "ALLOW_LOCAL_MODULES": "1",
         },
         start_new_session=True,
     )

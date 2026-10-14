@@ -14,13 +14,20 @@ from typing import Any
 import pytest
 from dotenv import dotenv_values
 
-from tests.evals.checks import BUSINESS_FILE
+from tests.evals.checks import BUSINESS_FILE, MODULE_BUSINESS_FILE
 from tests.portal.contract import SCHEMA, schema_errors
 from voice.agent import DISCLOSURE, REFUSAL, refusal_instruction, system_instruction
 from voice.settings import (
     FACTS_MAX,
     LANGUAGES,
+    MODULE_ARG_MAX,
+    MODULE_ARGS_MAX,
+    MODULE_COMMAND_MAX,
+    MODULE_NAME_MAX,
+    MODULE_URL_MAX,
+    MODULES_MAX,
     NAME_MAX,
+    Module,
     Settings,
     SettingsRefused,
     describe_source,
@@ -61,6 +68,10 @@ def fake_portal(status: int = 200, body: object = GOOD) -> Generator[str]:
         server.shutdown()
 
 
+REMOTE: dict[str, Any] = {"name": "booking", "url": "https://modules.example/mcp"}
+LOCAL: dict[str, Any] = {"name": "hours", "command": "python", "args": ["-m", "x"]}
+
+
 def portal_env(url: str) -> dict[str, str]:
     return {"SETTINGS_URL": url, "CORE_SECRET": "s3cret", "BUSINESS_ID": "7"}
 
@@ -80,6 +91,43 @@ def test_the_cores_limits_match_the_schema() -> None:
         "edit FACTS_MAX or the schema's facts maxLength"
     )
     assert set(SCHEMA["required"]) == {"name", "facts", "languages"}
+    modules = props["modules"]
+    remote, local = modules["items"]["oneOf"]
+    for core, schema, what in [
+        (MODULES_MAX, modules["maxItems"], "modules maxItems"),
+        (MODULE_NAME_MAX, remote["properties"]["name"]["maxLength"], "a Module's name"),
+        (MODULE_URL_MAX, remote["properties"]["url"]["maxLength"], "a Module's url"),
+        (MODULE_COMMAND_MAX, local["properties"]["command"]["maxLength"], "command"),
+        (MODULE_ARGS_MAX, local["properties"]["args"]["maxItems"], "args maxItems"),
+        (MODULE_ARG_MAX, local["properties"]["args"]["items"]["maxLength"], "an arg"),
+    ]:
+        assert core == schema, f"edit the core's limit or the schema's for {what}"
+
+
+MODULE_CASES: list[Any] = [
+    [],
+    [REMOTE],
+    [LOCAL],
+    [{"name": "m", "command": "x"}],
+    [REMOTE] * MODULES_MAX,
+    [REMOTE] * (MODULES_MAX + 1),
+    "not a list",
+    ["not an object"],
+    [{"name": "m"}],
+    [{"name": "", "url": "http://x"}],
+    [{"name": "m" * (MODULE_NAME_MAX + 1), "url": "http://x"}],
+    [{"name": "m", "url": "ftp://x"}],
+    [{"name": "m", "url": "http://" + "x" * MODULE_URL_MAX}],
+    [{"name": "m", "url": "http://x", "command": "x"}],
+    [{"name": "m", "url": "http://x", "args": []}],
+    [{"name": "m", "command": ""}],
+    [{"name": "m", "command": "x" * (MODULE_COMMAND_MAX + 1)}],
+    [{"name": "m", "command": "x", "args": [1]}],
+    [{"name": "m", "command": "x", "args": ["a"] * MODULE_ARGS_MAX}],
+    [{"name": "m", "command": "x", "args": ["a"] * (MODULE_ARGS_MAX + 1)}],
+    [{"name": "m", "command": "x", "args": ["a" * (MODULE_ARG_MAX + 1)]}],
+    [{"name": "m", "command": "x", "other": 1}],
+]
 
 
 @pytest.mark.parametrize(
@@ -95,6 +143,7 @@ def test_the_cores_limits_match_the_schema() -> None:
         {**GOOD, "languages": [list[str]()]},
         {**GOOD, "languages": [dict[str, str]()]},
         {**GOOD, "extra": 1},
+        *({**GOOD, "modules": modules} for modules in MODULE_CASES),
         {"name": "A", "facts": ""},
         ["not", "an", "object"],
     ],
@@ -139,6 +188,23 @@ def test_the_eval_channels_test_business_is_valid_settings() -> None:
     got = load_settings({"SETTINGS_FILE": str(BUSINESS_FILE)})
     assert got.name == "Tandkliniken Exempel" and got.languages == ("sv", "en")
     assert not schema_errors(json.loads(BUSINESS_FILE.read_text("utf-8")))
+
+
+def test_the_eval_channels_module_business_names_its_module() -> None:
+    got = load_settings({"SETTINGS_FILE": str(MODULE_BUSINESS_FILE)})
+    assert got.modules == (
+        Module("hours", command="python", args=("-m", "modules.example")),
+    )
+    assert not schema_errors(json.loads(MODULE_BUSINESS_FILE.read_text("utf-8")))
+
+
+def test_modules_come_through_from_the_portal() -> None:
+    with fake_portal(body={**GOOD, "modules": [REMOTE, LOCAL]}) as url:
+        got = load_settings(portal_env(url))
+    assert got.modules == (
+        Module("booking", url="https://modules.example/mcp"),
+        Module("hours", command="python", args=("-m", "x")),
+    )
 
 
 def test_a_missing_or_broken_file_refuses(tmp_path: Path) -> None:

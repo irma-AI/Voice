@@ -23,8 +23,12 @@ def test_what_the_portal_serves_matches_the_schema() -> None:
     assert not errors, f"edit Business.as_settings or the schema: {errors}"
 
 
+# The core can use Modules (VOI-27) before the Portal can store them: VOI-28 adds the Modules page and empties this set.
+NOT_YET_IN_THE_PORTAL = {"modules"}
+
+
 def test_the_editable_fields_are_exactly_the_schema_properties() -> None:
-    assert set(SettingsForm().fields) == set(PROPERTIES), (
+    assert set(SettingsForm().fields) == set(PROPERTIES) - NOT_YET_IN_THE_PORTAL, (
         "SettingsForm.Meta.fields and the schema's properties must list the same settings: edit whichever is wrong"
     )
 
