@@ -36,10 +36,13 @@ ALLOWED_HOSTS = (
 )
 # The address invite links point at; never taken from a request's Host header.
 PORTAL_URL = required("PORTAL_URL") or "http://localhost:8000"
+# The shared secret the core sends to fetch a Business's settings. Empty (only possible on a local run) refuses every request.
+CORE_SECRET = required("CORE_SECRET")
 
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.postgres",
     "django.contrib.sessions",
     "django.contrib.staticfiles",
     "portal.accounts",

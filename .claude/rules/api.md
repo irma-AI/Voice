@@ -16,4 +16,4 @@ Every Portal page is a Django view that shows its own state (`portal/accounts/vi
 ## Enforced by
 
 - `tests/portal/test_routes.py`: every route outside `OPEN` sends a visitor to the login.
-- One Business never reads another's data: none yet (the first page that shows Business data adds its test).
+- One Business never reads another's data: `tests/portal/test_business_settings.py` (a Business edits only its own settings). The settings address for the core (`settings_for_core`) is open in `OPEN` because the shared secret gates it, not a session; its test refuses a missing, wrong or unset secret.

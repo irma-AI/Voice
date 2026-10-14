@@ -2772,6 +2772,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "django-stubs" },
+    { name = "jsonschema" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-django" },
@@ -2789,6 +2790,7 @@ requires-dist = [{ name = "pipecat-ai", extras = ["cli", "google", "runner", "we
 [package.metadata.requires-dev]
 dev = [
     { name = "django-stubs" },
+    { name = "jsonschema" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-django" },

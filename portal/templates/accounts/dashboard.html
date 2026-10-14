@@ -2,5 +2,5 @@
 {% block title %}Dashboard · Voice Portal{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-semibold">{{ business.name|default:"Your account" }}</h1>
-<p class="mt-4 text-stone-700">Nothing to show yet. Your agent's settings will appear here.</p>
+<p class="mt-4"><a href="{% url 'business_settings' %}" class="underline">Edit your agent's settings</a></p>
 {% endblock %}

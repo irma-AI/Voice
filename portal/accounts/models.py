@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models.functions import Lower, Trim
+
+# The languages a Business may pick; contract/business-settings.schema.json lists the same two (tests/portal/test_settings_contract.py).
+LANGUAGES = {"sv": "Swedish", "en": "English"}
+
+
+def swedish_only() -> list[str]:
+    return ["sv"]
 
 
 def clean_email(email: str) -> str:
@@ -47,6 +55,11 @@ class Business(models.Model):
         Account, on_delete=models.PROTECT, related_name="business"
     )
     name = models.CharField(max_length=200)
+    facts = models.CharField(max_length=5000, blank=True, default="")
+    languages = ArrayField(
+        models.CharField(max_length=2, choices=list(LANGUAGES.items())),
+        default=swedish_only,
+    )
     max_calls_per_day = models.IntegerField(default=10)
     max_minutes_per_day = models.IntegerField(default=30)
 
@@ -55,6 +68,11 @@ class Business(models.Model):
             models.CheckConstraint(
                 condition=models.Q(name__regex=r"\S"),
                 name="business_name_must_not_be_blank",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(languages__len__gte=1)
+                & models.Q(languages__contained_by=list(LANGUAGES)),
+                name="business_languages_must_be_one_or_more_known",
             ),
             models.CheckConstraint(
                 condition=models.Q(max_calls_per_day__gte=0),
@@ -68,3 +86,11 @@ class Business(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def as_settings(self) -> dict[str, object]:
+        """What the settings address serves: exactly the properties of contract/business-settings.schema.json."""
+        return {
+            "name": self.name,
+            "facts": self.facts,
+            "languages": self.languages,
+        }
