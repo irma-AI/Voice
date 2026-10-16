@@ -3,7 +3,7 @@
 # so CI never passes while checking nothing. A target that does not apply here becomes
 # `@echo "n/a: <reason>"`, which records the choice.
 .DEFAULT_GOAL := help
-.PHONY: help setup up down portal-up portal-down eval eval-audio seed merge-check check lint typecheck test test-db guards generate generate-check build
+.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio seed merge-check check lint typecheck test test-db guards generate generate-check build
 
 unconfigured = @echo "make $(1): not configured yet. Fill in this target for your stack (docs/agents/recipes/)." >&2; exit 1
 
@@ -31,6 +31,13 @@ portal-up: ## Start the Portal at http://localhost:8000 with its Postgres and mi
 
 portal-down: ## Stop the Portal's Postgres (its data stays in a Docker volume)
 	docker compose down
+
+self-host: ## Start the core, the Portal and Postgres together on this machine (README § Self-host)
+	scripts/ensure-docker.sh
+	docker compose -f compose.self-host.yml up --build
+
+self-host-down: ## Stop what `make self-host` started (the Portal's data stays in a Docker volume)
+	docker compose -f compose.self-host.yml down
 
 eval: ## PAID, ask Petter first (local, or the manual Evals workflow): run the Scenarios (ONLY=<id> for one); a full pass writes eval-receipt.json
 	uv run python -m tests.evals.run $(ONLY)
@@ -73,6 +80,7 @@ generate-check: ## Fail when a generated file is stale, printing the command tha
 
 build: ## Build every configuration this repo ships
 	docker build -t voice .
+	docker build --target portal -t voice-portal .
 
 merge-check: ## Is this branch low-risk enough for an agent to turn on auto-merge? (scripts/low-risk-paths.json)
 	node scripts/merge-check.js
