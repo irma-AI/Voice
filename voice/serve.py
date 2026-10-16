@@ -28,6 +28,7 @@ from pipecat.transports.websocket.fastapi import (
 
 from voice.agent import run_call
 from voice.auth import BasicAuth
+from voice.calls import NotLetStart
 from voice.settings import describe_source
 from voice.ticket import from_query, ticket_business
 
@@ -121,7 +122,15 @@ def create_app(user: str, password: str, ticket_secret: str = "") -> FastAPI:
         async def _time_up(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
             await websocket.close()
 
-        await run_call(transport, business_id=business_id)
+        try:
+            await run_call(transport, business_id=business_id)
+        except NotLetStart as refused:
+            # The Portal said no before any model session opened: the page shows the reason as text and the socket closes.
+            logger.warning("call not let start: {}", refused)
+            await websocket.send_text(
+                json.dumps({"type": "refused", "text": refused.text})
+            )
+            await websocket.close()
 
     return app
 

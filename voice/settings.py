@@ -12,7 +12,7 @@ import os
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit
@@ -34,7 +34,7 @@ MAX_REPLY_BYTES = (
 )
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
+class NoRedirect(urllib.request.HTTPRedirectHandler):
     """A redirect would carry the secret to wherever it points; a moved Portal is a refused call."""
 
     def redirect_request(self, *_: Any, **__: Any) -> None:
@@ -61,6 +61,8 @@ class Settings:
     facts: str
     languages: tuple[str, ...]
     modules: tuple[Module, ...] = ()
+    # The Portal's number for the Business, set only when the Portal served these settings: calls are counted against it (voice/calls.py).
+    business_id: str | None = None
 
 
 def _text(value: object, longest: int) -> str:
@@ -149,7 +151,7 @@ def _from_portal(url: str, secret: str, business_id: str) -> Settings:
     )  # the log names the host only: the address could hold a password
     if parts.scheme not in ("http", "https") or not host:
         raise SettingsRefused("SETTINGS_URL must be an http or https address")
-    # The id is the Portal's database id until VOI-29 adds the public call link.
+    # The id is the Portal's database id; a public call link reaches the core as a ticket that names it (voice/ticket.py).
     if not business_id.isascii() or not business_id.isdigit():
         raise SettingsRefused("BUSINESS_ID must be the Business's number in the Portal")
     address = f"{url.rstrip('/')}/api/settings/{business_id}/"
@@ -157,10 +159,12 @@ def _from_portal(url: str, secret: str, business_id: str) -> Settings:
         request = urllib.request.Request(
             address, headers={"Authorization": f"Bearer {secret}"}
         )
-        with urllib.request.build_opener(_NoRedirect).open(
+        with urllib.request.build_opener(NoRedirect).open(
             request, timeout=PORTAL_TIMEOUT_S
         ) as reply:
-            return parse(json.loads(reply.read(MAX_REPLY_BYTES)))
+            return replace(
+                parse(json.loads(reply.read(MAX_REPLY_BYTES))), business_id=business_id
+            )
     except SettingsRefused:
         raise
     except urllib.error.HTTPError as e:

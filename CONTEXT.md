@@ -20,6 +20,10 @@ _Avoid_: transfer, escalation
 The business whose calls the agent answers, with its own facts and Modules. One Business is one Portal account. Its settings are a name, free-text facts and languages; anything more structured for the agent comes as a Module, never as a fixed Portal field.
 _Avoid_: tenant, customer, clinic, client, agency
 
+**Call link**:
+A Business's public address (`/call/<unguessable>/` on the Portal) where anyone can start a call with its settings, within its daily limits and unless it is switched off.
+_Avoid_: public URL, widget
+
 **Barge-in**:
 The Caller speaking while the agent talks, so the agent stops. A false barge-in is one where no words followed, usually noise.
 _Avoid_: interruption, cut-off

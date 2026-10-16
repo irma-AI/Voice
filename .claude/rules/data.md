@@ -16,5 +16,5 @@ The Portal's system of record is Postgres (`DATABASE_URL`), with no cache or que
 ## Enforced by
 
 - `db-test-required` guard (`scripts/checks/db-test-required.json`): a changed migration needs a change under `tests/portal/`, or `db-test: skip <reason>`.
-- The refusals themselves: `tests/portal/test_accounts.py` (second Business on an account, duplicate or upper-case email, negative limit, empty name) and `tests/portal/test_business_settings.py` (no language or an unknown one, a setting longer than the contract allows).
+- The refusals themselves: `tests/portal/test_accounts.py` (second Business on an account, duplicate or upper-case email, negative limit, empty name) and `tests/portal/test_business_settings.py` (no language or an unknown one, a setting longer than the contract allows) and `tests/portal/test_calls.py` (a second Business with the same call link, a negative call length). The daily limits themselves are not a constraint (they count rows): `Business.start_call` locks the Business row and the real-store tests make the bad start.
 - Catalog sweep tests: none yet.

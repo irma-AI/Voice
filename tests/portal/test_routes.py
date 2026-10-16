@@ -4,7 +4,9 @@ from django.test import Client
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 
 # Open on purpose: the public page, the login, logout (POST only), the password steps a Business reaches before it has a session,
-# and the settings address the core calls: it has no session and refuses without the shared secret (tests/portal/test_business_settings.py).
+# the settings, call-start and call-end addresses the core calls: they have no session and refuse without the shared secret
+# (tests/portal/test_business_settings.py, tests/portal/test_calls.py), and a Business's public call link, which anyone may open
+# because the core's limits and off switch are what decide whether a call starts (tests/portal/test_calls.py).
 OPEN = {
     "home",
     "login",
@@ -14,6 +16,9 @@ OPEN = {
     "password_reset_confirm",
     "password_reset_complete",
     "settings_for_core",
+    "start_call",
+    "end_call",
+    "call_link",
 }
 
 
