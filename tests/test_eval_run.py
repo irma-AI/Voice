@@ -14,7 +14,7 @@ from tests.evals.run import (
     Row,
     main,
     missing_audio,
-    module_skips,
+    module_log,
     plan,
     report,
 )
@@ -83,13 +83,13 @@ def test_missing_audio_is_found_before_any_scenario_is_played(tmp_path: Path) ->
     assert missing_audio(["a"], tmp_path) is None
 
 
-def test_a_skipped_module_in_the_bot_log_is_found(tmp_path: Path) -> None:
-    logs = tmp_path / "module_hours_1" / "logs"
+def test_a_module_line_in_the_bot_log_is_found(tmp_path: Path) -> None:
+    logs = tmp_path / "module_hours_1" / "deeper"
     logs.mkdir(parents=True)
     (logs / "bot.log").write_text(
         "ok\nModule 'hours' skipped: TimeoutError\nok\n", "utf-8"
     )
-    assert module_skips(tmp_path, "module_hours_1") == [
+    assert module_log(tmp_path, "module_hours_1") == [
         "Module 'hours' skipped: TimeoutError"
     ]
-    assert module_skips(tmp_path, "module_hours_2") == []
+    assert module_log(tmp_path, "module_hours_2") == []

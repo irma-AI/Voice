@@ -119,6 +119,7 @@ async def connect_modules(
                 continue
             kept, dropped = admit(connected.actions, result)
             connected.actions += kept
+            logger.info("Module {!r} connected, {} Actions", module.name, len(kept))
             for name in dropped:
                 logger.error("Module {!r} skipped its Action {!r}", module.name, name)
     except BaseException:
