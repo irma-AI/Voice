@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad: the right closing times but no call of the Action (a lucky guess).",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet måndag till fredag 09 till 19 och lördag 10 till 15."
+  }
+ ]
+}
