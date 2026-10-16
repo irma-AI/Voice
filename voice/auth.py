@@ -1,6 +1,6 @@
-"""The login in front of the web Channel: one shared name and password (HTTP Basic).
+"""The login in front of the web Channel: one shared name and password (HTTP Basic), or a Portal ticket.
 
-It sits in front of every route, so nobody without it can start a call and spend Gemini credit.
+It sits in front of every route, so nobody without one can start a call and spend Gemini credit.
 """
 
 import base64
@@ -11,7 +11,11 @@ from http.cookies import CookieError, SimpleCookie
 from loguru import logger
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from voice.ticket import from_query, ticket_business
+
 COOKIE = "voice_session"
+# The only pages a Portal ticket opens: the call page and its WebSocket.
+TICKET_PATHS = ("/", "/ws")
 
 
 def allowed(header: str | None, user: str, password: str) -> bool:
@@ -52,10 +56,13 @@ def has_session(cookie_header: str | None, password: str) -> bool:
 class BasicAuth:
     """ASGI middleware: refuses every request and WebSocket without the Basic login or the cookie it sets."""
 
-    def __init__(self, app: ASGIApp, user: str, password: str) -> None:
+    def __init__(
+        self, app: ASGIApp, user: str, password: str, ticket_secret: str = ""
+    ) -> None:
         if not password:  # fail closed: an empty password must never mean an open page
             raise ValueError("VOICE_PASSWORD is empty")
         self.app, self.user, self.password = app, user, password
+        self.ticket_secret = ticket_secret  # empty: no ticket is ever valid
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "lifespan":
@@ -64,6 +71,15 @@ class BasicAuth:
         header = headers.get(b"authorization", b"").decode("latin-1")
         if allowed(header, self.user, self.password):
             return await self.app(scope, receive, self.remember(scope, send))
+        # A Portal ticket (voice/ticket.py) opens the call page for the one Business it names; the call itself checks it again.
+        if (
+            scope.get("path") in TICKET_PATHS
+            and ticket_business(
+                from_query(scope.get("query_string", b"")), self.ticket_secret
+            )
+            is not None
+        ):
+            return await self.app(scope, receive, send)
         # Browsers don't reliably send the cached Basic login on a WebSocket handshake, but they send cookies.
         if has_session(headers.get(b"cookie", b"").decode("latin-1"), self.password):
             return await self.app(scope, receive, send)

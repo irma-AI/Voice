@@ -171,8 +171,14 @@ def _from_portal(url: str, secret: str, business_id: str) -> Settings:
         ) from None
 
 
-def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
-    """The settings for the next call, read fresh each time so a Portal change shows up in it."""
+def load_settings(
+    env: Mapping[str, str] = os.environ, business_id: str | None = None
+) -> Settings:
+    """The settings for the next call, read fresh each time so a Portal change shows up in it.
+
+    `business_id` names the Business a ticket was signed for (voice/ticket.py) and wins over BUSINESS_ID. Only the
+    Portal can serve a named Business: a file holds one Business's settings, which would be another's here.
+    """
     portal = env.get("SETTINGS_URL", "").strip()
     file = env.get("SETTINGS_FILE", "").strip()
     if portal and file:
@@ -180,11 +186,17 @@ def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
             "both SETTINGS_URL and SETTINGS_FILE are set: set only one settings source"
         )
     if file:
+        if business_id is not None:
+            raise SettingsRefused(
+                "a call for a named Business needs the Portal, but only SETTINGS_FILE is set"
+            )
         return _from_file(file)
     if portal:
         secret, business = (
             env.get("CORE_SECRET", ""),
-            env.get("BUSINESS_ID", "").strip(),
+            (
+                env.get("BUSINESS_ID", "") if business_id is None else business_id
+            ).strip(),
         )
         if not secret or not business:
             raise SettingsRefused(

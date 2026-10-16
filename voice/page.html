@@ -67,7 +67,7 @@ async function start() {
     ctx = new AudioContext();
     await ctx.resume();
     await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" })));
-    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws${location.search}`);
     ws.binaryType = "arraybuffer";
     await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = () => fail(new Error("ws")); });
   } catch (e) {

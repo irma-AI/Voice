@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("settings/", views.business_settings, name="business_settings"),
+    path("test-call/", views.test_call, name="test_call"),
     path(
         "api/settings/<int:business_id>/",
         views.settings_for_core,

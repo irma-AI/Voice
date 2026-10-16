@@ -43,9 +43,11 @@ GOOD: dict[str, Any] = {
 
 
 @contextmanager
-def fake_portal(status: int = 200, body: object = GOOD) -> Generator[str]:
+def fake_portal(
+    status: int = 200, body: object = GOOD, paths: list[str] | None = None
+) -> Generator[str]:
     """A real server that answers like the Portal's settings address: Bearer `s3cret`, or 401."""
-    seen: list[str] = []
+    seen: list[str] = [] if paths is None else paths  # the addresses asked for
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -216,6 +218,23 @@ def test_a_missing_or_broken_file_refuses(tmp_path: Path) -> None:
 
 
 # --- the Portal adapter ---
+
+
+def test_a_named_business_wins_over_the_cores_own_and_never_comes_from_a_file(
+    tmp_path: Path,
+) -> None:
+    asked: list[str] = []
+    with fake_portal(paths=asked) as url:
+        load_settings(
+            portal_env(url), "42"
+        )  # a ticket named Business 42; BUSINESS_ID is 7
+    assert asked == ["/api/settings/42/"]
+    with pytest.raises(SettingsRefused, match="named Business"):
+        load_settings({"SETTINGS_FILE": str(BUSINESS_FILE)}, "42")
+    with pytest.raises(
+        SettingsRefused, match="missing"
+    ):  # a ticket does not stand in for the secret
+        load_settings({"SETTINGS_URL": "http://x"}, "42")
 
 
 def test_the_portal_is_asked_for_the_business_with_the_secret() -> None:
