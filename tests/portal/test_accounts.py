@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 import pytest
 from django.core import mail
+from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
@@ -274,3 +275,29 @@ def test_an_invite_that_cannot_be_sent_leaves_no_account_and_does_not_name_the_a
         and refused_invite.value.__suppress_context__
     )
     assert (Account.objects.count(), Business.objects.count()) == (0, 0)
+
+
+def test_login_is_refused_after_ten_wrong_passwords_even_with_the_right_one() -> None:
+    cache.clear()
+    Account.objects.create_user(EMAIL, PASSWORD)
+    client = Client()
+    for _ in range(10):
+        wrong = client.post("/login/", {"username": EMAIL, "password": "not-it"})
+        assert wrong.status_code == 200
+    locked = client.post("/login/", {"username": EMAIL, "password": PASSWORD})
+    assert locked.status_code == 200 and "Too many failed attempts" in locked.text
+    assert "_auth_user_id" not in client.session
+    cache.clear()
+
+
+def test_a_right_password_resets_the_wrong_ones() -> None:
+    cache.clear()
+    Account.objects.create_user(EMAIL, PASSWORD)
+    client = Client()
+    for _ in range(9):
+        client.post("/login/", {"username": EMAIL, "password": "not-it"})
+    assert (
+        client.post("/login/", {"username": EMAIL, "password": PASSWORD}).status_code
+        == 302
+    )
+    cache.clear()

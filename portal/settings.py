@@ -60,6 +60,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+if not DEBUG:  # a local run's runserver serves static files itself; the image serves the collected ones
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 ROOT_URLCONF = "portal.urls"
 TEMPLATES = [
     {
@@ -101,6 +103,10 @@ PASSWORD_RESET_TIMEOUT = (
 )  # an invite link lives a week; a reset link works the same way
 
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = not DEBUG
+if not DEBUG:
+    # Behind the host's proxy, which ends TLS and says so in this header. HSTS is 30 days for now, without subdomains.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = 30 * 24 * 3600
 
 if os.environ.get("EMAIL_HOST"):
     MAILERS = {
@@ -131,5 +137,8 @@ LOGGING = {
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = (
+    BASE_DIR.parent / "staticfiles"
+)  # collectstatic writes here at image build; WhiteNoise serves it
 USE_TZ = True
 TIME_ZONE = "UTC"

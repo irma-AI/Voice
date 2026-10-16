@@ -7,6 +7,8 @@ from django.conf import settings
 from django.contrib.auth import views as auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -16,10 +18,29 @@ from django.views.decorators.http import require_GET, require_POST
 from portal.accounts.models import LANGUAGES, Account, Business, clean_email
 from portal.accounts.ticket import mint
 
+LOGIN_TRIES = 10
+LOGIN_WINDOW = 15 * 60
+
 
 class LoginForm(AuthenticationForm):
     def clean_username(self) -> str:
         return clean_email(self.cleaned_data["username"])
+
+    def clean(self):
+        # shortcut: counts per email in this process's memory (the image runs one worker), so a restart resets it; move to the database before a second worker. Locks the owner out too for the window, which beats guessing.
+        key = f"login-failures:{clean_email(self.data.get('username', ''))}"
+        if cache.get(key, 0) >= LOGIN_TRIES:
+            raise ValidationError(
+                "Too many failed attempts. Try again in 15 minutes.", code="locked"
+            )
+        try:
+            cleaned = super().clean()
+        except ValidationError:
+            cache.add(key, 0, LOGIN_WINDOW)
+            cache.incr(key)
+            raise
+        cache.delete(key)
+        return cleaned
 
 
 class ResetForm(PasswordResetForm):
