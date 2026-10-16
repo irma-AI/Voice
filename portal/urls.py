@@ -8,6 +8,8 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("settings/", views.business_settings, name="business_settings"),
+    path("modules/", views.modules, name="modules"),
+    path("modules/<int:module_id>/remove/", views.remove_module, name="remove_module"),
     path("test-call/", views.test_call, name="test_call"),
     path(
         "api/settings/<int:business_id>/",

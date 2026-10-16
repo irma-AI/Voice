@@ -2,10 +2,17 @@
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 from __future__ import annotations
 
+import logging
+
+from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models.functions import Lower, Trim
+
+from portal.accounts import modules as module_rules
+
+log = logging.getLogger(__name__)
 
 # The languages a Business may pick; contract/business-settings.schema.json lists the same two (tests/portal/test_settings_contract.py).
 LANGUAGES = {"sv": "Swedish", "en": "English"}
@@ -93,4 +100,73 @@ class Business(models.Model):
             "name": self.name,
             "facts": self.facts,
             "languages": self.languages,
+            "modules": [m.as_setting() for m in self.modules_to_serve()],
         }
+
+    def modules_to_serve(self) -> list[Module]:
+        """The Modules the core is told about. A local one is left out unless self-hosting allows it: the settings check itself, whatever wrote the row."""
+        served: list[Module] = []
+        for module in self.modules.order_by("id"):  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
+            if module.command and not settings.ALLOW_LOCAL_MODULES:
+                log.error(
+                    "Module %s of Business %s is local and not allowed here, so it is not served",
+                    module.pk,
+                    self.pk,
+                )
+                continue
+            served.append(module)
+        return served
+
+
+class Module(models.Model):
+    """An MCP server a Business's agent may use: its name and address only. Credentials stay inside the Module; the database refuses an address that could hold one."""
+
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="modules"
+    )
+    name = models.CharField(max_length=module_rules.NAME_MAX)
+    url = models.CharField(max_length=module_rules.URL_MAX, blank=True, default="")
+    command = models.CharField(
+        max_length=module_rules.COMMAND_MAX, blank=True, default=""
+    )
+    args = ArrayField(
+        models.CharField(max_length=module_rules.ARG_MAX),
+        blank=True,
+        default=list,
+    )
+
+    class Meta:
+        # At most MODULES_MAX per Business is a trigger in migration 0004: a count cannot be a constraint.
+        constraints = [
+            models.UniqueConstraint(
+                fields=["business", "name"],
+                name="module_name_must_be_unique_per_business",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(name__regex=r"\S"),
+                name="module_name_must_not_be_blank",
+            ),
+            models.CheckConstraint(
+                condition=(models.Q(url="") & ~models.Q(command=""))
+                | (~models.Q(url="") & models.Q(command="") & models.Q(args__len=0)),
+                name="module_must_have_an_address_or_a_command_not_both",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(url="")
+                | models.Q(url__regex=module_rules.URL_PATTERN),
+                name="module_address_must_be_plain_with_no_password_or_key",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(args__len__lte=module_rules.ARGS_MAX),
+                name="module_must_have_at_most_20_args",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def as_setting(self) -> dict[str, object]:
+        """One item of the settings' `modules`: exactly the shape of contract/business-settings.schema.json."""
+        if self.command:
+            return {"name": self.name, "command": self.command, "args": self.args}
+        return {"name": self.name, "url": self.url}

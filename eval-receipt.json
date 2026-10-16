@@ -3,7 +3,7 @@
     "voice/agent.py": "10631d9f595e806bd1f8a0aba4231b8c55ead7708b472d96670bea16bffb7c02",
     "voice/bargein.py": "e069e4ae5fce8d70cdee5be5ad63e1fc9e2e1d4afb909c00aa7ec2a16e0e4ed5",
     "voice/settings.py": "7ffe968823b6ae4dd8b8d69929765efd7558c7010790d0ee0a993bcbb60b5548",
-    "voice/modules.py": "707692763534ced592c342c51c34551853979fc8eacbfa398b95a462092940a1",
+    "voice/modules.py": "d31c8cceaa9d7498d5392f9022efb8bf0e161334d5c5e44e2abcc9d7726cfebe",
     "modules/example.py": "55e636c4e0e0ceb3872bf8867d27870917105ac4a476c8ab56f88a1420591f31",
     "tests/evals/business.json": "270e7b8dc7b18dda8772b76529cd5d0fdd8a44b931542442b98dd4596c09cb19",
     "tests/evals/business_module.json": "a5b05642df145464caa239159c212b61d240e26507f72c33a573bf50f70171a7",

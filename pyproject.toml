@@ -16,6 +16,7 @@ portal = [
     "dj-database-url",
     "gunicorn>=26.2.0",
     "whitenoise>=6.12.0",
+    "mcp",
 ]
 
 [tool.uv]

@@ -2800,6 +2800,7 @@ portal = [
     { name = "dj-database-url" },
     { name = "django" },
     { name = "gunicorn" },
+    { name = "mcp" },
     { name = "psycopg", extra = ["binary"] },
     { name = "whitenoise" },
 ]
@@ -2820,6 +2821,7 @@ portal = [
     { name = "dj-database-url" },
     { name = "django" },
     { name = "gunicorn", specifier = ">=26.2.0" },
+    { name = "mcp" },
     { name = "psycopg", extras = ["binary"] },
     { name = "whitenoise", specifier = ">=6.12.0" },
 ]
