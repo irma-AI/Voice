@@ -58,6 +58,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         context |= {
             "calls_today": calls,
             "minutes_today": -(-seconds // 60),
+            "unreported_minutes": LONGEST_CALL_SECONDS // 60,
             "call_url": settings.PORTAL_URL.rstrip("/")
             + reverse("call_link", args=[business.call_slug]),
         }

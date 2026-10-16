@@ -12,7 +12,7 @@
 <section class="mt-8">
   <h2 class="text-lg font-semibold">Calls</h2>
   <p class="mt-2">{% if business.enabled %}Your agent takes calls.{% else %}Your agent is switched off, so every call is refused.{% endif %}</p>
-  <p class="mt-2 text-sm">Today: {{ calls_today }} of {{ business.max_calls_per_day }} calls, {{ minutes_today }} of {{ business.max_minutes_per_day }} minutes. A call whose end has not been reported counts as ten minutes. The limits are set by whoever runs this Portal.</p>
+  <p class="mt-2 text-sm">Today: {{ calls_today }} of {{ business.max_calls_per_day }} calls, {{ minutes_today }} of {{ business.max_minutes_per_day }} minutes. A call whose end has not been reported counts as {{ unreported_minutes }} minutes. The limits are set by whoever runs this Portal.</p>
   <p class="mt-4">Your public call link: <a href="{{ call_url }}" class="underline break-all">{{ call_url }}</a></p>
 </section>
 {% endif %}

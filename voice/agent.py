@@ -116,20 +116,22 @@ async def run_call(
     modules = Connected()
     call: calls.Call | None = None
     try:
-        settings = await asyncio.to_thread(
-            load_settings,
-            os.environ,
-            None if business_id is None else str(business_id),
-        )
-        # The Portal counts the call against the Business's limits and may say no (NotLetStart): nothing below runs for a call it refuses.
-        call = await asyncio.to_thread(calls.start, settings)
-        # The Business's Modules are read once, here: Gemini Live fixes its tool list when the call starts.
-        modules = await connect_modules(settings.modules, local_modules_allowed())
-        instruction = system_instruction(settings, has_actions=bool(modules.actions))
-    except SettingsRefused as e:
-        logger.error("call refused: {}", e)
-        instruction, refused = refusal_instruction(), True
-    try:
+        try:
+            settings = await asyncio.to_thread(
+                load_settings,
+                os.environ,
+                None if business_id is None else str(business_id),
+            )
+            # The Portal counts the call against the Business's limits and may say no (NotLetStart): nothing below runs for a call it refuses.
+            call = await asyncio.to_thread(calls.start, settings)
+            # The Business's Modules are read once, here: Gemini Live fixes its tool list when the call starts.
+            modules = await connect_modules(settings.modules, local_modules_allowed())
+            instruction = system_instruction(
+                settings, has_actions=bool(modules.actions)
+            )
+        except SettingsRefused as e:
+            logger.error("call refused: {}", e)
+            instruction, refused = refusal_instruction(), True
         await _run(
             transport,
             instruction,
@@ -140,7 +142,7 @@ async def run_call(
             handle_sigint,
         )
     finally:
-        if call:
+        if call:  # however the call ends, the Portal is told (a lost report counts as the longest call)
             await asyncio.to_thread(calls.finish, call)
         await modules.close()  # a call that fails before its pipeline starts must not leave a Module running
 

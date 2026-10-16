@@ -78,6 +78,9 @@ def _post(address: str, secret: str, body: dict[str, Any]) -> tuple[int, object]
 def start(settings: Settings, env: Mapping[str, str] = os.environ) -> Call | None:
     """Asks the Portal to let a call start. None when the settings did not come from the Portal, so there is nothing to count against."""
     if settings.business_id is None:
+        logger.info(
+            "these settings have no Portal behind them, so the call has no limits"
+        )  # failing open leaves a trace
         return None
     base, secret = env["SETTINGS_URL"].rstrip("/"), env["CORE_SECRET"]
     host = urlsplit(

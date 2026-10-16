@@ -14,7 +14,7 @@ from django.utils import timezone
 LANGUAGES = {"sv": "Swedish", "en": "English"}
 
 
-# Why the core is told to refuse a call; voice/calls.py REASONS lists the same words (tests/portal/test_calls.py holds them together).
+# Why the core is told to refuse a call; voice/calls.py REFUSED has the same two words (tests/portal/test_calls.py holds them together).
 OFF, LIMIT = "off", "limit"
 # The longest a call can run: voice/serve.py MAX_CALL_SECS (tests/portal/test_calls.py). A call whose end the core never reported counts as this long.
 LONGEST_CALL_SECONDS = 600

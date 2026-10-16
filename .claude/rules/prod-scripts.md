@@ -14,4 +14,4 @@ Every such script follows one contract, whatever its language. In the Portal tha
 
 ## Enforced by
 
-- `tests/portal/test_accounts.py`: the invite command changes nothing without the reviewed hash or with the wrong target. A new command adds its own test.
+- `tests/portal/test_accounts.py`: the invite command changes nothing without the reviewed hash or with the wrong target. `configure_business` (the switch and the daily limits) follows the same contract, tested in `tests/portal/test_calls.py`. A new command adds its own test.
