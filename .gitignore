@@ -39,3 +39,4 @@ __pycache__/
 .pytest_cache/
 eval-runs/
 node_modules/
+/staticfiles/

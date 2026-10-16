@@ -1,7 +1,9 @@
 # pyright: basic
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
+import hashlib
 import hmac
 import json
+import unicodedata
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
@@ -11,6 +13,8 @@ from django.conf import settings
 from django.contrib.auth import views as auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -28,10 +32,41 @@ from portal.accounts.models import (
 )
 from portal.accounts.ticket import mint
 
+LOGIN_TRIES = 10
+LOGIN_WINDOW = 15 * 60
+
 
 class LoginForm(AuthenticationForm):
     def clean_username(self) -> str:
         return clean_email(self.cleaned_data["username"])
+
+    def clean(self):
+        # shortcut: counts per email in this process's memory (the image runs one worker), so a restart resets it; move to the database before a second worker. Locks the owner out too for the window, which beats guessing.
+        # Normalised the way Django's username field does before it authenticates, so a look-alike spelling of one address shares one count.
+        typed = unicodedata.normalize("NFKC", str(self.data.get("username", "")))
+        key = (
+            "login-failures:" + hashlib.sha256(clean_email(typed).encode()).hexdigest()
+        )
+        if cache.get(key, 0) >= LOGIN_TRIES:
+            raise ValidationError(
+                "Too many failed attempts. Try again in 15 minutes.", code="locked"
+            )
+        try:
+            cleaned = super().clean()
+        except ValidationError:
+            cache.add(key, 0, LOGIN_WINDOW)
+            try:
+                cache.incr(key)
+            except (
+                ValueError
+            ):  # the key expired between add and incr: this attempt starts a new window
+                cache.set(key, 1, LOGIN_WINDOW)
+            raise
+        if (
+            self.user_cache
+        ):  # a blank password skips authenticate() and must not clear the count
+            cache.delete(key)
+        return cleaned
 
 
 class ResetForm(PasswordResetForm):
