@@ -127,6 +127,16 @@ def _record(runs: Path, now: datetime, run_id: str, loop_id: str, sek: float) ->
         f.write(json.dumps(entry) + "\n")
 
 
+def module_skips(run_dir: Path, name: str) -> list[str]:
+    """The bot's own log lines saying a Module or Action was skipped on this call (name and failure kind only)."""
+    lines = (
+        line
+        for f in sorted((run_dir / name / "logs").glob("*.log"))
+        for line in f.read_text("utf-8", errors="replace").splitlines()
+    )
+    return [line for line in lines if "skipped" in line][:5]
+
+
 def missing_audio(ids: list[str], scenarios: Path = SCENARIO_DIR) -> str | None:
     """The first audio file the given Scenarios play that does not exist, if any."""
     for sc in ids:
@@ -210,6 +220,11 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
             None,
         )
         rows.append(Row(sc, verdicts, sek, tokens, delay))
+        if not all(v.passed for v in verdicts.values()):
+            for line in module_skips(
+                run_dir, sc
+            ):  # a call without its Module looks like a model miss
+                print(f"{sc}: {line}", file=sys.stderr)
         stopped = stopped_by(
             caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))
         )
