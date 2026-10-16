@@ -240,8 +240,7 @@ def test_a_named_business_wins_over_the_cores_own_and_never_comes_from_a_file(
 def test_the_portal_is_asked_for_the_business_with_the_secret() -> None:
     with fake_portal() as url:
         got = load_settings(portal_env(url))
-    # The Portal's number for the Business rides along, so the call can be counted against it (voice/calls.py).
-    assert got == Settings("Anna's Salon", "Öppet 8-17.", ("sv", "en"), business_id="7")
+    assert got == Settings("Anna's Salon", "Öppet 8-17.", ("sv", "en"))
 
 
 def test_a_settings_change_shows_up_in_the_next_call() -> None:

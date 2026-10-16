@@ -2,10 +2,7 @@
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 import hashlib
 import hmac
-import json
 import unicodedata
-from collections.abc import Callable
-from functools import wraps
 from typing import Any
 
 from django import forms
@@ -15,21 +12,16 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from portal.accounts.models import (
-    LANGUAGES,
-    LONGEST_CALL_SECONDS,
-    Account,
-    Business,
-    Call,
-    clean_email,
-)
+from portal.accounts import modules as module_rules
+from portal.accounts import probe
+from portal.accounts.models import LANGUAGES, Account, Business, Module, clean_email
 from portal.accounts.ticket import mint
 
 LOGIN_TRIES = 10
@@ -87,17 +79,16 @@ def home(request: HttpRequest) -> HttpResponse:
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
     business = Business.objects.filter(account=request.user).first()
-    context: dict[str, Any] = {"business": business}
-    if business:
-        calls, seconds = business.used_today()
-        context |= {
-            "calls_today": calls,
-            "minutes_today": -(-seconds // 60),
-            "unreported_minutes": LONGEST_CALL_SECONDS // 60,
-            "call_url": settings.PORTAL_URL.rstrip("/")
+    return render(
+        request,
+        "accounts/dashboard.html",
+        {
+            "business": business,
+            "call_url": business
+            and settings.PORTAL_URL.rstrip("/")
             + reverse("call_link", args=[business.call_slug]),
-        }
-    return render(request, "accounts/dashboard.html", context)
+        },
+    )
 
 
 class SettingsForm(forms.ModelForm):
@@ -131,6 +122,82 @@ def business_settings(request: HttpRequest) -> HttpResponse:
     )
 
 
+class ModuleForm(forms.Form):
+    """Adding a Module: a name and an address. The address is parsed once here into what the database stores."""
+
+    name = forms.CharField(max_length=module_rules.NAME_MAX)
+    address = forms.CharField(max_length=module_rules.URL_MAX)
+
+    def __init__(self, *args: Any, business: Business, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.business = business
+
+    def clean_name(self) -> str:
+        name = self.cleaned_data["name"].strip()
+        if self.business.modules.filter(name=name).exists():  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+            raise forms.ValidationError("You already have a Module with that name.")
+        return name
+
+    def clean_address(self) -> tuple[str, str, list[str]]:
+        try:
+            return module_rules.parse_address(
+                self.cleaned_data["address"], settings.ALLOW_LOCAL_MODULES
+            )
+        except ValueError as e:
+            raise forms.ValidationError(str(e)) from None
+
+    def save(self) -> Module:
+        url, command, args = self.cleaned_data["address"]
+        return Module.objects.create(
+            business=self.business,
+            name=self.cleaned_data["name"],
+            url=url,
+            command=command,
+            args=args,
+        )
+
+
+@login_required
+def modules(request: HttpRequest) -> HttpResponse:
+    """The Business's Modules, the Actions each offers right now, and the form to add one."""
+    business = get_object_or_404(Business, account=request.user)
+    form = ModuleForm(request.POST or None, business=business)
+    if request.method == "POST" and form.is_valid():
+        try:
+            with transaction.atomic():
+                form.save()
+        except (
+            IntegrityError
+        ):  # the database's own limit (ten per Business) or a name taken a moment ago
+            form.add_error(
+                None,
+                f"The Module was not added: a Business has at most {module_rules.MODULES_MAX} Modules, with different names.",
+            )
+        else:
+            return redirect("modules")
+    mine = list(business.modules.order_by("id"))  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
+    offers = probe.what_they_offer(
+        [(m.url, m.command, m.args) for m in mine], settings.ALLOW_LOCAL_MODULES
+    )
+    return render(
+        request,
+        "accounts/modules.html",
+        {
+            "form": form,
+            "rows": list(zip(mine, offers, strict=True)),
+            "full": len(mine) >= module_rules.MODULES_MAX,
+        },
+    )
+
+
+@login_required
+@require_POST
+def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
+    """The one way a Module goes: only one of the logged-in Business's own."""
+    get_object_or_404(Module, pk=module_id, business__account=request.user).delete()
+    return redirect("modules")
+
+
 def to_core(business: Business) -> HttpResponse:
     """Sends a browser to the core's call page with a ticket for this one Business: the only way a browser is let to call."""
     # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
@@ -150,59 +217,21 @@ def test_call(request: HttpRequest) -> HttpResponse:
 @require_GET
 @never_cache
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
-    """A Business's public call link. Open to anyone: the core's limits and off switch decide whether the call is let start."""
+    """A Business's public call link. Open to anyone, so anyone can start a call for that Business (there is no limit yet, DECISIONS.md)."""
     return to_core(get_object_or_404(Business, call_slug=slug))
 
 
-def core_only(view: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
-    """Behind the shared secret, not a session or a CSRF token: the core has neither. An unset secret refuses everyone."""
-
-    @wraps(view)
-    def checked(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        secret: str = settings.CORE_SECRET
-        scheme, _, sent = request.headers.get("Authorization", "").partition(" ")
-        if (
-            not secret
-            or scheme != "Bearer"
-            or not hmac.compare_digest(sent.encode(), secret.encode())
-        ):
-            return JsonResponse({"error": "missing or wrong secret"}, status=401)
-        return view(request, *args, **kwargs)
-
-    return csrf_exempt(never_cache(checked))
-
-
 @require_GET
-@core_only
+@never_cache
 def settings_for_core(request: HttpRequest, business_id: int) -> HttpResponse:
-    """The one address the core asks for a Business's settings."""
+    """The one address the core asks for a Business's settings. Behind the shared secret, not a login; an unset secret refuses everyone."""
+    secret: str = settings.CORE_SECRET
+    scheme, _, sent = request.headers.get("Authorization", "").partition(" ")
+    if (
+        not secret
+        or scheme != "Bearer"
+        or not hmac.compare_digest(sent.encode(), secret.encode())
+    ):
+        return JsonResponse({"error": "missing or wrong secret"}, status=401)
     business = get_object_or_404(Business, pk=business_id)
     return JsonResponse(business.as_settings())
-
-
-@require_POST
-@core_only
-def start_call(request: HttpRequest, business_id: int) -> HttpResponse:
-    """The one address that lets a call start: the core opens no model session without the `call` it answers with."""
-    business = get_object_or_404(Business, pk=business_id)
-    call = business.start_call()
-    if isinstance(call, str):
-        return JsonResponse({"refused": call}, status=403)
-    return JsonResponse({"call": call.pk}, status=201)
-
-
-@require_POST
-@core_only
-def end_call(request: HttpRequest, call_id: int) -> HttpResponse:
-    """The core reports how long a call ran. Only the first report counts, and none is ever longer than a call can run."""
-    call = get_object_or_404(Call, pk=call_id)
-    try:
-        seconds = int(json.loads(request.body)["seconds"])
-    except (ValueError, KeyError, TypeError, OverflowError):
-        return JsonResponse({"error": "seconds must be a whole number"}, status=400)
-    if seconds < 0:
-        return JsonResponse({"error": "seconds must not be negative"}, status=400)
-    Call.objects.filter(pk=call.pk, seconds__isnull=True).update(
-        seconds=min(seconds, LONGEST_CALL_SECONDS)
-    )
-    return JsonResponse({}, status=200)

@@ -23,7 +23,6 @@ from pipecat.transcriptions.language import Language
 from pipecat.transports.base_transport import BaseTransport
 from pipecat.workers.runner import WorkerRunner
 
-from voice import calls
 from voice.bargein import VAD, BargeInRecorder
 from voice.modules import Connected, connect_modules, local_modules_allowed
 from voice.record import CallRecorder
@@ -103,8 +102,6 @@ async def run_call(
     """Runs one call on any Channel's transport until the Caller leaves.
 
     `business_id` is the Business a Portal ticket named; without it the core's own BUSINESS_ID applies.
-    Raises `calls.NotLetStart` before any model session opens when the Portal says the Business is off or over its limit:
-    the Channel tells the Caller, and nothing is spent.
     """
     # Pipecat logs what the Caller said at DEBUG, and its dev runner resets the level to DEBUG
     # at startup; transcripts never go in logs (.claude/rules/security.md), so cap it per call.
@@ -114,24 +111,19 @@ async def run_call(
     # the call is refused out loud and logged, never served from a fallback (ADR 0002).
     refused = False
     modules = Connected()
-    call: calls.Call | None = None
     try:
-        try:
-            settings = await asyncio.to_thread(
-                load_settings,
-                os.environ,
-                None if business_id is None else str(business_id),
-            )
-            # The Portal counts the call against the Business's limits and may say no (NotLetStart): nothing below runs for a call it refuses.
-            call = await asyncio.to_thread(calls.start, settings)
-            # The Business's Modules are read once, here: Gemini Live fixes its tool list when the call starts.
-            modules = await connect_modules(settings.modules, local_modules_allowed())
-            instruction = system_instruction(
-                settings, has_actions=bool(modules.actions)
-            )
-        except SettingsRefused as e:
-            logger.error("call refused: {}", e)
-            instruction, refused = refusal_instruction(), True
+        settings = await asyncio.to_thread(
+            load_settings,
+            os.environ,
+            None if business_id is None else str(business_id),
+        )
+        # The Business's Modules are read once, here: Gemini Live fixes its tool list when the call starts.
+        modules = await connect_modules(settings.modules, local_modules_allowed())
+        instruction = system_instruction(settings, has_actions=bool(modules.actions))
+    except SettingsRefused as e:
+        logger.error("call refused: {}", e)
+        instruction, refused = refusal_instruction(), True
+    try:
         await _run(
             transport,
             instruction,
@@ -142,8 +134,6 @@ async def run_call(
             handle_sigint,
         )
     finally:
-        if call:  # however the call ends, the Portal is told (a lost report counts as the longest call)
-            await asyncio.to_thread(calls.finish, call)
         await modules.close()  # a call that fails before its pipeline starts must not leave a Module running
 
 

@@ -18,9 +18,16 @@ from loguru import logger
 from pipecat.adapters.schemas.function_schema import FunctionSchema
 
 from modules.example import HOURS
+from portal.accounts import modules as portal_modules
 from tests.evals.checks import BUSINESS_FACTS, MODULE_BUSINESS_FILE
 from voice.agent import system_instruction
-from voice.modules import MAX_ACTIONS, admit, connect_modules, local_modules_allowed
+from voice.modules import (
+    MAX_ACTIONS,
+    address_problem,
+    admit,
+    connect_modules,
+    local_modules_allowed,
+)
 from voice.settings import Module, Settings
 
 EXAMPLE = Module("hours", command=sys.executable, args=("-m", "modules.example"))
@@ -95,7 +102,7 @@ def test_a_module_that_never_answers_is_given_up_on() -> None:
         hung.listen()
         url = f"http://127.0.0.1:{hung.getsockname()[1]}/mcp"
         with logged() as log:
-            assert names(Module("hung", url=url), timeout=0.5) == []
+            assert names(Module("hung", url=url), allow_local=True, timeout=0.5) == []
     assert any("Module 'hung' skipped" in m for m in log)
 
 
@@ -184,3 +191,55 @@ def test_a_call_cancelled_mid_connect_leaves_no_module_running(tmp_path: Path) -
             )
 
     asyncio.run(run())
+
+
+# Each address with whether the hosted service may use it. Literal IPs, so nothing here needs DNS.
+ADDRESSES = {
+    "https://8.8.8.8/mcp": True,
+    "https://[2001:4860:4860::8888]/mcp": True,
+    "http://8.8.8.8/mcp": False,  # not https
+    "https://127.0.0.1/mcp": False,  # loopback
+    "https://[::1]/mcp": False,
+    "https://10.0.0.5/mcp": False,  # private
+    "https://192.168.1.1:8443/mcp": False,
+    "https://172.16.0.1/mcp": False,
+    "https://169.254.169.254/latest/meta-data": False,  # link-local: the cloud metadata address
+    "https://[fe80::1]/mcp": False,
+    "https://[::ffff:10.0.0.5]/mcp": False,  # a private IPv4 address spelled as IPv6
+    "https://100.64.0.1/mcp": False,  # shared address space
+    "https://0.0.0.0/mcp": False,
+    "ftp://8.8.8.8/mcp": False,
+    "https:///mcp": False,
+    "https://a..b/mcp": False,  # a name no resolver accepts
+}
+
+
+def test_the_hosted_service_uses_only_public_https_addresses() -> None:
+    for url, allowed in ADDRESSES.items():
+        assert (asyncio.run(address_problem(url)) is None) is allowed, url
+
+
+def test_the_portal_and_the_core_agree_on_which_addresses_are_allowed() -> None:
+    """The rule lives in voice/modules.py and portal/accounts/modules.py: edit whichever side is wrong."""
+    for url in ADDRESSES:
+        assert (asyncio.run(address_problem(url)) is None) == (
+            portal_modules.address_problem(url) is None
+        ), url
+
+
+def test_a_private_or_plain_http_address_is_skipped_and_logged_unless_self_hosting() -> (
+    None
+):
+    local = Module("local", url=f"https://127.0.0.1:{closed_port()}/mcp")
+    with logged() as log:
+        assert names(local) == []
+    assert any(
+        "Module 'local' skipped: a Module's address is not a public" in m for m in log
+    )
+    with (
+        logged() as log
+    ):  # self-hosting lets it try, and it fails as unreachable, not as refused
+        assert names(local, allow_local=True) == []
+    assert not any("public" in m for m in log) and any(
+        "Module 'local' skipped" in m for m in log
+    )

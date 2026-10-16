@@ -21,7 +21,7 @@ The business whose calls the agent answers, with its own facts and Modules. One 
 _Avoid_: tenant, customer, clinic, client, agency
 
 **Call link**:
-A Business's public address (`/call/<unguessable>/` on the Portal) where anyone can start a call with its settings, within its daily limits and unless it is switched off.
+A Business's public address (`/call/<unguessable>/` on the Portal) where anyone can start a call with its settings.
 _Avoid_: public URL, widget
 
 **Barge-in**:

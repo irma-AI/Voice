@@ -2,22 +2,21 @@
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 from __future__ import annotations
 
+import logging
 import secrets
 
+from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.postgres.fields import ArrayField
-from django.db import models, transaction
-from django.db.models.functions import Coalesce, Lower, Trim
-from django.utils import timezone
+from django.db import models
+from django.db.models.functions import Lower, Trim
+
+from portal.accounts import modules as module_rules
+
+log = logging.getLogger(__name__)
 
 # The languages a Business may pick; contract/business-settings.schema.json lists the same two (tests/portal/test_settings_contract.py).
 LANGUAGES = {"sv": "Swedish", "en": "English"}
-
-
-# Why the core is told to refuse a call; voice/calls.py REFUSED has the same two words (tests/portal/test_calls.py holds them together).
-OFF, LIMIT = "off", "limit"
-# The longest a call can run: voice/serve.py MAX_CALL_SECS (tests/portal/test_calls.py). A call whose end the core never reported counts as this long.
-LONGEST_CALL_SECONDS = 600
 
 
 def swedish_only() -> list[str]:
@@ -76,8 +75,7 @@ class Business(models.Model):
     )
     max_calls_per_day = models.IntegerField(default=10)
     max_minutes_per_day = models.IntegerField(default=30)
-    # Petter's switch: the core refuses every call of a Business that is off. Set only by `configure_business`, like the limits above.
-    enabled = models.BooleanField(default=True)
+    # The public call link is /call/<call_slug>/; unique in the database, so one link is one Business.
     call_slug = models.CharField(max_length=40, unique=True, default=new_call_slug)
 
     class Meta:
@@ -104,58 +102,79 @@ class Business(models.Model):
     def __str__(self) -> str:
         return self.name
 
-    def used_today(self) -> tuple[int, int]:
-        """(calls, seconds) used since 00:00 UTC. A call still running, or whose end never arrived, counts as the longest a call can be."""
-        # ponytail: the day is a UTC day, so it turns over at 01:00 or 02:00 Swedish time; make it the Business's own midnight if that matters.
-        since = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today = Call.objects.filter(business=self, started_at__gte=since)
-        seconds = today.aggregate(
-            total=models.Sum(Coalesce("seconds", models.Value(LONGEST_CALL_SECONDS)))
-        )["total"]
-        return today.count(), seconds or 0
-
-    def start_call(self) -> Call | str:
-        """The one way a call starts: the new Call, or the reason it is refused (OFF or LIMIT).
-
-        The Business row is locked while the count is read and the Call written, so two calls starting together cannot both take the last slot.
-        """
-        with transaction.atomic():
-            business = Business.objects.select_for_update().get(pk=self.pk)
-            if not business.enabled:
-                return OFF
-            calls, seconds = business.used_today()
-            if (
-                calls >= business.max_calls_per_day
-                or seconds >= business.max_minutes_per_day * 60
-            ):
-                return LIMIT
-            return Call.objects.create(business=business)
-
     def as_settings(self) -> dict[str, object]:
         """What the settings address serves: exactly the properties of contract/business-settings.schema.json."""
         return {
             "name": self.name,
             "facts": self.facts,
             "languages": self.languages,
+            "modules": [m.as_setting() for m in self.modules_to_serve()],
         }
 
+    def modules_to_serve(self) -> list[Module]:
+        """The Modules the core is told about. A local one is left out unless self-hosting allows it: the settings check itself, whatever wrote the row."""
+        served: list[Module] = []
+        for module in self.modules.order_by("id"):  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
+            if module.command and not settings.ALLOW_LOCAL_MODULES:
+                log.error(
+                    "Module %s of Business %s is local and not allowed here, so it is not served",
+                    module.pk,
+                    self.pk,
+                )
+                continue
+            served.append(module)
+        return served
 
-class Call(models.Model):
-    """One call the core was let start. Timings only: no words, no audio (.claude/rules/security.md)."""
+
+class Module(models.Model):
+    """An MCP server a Business's agent may use: its name and address only. Credentials stay inside the Module; the database refuses an address that could hold one."""
 
     business = models.ForeignKey(
-        Business, on_delete=models.PROTECT, related_name="calls"
+        Business, on_delete=models.CASCADE, related_name="modules"
     )
-    started_at = models.DateTimeField(default=timezone.now)
-    seconds = models.IntegerField(
-        null=True
-    )  # null until the core reports the call's end
+    name = models.CharField(max_length=module_rules.NAME_MAX)
+    url = models.CharField(max_length=module_rules.URL_MAX, blank=True, default="")
+    command = models.CharField(
+        max_length=module_rules.COMMAND_MAX, blank=True, default=""
+    )
+    args = ArrayField(
+        models.CharField(max_length=module_rules.ARG_MAX),
+        blank=True,
+        default=list,
+    )
 
     class Meta:
+        # At most MODULES_MAX per Business is a trigger in migration 0004: a count cannot be a constraint.
         constraints = [
+            models.UniqueConstraint(
+                fields=["business", "name"],
+                name="module_name_must_be_unique_per_business",
+            ),
             models.CheckConstraint(
-                condition=models.Q(seconds__isnull=True) | models.Q(seconds__gte=0),
-                name="call_seconds_must_not_be_negative",
+                condition=models.Q(name__regex=r"\S"),
+                name="module_name_must_not_be_blank",
+            ),
+            models.CheckConstraint(
+                condition=(models.Q(url="") & ~models.Q(command=""))
+                | (~models.Q(url="") & models.Q(command="") & models.Q(args__len=0)),
+                name="module_must_have_an_address_or_a_command_not_both",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(url="")
+                | models.Q(url__regex=module_rules.URL_PATTERN),
+                name="module_address_must_be_plain_with_no_password_or_key",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(args__len__lte=module_rules.ARGS_MAX),
+                name="module_must_have_at_most_20_args",
             ),
         ]
-        indexes = [models.Index(fields=["business", "started_at"])]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def as_setting(self) -> dict[str, object]:
+        """One item of the settings' `modules`: exactly the shape of contract/business-settings.schema.json."""
+        if self.command:
+            return {"name": self.name, "command": self.command, "args": self.args}
+        return {"name": self.name, "url": self.url}

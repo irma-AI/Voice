@@ -83,10 +83,8 @@ async function start() {
   tap.port.onmessage = (e) => ws.readyState === 1 && ws.send(down(e.data));
   ctx.createMediaStreamSource(stream).connect(tap);
   ws.onmessage = (e) => {
-    if (typeof e.data === "string") {
-      const m = JSON.parse(e.data);
-      if (m.type === "refused") return end(m.text);  // the call was not let start: say why
-      playing.forEach((s) => s.stop());  // {"type": "interrupt"}: the Caller spoke over the agent
+    if (typeof e.data === "string") {  // {"type": "interrupt"}: the Caller spoke over the agent
+      playing.forEach((s) => s.stop());
       next = 0;
       return;
     }

@@ -3,17 +3,14 @@
 {% block content %}
 <h1 class="text-2xl font-semibold">{{ business.name|default:"Your account" }}</h1>
 <p class="mt-4"><a href="{% url 'business_settings' %}" class="underline">Edit your agent's settings</a></p>
+<p class="mt-2"><a href="{% url 'modules' %}" class="underline">Your agent's Modules</a></p>
 {% if business %}
 <form method="post" action="{% url 'test_call' %}" class="mt-6">
   {% csrf_token %}
   <button type="submit" class="rounded bg-stone-900 px-4 py-2 text-white">Test call</button>
   <p class="mt-2 text-sm">Talk to your agent with the settings you saved. It opens the call page in this tab.</p>
 </form>
-<section class="mt-8">
-  <h2 class="text-lg font-semibold">Calls</h2>
-  <p class="mt-2">{% if business.enabled %}Your agent takes calls.{% else %}Your agent is switched off, so every call is refused.{% endif %}</p>
-  <p class="mt-2 text-sm">Today: {{ calls_today }} of {{ business.max_calls_per_day }} calls, {{ minutes_today }} of {{ business.max_minutes_per_day }} minutes. A call whose end has not been reported counts as {{ unreported_minutes }} minutes. The limits are set by whoever runs this Portal.</p>
-  <p class="mt-4">Your public call link: <a href="{{ call_url }}" class="underline break-all">{{ call_url }}</a></p>
-</section>
+<p class="mt-6">Your public call link: <a href="{{ call_url }}" class="underline break-all">{{ call_url }}</a></p>
+<p class="mt-2 text-sm">Anyone with this link can call your agent from a browser. There is no daily limit yet.</p>
 {% endif %}
 {% endblock %}
