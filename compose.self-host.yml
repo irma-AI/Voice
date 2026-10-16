@@ -20,6 +20,7 @@ services:
       PORTAL_URL: http://localhost:8000
       CORE_URL: http://localhost:7860
       CORE_SECRET: ${CORE_SECRET:?set CORE_SECRET in .env (copy .env.example)}
+      ALLOW_LOCAL_MODULES: ${ALLOW_LOCAL_MODULES:-}
     ports: ["127.0.0.1:8000:8000"]
   core:
     build: { context: ., target: core }
@@ -31,6 +32,7 @@ services:
       SETTINGS_URL: http://portal:8000
       BUSINESS_ID: "1"  # the first Business invited in a fresh database
       CORE_SECRET: ${CORE_SECRET:?set CORE_SECRET in .env (copy .env.example)}
+      ALLOW_LOCAL_MODULES: ${ALLOW_LOCAL_MODULES:-}
       PORT: "7860"
     ports: ["127.0.0.1:7860:7860"]
 volumes:

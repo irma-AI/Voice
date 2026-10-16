@@ -7,9 +7,12 @@ the call goes on without it. The core never imports a Module, and a Module never
 """
 
 import asyncio
+import ipaddress
 import os
+import socket
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 from loguru import logger
 from mcp import StdioServerParameters
@@ -32,8 +35,31 @@ class ModuleSkipped(Exception):
 
 
 def local_modules_allowed(env: Mapping[str, str] = os.environ) -> bool:
-    """A local Module is someone's program run on this machine: only where self-hosting says so (hosted never does)."""
+    """Self-hosting's switch: a local Module is someone's program run on this machine, and a remote one may be http or on a private network. Hosted never sets it."""
     return env.get("ALLOW_LOCAL_MODULES", "").strip() == "1"
+
+
+async def address_problem(url: str) -> str | None:
+    """Why a remote Module's address may not be used on the hosted service, or None.
+
+    The core runs on a network a Business must not reach through a Module: only an https address that resolves to
+    public addresses only passes (private, loopback and link-local ones are refused). portal/accounts/modules.py
+    holds the same rule for the Portal's form and page; tests/test_modules.py checks the two agree.
+    """
+    parts = urlsplit(url)
+    host = parts.hostname
+    if parts.scheme != "https" or not host:
+        return "a Module's address must be https here"
+    try:
+        found = await asyncio.get_running_loop().getaddrinfo(
+            host, parts.port or 443, type=socket.SOCK_STREAM
+        )
+    except OSError:
+        return "a Module's address does not resolve"
+    # ponytail: checked now, connected a moment later, so a DNS answer that changes between the two gets through; pin the checked address if that ever matters.
+    if not all(ipaddress.ip_address(f[4][0]).is_global for f in found):
+        return "a Module's address is not a public address"
+    return None
 
 
 @dataclass
@@ -58,6 +84,8 @@ async def _actions(
             raise ModuleSkipped("a local Module is not allowed here")
         params = StdioServerParameters(command=module.command, args=list(module.args))
     elif module.url is not None:
+        if not allow_local and (why := await address_problem(module.url)):
+            raise ModuleSkipped(why)
         params = StreamableHttpParameters(url=module.url)
     else:  # settings.parse gives a Module a url or a command; refuse anything else
         raise ModuleSkipped("a Module has neither an address nor a command")

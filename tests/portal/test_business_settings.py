@@ -48,6 +48,7 @@ def test_editing_in_the_portal_changes_what_the_core_is_told() -> None:
         "name": "Anna's Hair",
         "facts": "Open mon-fri 8-17. A cut costs 400 kr. Closed in July.",
         "languages": ["sv", "en"],
+        "modules": [],
     }
     assert not schema_errors(told)
 

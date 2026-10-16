@@ -2790,6 +2790,7 @@ dev = [
 portal = [
     { name = "dj-database-url" },
     { name = "django" },
+    { name = "mcp" },
     { name = "psycopg", extra = ["binary"] },
 ]
 
@@ -2808,6 +2809,7 @@ dev = [
 portal = [
     { name = "dj-database-url" },
     { name = "django" },
+    { name = "mcp" },
     { name = "psycopg", extras = ["binary"] },
 ]
 

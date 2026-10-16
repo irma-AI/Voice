@@ -45,6 +45,9 @@ if not DEBUG and not CORE_URL.startswith(
 ):  # the ticket travels in this address
     raise ImproperlyConfigured("CORE_URL must be an https address outside a local run")
 
+# Self-hosting's switch, the same one the core reads (voice/modules.py): a local Module, or an http or private address, is accepted only when it is 1. Hosted never sets it.
+ALLOW_LOCAL_MODULES = os.environ.get("ALLOW_LOCAL_MODULES", "").strip() == "1"
+
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
