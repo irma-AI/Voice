@@ -18,7 +18,7 @@ server = MCPServer("example")
 
 @server.tool(name=ACTION)
 def opening_hours() -> str:
-    """The Business's opening hours."""
+    """The Business's opening hours. Call this whenever the caller asks when the business is open or closed."""
     return HOURS
 
 
