@@ -82,11 +82,15 @@ class HangUpWhenDone(FrameProcessor):
 async def run_call(
     transport: BaseTransport,
     *,
+    business_id: int | None = None,
     idle_timeout_secs: float | None = None,
     record_to: Path | None = None,
     handle_sigint: bool = False,
 ) -> None:
-    """Runs one call on any Channel's transport until the Caller leaves."""
+    """Runs one call on any Channel's transport until the Caller leaves.
+
+    `business_id` is the Business a Portal ticket named; without it the core's own BUSINESS_ID applies.
+    """
     # Pipecat logs what the Caller said at DEBUG, and its dev runner resets the level to DEBUG
     # at startup; transcripts never go in logs (.claude/rules/security.md), so cap it per call.
     logger.remove()
@@ -95,7 +99,13 @@ async def run_call(
     # the call is refused out loud and logged, never served from a fallback (ADR 0002).
     refused = False
     try:
-        instruction = system_instruction(await asyncio.to_thread(load_settings))
+        instruction = system_instruction(
+            await asyncio.to_thread(
+                load_settings,
+                os.environ,
+                None if business_id is None else str(business_id),
+            )
+        )
     except SettingsRefused as e:
         logger.error("call refused: {}", e)
         instruction, refused = refusal_instruction(), True

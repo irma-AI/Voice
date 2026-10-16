@@ -16,5 +16,5 @@ paths:
 ## Enforced by
 
 - Credentials in the repo: the `no-committed-secrets` guard.
-- The Portal refuses to start without its secrets (`DJANGO_SECRET_KEY`, `CORE_SECRET`) and mail settings outside a local run (`portal/settings.py`, `required`; `tests/portal/test_settings.py`).
+- The Portal refuses to start without its secrets (`DJANGO_SECRET_KEY`, `CORE_SECRET`, `CORE_URL`) and mail settings outside a local run (`portal/settings.py`, `required`; `tests/portal/test_settings.py`).
 - Personal data in logs, errors and fixtures, and real recordings: none yet. The barge-in field list above: none yet (the recorder's code is the only other copy of it).

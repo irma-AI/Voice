@@ -3,4 +3,11 @@
 {% block content %}
 <h1 class="text-2xl font-semibold">{{ business.name|default:"Your account" }}</h1>
 <p class="mt-4"><a href="{% url 'business_settings' %}" class="underline">Edit your agent's settings</a></p>
+{% if business %}
+<form method="post" action="{% url 'test_call' %}" class="mt-6">
+  {% csrf_token %}
+  <button type="submit" class="rounded bg-stone-900 px-4 py-2 text-white">Test call</button>
+  <p class="mt-2 text-sm">Talk to your agent with the settings you saved. It opens the call page in this tab.</p>
+</form>
+{% endif %}
 {% endblock %}

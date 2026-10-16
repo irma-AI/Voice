@@ -2,11 +2,13 @@
 
 import asyncio
 import base64
+import time
 
 import pytest
 from starlette.types import Message, Receive, Scope, Send
 
 from voice.auth import BasicAuth, allowed
+from voice.ticket import sign
 
 
 async def app(scope: Scope, receive: Receive, send: Send) -> None:
@@ -37,7 +39,12 @@ def test_an_empty_password_never_opens_the_page() -> None:
 
 
 def run_asgi(
-    scope_type: str, header: str | None, cookie: str | None = None
+    scope_type: str,
+    header: str | None,
+    cookie: str | None = None,
+    path: str = "/",
+    query: str = "",
+    ticket_secret: str = "",
 ) -> tuple[list[Message], bool]:
     """Sends one request or WebSocket through BasicAuth; returns what it sent and whether the app was reached."""
     sent: list[Message] = []
@@ -57,8 +64,14 @@ def run_asgi(
     headers = [(b"authorization", header.encode())] if header else []
     if cookie:
         headers.append((b"cookie", cookie.encode()))
-    guarded = BasicAuth(inner, "voice", "s3cret")
-    asyncio.run(guarded({"type": scope_type, "headers": headers}, receive, send))
+    guarded = BasicAuth(inner, "voice", "s3cret", ticket_secret)
+    scope: Scope = {
+        "type": scope_type,
+        "headers": headers,
+        "path": path,
+        "query_string": query.encode(),
+    }
+    asyncio.run(guarded(scope, receive, send))
     return sent, bool(reached)
 
 
@@ -100,3 +113,37 @@ def test_a_wrong_or_unrelated_cookie_is_refused() -> None:
     for cookie in ("voice_session=wrong", "other=x", "voice_session="):
         sent, reached = run_asgi("websocket", None, cookie)
         assert sent == [{"type": "websocket.close", "code": 1008}] and not reached
+
+
+def ticket_query(
+    secret: str = "s3cret", business: int = 7, expires_in: int = 60
+) -> str:
+    return "ticket=" + sign(secret, business, int(time.time()) + expires_in)
+
+
+def test_a_portal_ticket_opens_the_call_page_and_socket_without_the_login() -> None:
+    for scope_type, path in (("http", "/"), ("websocket", "/ws")):
+        _, reached = run_asgi(
+            scope_type, None, path=path, query=ticket_query(), ticket_secret="s3cret"
+        )
+        assert reached, path
+
+
+def test_a_bad_ticket_is_no_login_and_a_ticket_opens_nothing_else() -> None:
+    for query, secret, path in (
+        (ticket_query("other"), "s3cret", "/"),  # signed with another secret
+        (ticket_query(expires_in=-1), "s3cret", "/"),  # expired
+        (ticket_query(), "", "/"),  # the core has no secret: no ticket is valid
+        (ticket_query(), "s3cret", "/elsewhere"),
+    ):
+        sent, reached = run_asgi(
+            "http", None, path=path, query=query, ticket_secret=secret
+        )
+        assert sent[0]["status"] == 401 and not reached, (query, path)
+
+
+def test_a_ticket_does_not_set_the_login_cookie() -> None:
+    sent, _ = run_asgi("http", None, query=ticket_query(), ticket_secret="s3cret")
+    assert b"set-cookie" not in dict(
+        sent[0]["headers"]
+    )  # only the Basic login earns the cookie
