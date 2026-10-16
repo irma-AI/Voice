@@ -55,6 +55,16 @@ def fake_portal(
         server.shutdown()
 
 
+def test_an_address_with_spaces_or_a_trailing_slash_works_as_the_settings_port_reads_it() -> (
+    None
+):
+    with fake_portal() as env:
+        env["SETTINGS_URL"] = f" {env['SETTINGS_URL']}/ "
+        call = start(FROM_PORTAL, env)
+        assert call is not None
+        finish(call, env)
+
+
 def test_the_portal_lets_a_call_start_and_the_core_asks_for_that_business() -> None:
     seen: list[tuple[str, dict[str, Any]]] = []
     with fake_portal(seen=seen) as env:

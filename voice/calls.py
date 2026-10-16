@@ -82,7 +82,7 @@ def start(settings: Settings, env: Mapping[str, str] = os.environ) -> Call | Non
             "these settings have no Portal behind them, so the call has no limits"
         )  # failing open leaves a trace
         return None
-    base, secret = env["SETTINGS_URL"].rstrip("/"), env["CORE_SECRET"]
+    base, secret = env["SETTINGS_URL"].strip().rstrip("/"), env["CORE_SECRET"]
     host = urlsplit(
         base
     ).hostname  # the log names the host only, never the address or the secret
@@ -108,7 +108,7 @@ def finish(call: Call, env: Mapping[str, str] = os.environ) -> None:
     seconds = round(time.monotonic() - call.began)
     try:
         status, _ = _post(
-            f"{env['SETTINGS_URL'].rstrip('/')}/api/calls/{call.id}/end/",
+            f"{env['SETTINGS_URL'].strip().rstrip('/')}/api/calls/{call.id}/end/",
             env["CORE_SECRET"],
             {"seconds": seconds},
         )
