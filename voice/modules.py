@@ -54,7 +54,10 @@ async def address_problem(url: str) -> str | None:
         found = await asyncio.get_running_loop().getaddrinfo(
             host, parts.port or 443, type=socket.SOCK_STREAM
         )
-    except OSError:
+    except (
+        OSError,
+        ValueError,
+    ):  # a name no resolver accepts raises UnicodeError, a ValueError
         return "a Module's address does not resolve"
     # ponytail: checked now, connected a moment later, so a DNS answer that changes between the two gets through; pin the checked address if that ever matters.
     if not all(ipaddress.ip_address(f[4][0]).is_global for f in found):

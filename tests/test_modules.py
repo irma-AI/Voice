@@ -207,6 +207,7 @@ ADDRESSES = {
     "https://0.0.0.0/mcp": False,
     "ftp://8.8.8.8/mcp": False,
     "https:///mcp": False,
+    "https://a..b/mcp": False,  # a name no resolver accepts
 }
 
 

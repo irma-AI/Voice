@@ -10,6 +10,7 @@ from django.db import IntegrityError, transaction
 from django.test import Client
 
 from portal.accounts import modules as module_rules
+from portal.accounts import probe
 from portal.accounts.models import Business, Module
 from tests.portal.contract import schema_errors
 from tests.portal.helpers import business_with_login
@@ -156,7 +157,7 @@ def test_a_module_that_never_answers_says_so(settings: Any) -> None:
         hung.listen()
         add(client, "hung", f"http://127.0.0.1:{hung.getsockname()[1]}/mcp")
         page = client.get("/modules/").content.decode()
-    assert f"did not answer within {module_rules.PROBE_TIMEOUT_S} seconds" in page
+    assert f"did not answer within {probe.PROBE_TIMEOUT_S} seconds" in page
 
 
 def test_a_hosted_page_does_not_reach_into_our_network_for_a_stored_address() -> None:
@@ -252,3 +253,11 @@ def test_the_database_refuses_an_eleventh_module() -> None:
     Module.objects.create(
         business=other, name="m0", url=PUBLIC
     )  # the limit is per Business
+
+
+def test_an_address_typed_with_a_capital_scheme_is_stored_in_lower_case() -> None:
+    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    add(client, "shouted", "HTTPS://8.8.8.8/Mcp")
+    assert told(business)["modules"] == [
+        {"name": "shouted", "url": "https://8.8.8.8/Mcp"}
+    ]

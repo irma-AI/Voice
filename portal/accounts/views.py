@@ -16,6 +16,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from portal.accounts import modules as module_rules
+from portal.accounts import probe
 from portal.accounts.models import LANGUAGES, Account, Business, Module, clean_email
 from portal.accounts.ticket import mint
 
@@ -134,7 +135,7 @@ def modules(request: HttpRequest) -> HttpResponse:
         else:
             return redirect("modules")
     mine = list(business.modules.order_by("id"))  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
-    offers = module_rules.what_they_offer(
+    offers = probe.what_they_offer(
         [(m.url, m.command, m.args) for m in mine], settings.ALLOW_LOCAL_MODULES
     )
     return render(
