@@ -80,7 +80,8 @@ generate-check: ## Fail when a generated file is stale, printing the command tha
 
 build: ## Build every configuration this repo ships
 	docker build -t voice .
-	docker build --target portal -t voice-portal .
+	docker build --target portal -t voice-portal-self-host .
+	docker build -f Dockerfile.portal -t voice-portal .
 
 merge-check: ## Is this branch low-risk enough for an agent to turn on auto-merge? (scripts/low-risk-paths.json)
 	node scripts/merge-check.js
