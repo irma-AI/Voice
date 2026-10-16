@@ -110,7 +110,10 @@ def test_a_second_action_with_a_taken_name_is_dropped() -> None:
 def test_the_prompt_promises_tools_only_when_actions_reached_the_model() -> None:
     business = Settings("Anna's Salon", "Öppet.", ("sv",), (EXAMPLE,))
     assert "You also have tools" not in system_instruction(business)
-    assert "You also have tools" in system_instruction(business, has_actions=True)
+    with_tools = system_instruction(business, has_actions=True)
+    assert "You also have tools" in with_tools
+    # the facts rule above the tools paragraph must not win over a tool
+    assert "use it before you say you don't know" in with_tools
 
 
 def test_the_modules_hours_cannot_be_guessed_from_the_test_business() -> None:
