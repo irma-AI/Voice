@@ -1,0 +1,24 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad: another Action was called and the answer is the facts' own hours.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet måndag till torsdag 08 till 17 och fredag 08 till 14."
+  }
+ ],
+ "events": [
+  {
+   "t": 2.0,
+   "e": "tool_call",
+   "name": "other"
+  }
+ ]
+}

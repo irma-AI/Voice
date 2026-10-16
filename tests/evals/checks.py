@@ -6,10 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from modules.example import ACTION, HOURS
 from voice.agent import DISCLOSURE
 
 # The Business the eval Channel serves (VOI-25): the core reads it as its settings file, and the checks read their figures from it.
 BUSINESS_FILE = Path(__file__).parent / "business.json"
+# The Business whose agent has a Module (modules/example.py); its facts hold no hours.
+MODULE_BUSINESS_FILE = Path(__file__).parent / "business_module.json"
 BUSINESS_FACTS: str = json.loads(BUSINESS_FILE.read_text("utf-8"))["facts"]
 
 
@@ -196,9 +199,9 @@ def _states(reply: str, key: str) -> bool:
     return figure in _numbers(re.sub(r"(?<=\d) (?=\d{3}\b)", "", reply))
 
 
-def _gives_hours(reply: str) -> bool:
-    """Both closing times (17 and 14), as digits or words; days and opening times are not checked."""
-    closing = {int(c) for c in re.findall(r"-(\d+)", _fact("hours"))}
+def _gives_hours(reply: str, hours: str | None = None) -> bool:
+    """Both closing times of `hours` (the Business's own by default), as digits or words; days and opening times are not checked."""
+    closing = {int(c) for c in re.findall(r"-(\d+)", hours or _fact("hours"))}
     return closing <= _numbers(reply)
 
 
@@ -224,6 +227,22 @@ def gives_opening_hours(call: Call) -> Verdict:
     if not _gives_hours(reply):
         return Verdict(False, f"the reply does not give the closing times: {reply!r}")
     return Verdict(True, "the reply gives the closing times")
+
+
+def gives_module_hours(call: Call) -> Verdict:
+    """Asked the opening hours, which only the Module's Action holds, the agent calls the Action and gives its closing times."""
+    if not any(
+        e.get("e") == "tool_call" and e.get("name") == ACTION for e in call.events
+    ):
+        return Verdict(False, f"the agent never called the Module's {ACTION} Action")
+    reply = _answer(call)
+    if not _gives_hours(reply, HOURS):
+        return Verdict(
+            False, f"the reply does not give the Module's closing times: {reply!r}"
+        )
+    return Verdict(
+        True, "the reply gives the closing times the Module's Action returns"
+    )
 
 
 def follows_language_switch(call: Call) -> Verdict:

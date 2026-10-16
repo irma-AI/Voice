@@ -13,6 +13,38 @@
       "type": "array",
       "minItems": 1,
       "items": { "enum": ["sv", "en"] }
+    },
+    "modules": {
+      "description": "The Business's Modules (MCP servers), optional. A remote Module has a url; a local one a command, which the core runs only where self-hosting allows it (ALLOW_LOCAL_MODULES). The Portal's Modules page (VOI-28) fills it.",
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "url"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+              "url": { "type": "string", "pattern": "^https?://", "maxLength": 2000 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "command"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+              "command": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "args": {
+                "type": "array",
+                "maxItems": 20,
+                "items": { "type": "string", "maxLength": 500 }
+              }
+            }
+          }
+        ]
+      }
     }
   }
 }

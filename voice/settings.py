@@ -14,13 +14,19 @@ import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlsplit
 
 # Edit with contract/business-settings.schema.json: tests/test_settings_port.py reads both and fails on drift.
 LANGUAGES = {"sv": "Swedish", "en": "English"}
 NAME_MAX = 200
 FACTS_MAX = 5000
+MODULES_MAX = 10
+MODULE_NAME_MAX = 100
+MODULE_URL_MAX = 2000
+MODULE_COMMAND_MAX = 500
+MODULE_ARGS_MAX = 20
+MODULE_ARG_MAX = 500
 # ponytail: a call waits this long in silence for the Portal before it is refused; make it a setting if the Portal is slow in practice.
 PORTAL_TIMEOUT_S = 5
 MAX_REPLY_BYTES = (
@@ -40,10 +46,53 @@ class SettingsRefused(Exception):
 
 
 @dataclass(frozen=True)
+class Module:
+    """One MCP server the Business's agent may use: a remote one by `url`, a local one by `command`."""
+
+    name: str
+    url: str | None = None
+    command: str | None = None
+    args: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class Settings:
     name: str
     facts: str
     languages: tuple[str, ...]
+    modules: tuple[Module, ...] = ()
+
+
+def _text(value: object, longest: int) -> str:
+    if not (isinstance(value, str) and 1 <= len(value) <= longest):
+        raise SettingsRefused(
+            "a Module's name, address or command is missing or too long"
+        )
+    return value
+
+
+def _module(data: object) -> Module:
+    if not isinstance(data, dict):
+        raise SettingsRefused("a Module is not a JSON object")
+    d: dict[str, Any] = data  # pyright: ignore[reportUnknownVariableType]
+    name = _text(d.get("name"), MODULE_NAME_MAX)
+    if set(d) == {"name", "url"}:
+        url = _text(d["url"], MODULE_URL_MAX)
+        if not url.startswith(("http://", "https://")):
+            raise SettingsRefused("a Module's address must be an http or https address")
+        return Module(name, url=url)
+    if set(d) - {"name", "command", "args"} or "command" not in d:
+        raise SettingsRefused("a Module has a url, or a command with optional args")
+    raw = d.get("args", [])
+    args = cast("list[Any]", raw) if isinstance(raw, list) else None
+    if (
+        args is None
+        or len(args) > MODULE_ARGS_MAX
+        or not all(isinstance(a, str) and len(a) <= MODULE_ARG_MAX for a in args)
+    ):
+        raise SettingsRefused("a Module's args are not a short list of text")
+    command = _text(d["command"], MODULE_COMMAND_MAX)
+    return Module(name, command=command, args=tuple(cast("list[str]", args)))
 
 
 def parse(data: object) -> Settings:
@@ -51,9 +100,19 @@ def parse(data: object) -> Settings:
     if not isinstance(data, dict):
         raise SettingsRefused("settings are not a JSON object")
     d: dict[str, Any] = data  # pyright: ignore[reportUnknownVariableType]
-    if set(d) != {"name", "facts", "languages"}:
-        raise SettingsRefused("settings do not have exactly name, facts and languages")
+    if (
+        not {"name", "facts", "languages"}
+        <= set(d)
+        <= {"name", "facts", "languages", "modules"}
+    ):
+        raise SettingsRefused(
+            "settings do not have name, facts and languages, and at most modules besides"
+        )
     name, facts, languages = d["name"], d["facts"], d["languages"]
+    raw_modules = d.get("modules", [])
+    if not (isinstance(raw_modules, list) and len(raw_modules) <= MODULES_MAX):  # pyright: ignore[reportUnknownArgumentType]
+        raise SettingsRefused("settings modules are not a short list")
+    modules = cast("list[object]", raw_modules)
     if not (isinstance(name, str) and 1 <= len(name) <= NAME_MAX):
         raise SettingsRefused("settings name is missing or too long")
     if not (isinstance(facts, str) and len(facts) <= FACTS_MAX):
@@ -64,7 +123,12 @@ def parse(data: object) -> Settings:
         and all(isinstance(lang, str) and lang in LANGUAGES for lang in languages)  # pyright: ignore[reportUnknownVariableType]
     ):
         raise SettingsRefused("settings languages are empty or not known")
-    return Settings(name, facts, tuple(languages))  # pyright: ignore[reportUnknownArgumentType]
+    return Settings(
+        name,
+        facts,
+        tuple(languages),  # pyright: ignore[reportUnknownArgumentType]
+        tuple(_module(m) for m in modules),
+    )
 
 
 def _from_file(path: str) -> Settings:

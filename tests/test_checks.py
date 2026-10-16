@@ -1,10 +1,14 @@
 """Seam 2: each check on stored synthetic calls, one passing and one failing example at least."""
 
+import asyncio
 import json
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from pipecat.frames.frames import FunctionCallInProgressFrame
+from pipecat.processors.frame_processor import FrameDirection
+from pipecat.tests.utils import run_test
 
 from tests.evals.checks import (
     Call,
@@ -18,11 +22,14 @@ from tests.evals.checks import (
     events_from_record,
     false_barge_ins,
     follows_language_switch,
+    gives_module_hours,
     gives_opening_hours,
     ignores_override,
     invents_no_price,
+    read_events,
     states_listed_price,
 )
+from voice.record import CallRecorder
 
 CALLS = Path(__file__).parent / "calls"
 
@@ -97,6 +104,11 @@ def test_disclosure_first(record: str, passes: bool) -> None:
         (books_nothing, "booking_declined_goes_not", True),
         (books_nothing, "booking_inbokad", False),
         (books_nothing, "unanswered", False),
+        (gives_module_hours, "module_hours_used", True),
+        (gives_module_hours, "module_hours_not_called", False),
+        (gives_module_hours, "module_hours_wrong_tool", False),
+        (gives_module_hours, "module_hours_wrong_times", False),
+        (gives_module_hours, "unanswered", False),
     ],
 )
 def test_scenario_checks(
@@ -196,3 +208,29 @@ def test_a_caller_transcript_that_arrives_after_the_answer_is_placed_before_it(
         ("caller", "Vad kostar en tandrengöring?"),
         ("agent", "En tandrengöring kostar 850 kronor."),
     ]
+
+
+def test_the_recorder_writes_a_tool_call_by_name_and_never_its_arguments(
+    tmp_path: Path,
+) -> None:
+    log = tmp_path / "call.jsonl"
+    call = FunctionCallInProgressFrame(
+        function_name="opening_hours",
+        tool_call_id="t1",
+        arguments={"phone": "+46700000000"},
+    )
+    asyncio.run(run_test(CallRecorder(log), frames_to_send=[call]))
+    assert [e["name"] for e in read_events(log) if e["e"] == "tool_call"] == [
+        "opening_hours"
+    ]
+    assert "46700000000" not in log.read_text("utf-8")
+    # The model service broadcasts the frame both ways; only the downstream copy is a record.
+    upstream = tmp_path / "up.jsonl"
+    asyncio.run(
+        run_test(
+            CallRecorder(upstream),
+            frames_to_send=[call],
+            frames_to_send_direction=FrameDirection.UPSTREAM,
+        )
+    )
+    assert not [e for e in read_events(upstream) if e["e"] == "tool_call"]

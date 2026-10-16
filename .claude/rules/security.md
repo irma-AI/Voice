@@ -8,6 +8,7 @@ paths:
 
 - API keys and carrier credentials come from the environment only; never logged, never in fixtures.
 - Call audio, transcripts, phone numbers and names never appear in logs or error messages; log call IDs instead.
+- A skipped Module is logged by its name and the kind of failure only (`voice/modules.py`): a Module's address could hold a password, so it never reaches a log or error message the core writes. Pipecat's own log of a failed tool call is not covered (not checked).
 - The barge-in log (`voice/bargein.py`) is timings and levels only. A production line may hold: `t`, `call`, `e`, and per event `vad`; `phase`, `played_ms`; `bot_speaking`, `bot_ms`, `peak_dbfs`, `rms_dbfs`, `src`; `words`, `after_barge_in_ms`; `reason`, `secs`. A new field is added here first.
 - The Portal holds a Business's email and name: personal data. They stay out of logs and error messages (the audit log names an account id), and an invite or reset link is a credential: it only ever goes by email, and prints to the console only on a local run (`DEBUG=1`).
 - Test fixtures use synthetic people only: generated names, +46 numbers we own or reserved test numbers, and personnummer that pass the checksum and are marked synthetic.

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pipecat.frames.frames import (
     Frame,
+    FunctionCallInProgressFrame,
     LLMFullResponseStartFrame,
     LLMTextFrame,
     MetricsFrame,
@@ -41,6 +42,13 @@ class CallRecorder(FrameProcessor):
         if isinstance(frame, TranscriptionFrame):
             if direction == FrameDirection.UPSTREAM:
                 self._write(e="caller", text=frame.text)
+        elif isinstance(frame, FunctionCallInProgressFrame):
+            if (
+                direction == FrameDirection.DOWNSTREAM
+            ):  # the service broadcasts it both ways
+                self._write(
+                    e="tool_call", name=frame.function_name
+                )  # never the arguments
         elif isinstance(frame, LLMFullResponseStartFrame):
             self._write(e="agent_start")
         elif isinstance(frame, TTSTextFrame):
