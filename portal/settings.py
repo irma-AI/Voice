@@ -128,6 +128,14 @@ elif DEBUG:
 else:
     raise ImproperlyConfigured("EMAIL_HOST is not set (see .env.example)")
 
+# Holds the login failure counts; the default 300 entries would let a flood of made-up emails push a real count out.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "OPTIONS": {"MAX_ENTRIES": 100_000},
+    }
+}
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

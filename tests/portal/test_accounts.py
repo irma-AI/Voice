@@ -301,3 +301,30 @@ def test_a_right_password_resets_the_wrong_ones() -> None:
         == 302
     )
     cache.clear()
+
+
+def test_a_blank_password_does_not_clear_the_wrong_ones() -> None:
+    cache.clear()
+    Account.objects.create_user(EMAIL, PASSWORD)
+    client = Client()
+    for _ in range(9):
+        client.post("/login/", {"username": EMAIL, "password": "not-it"})
+    client.post("/login/", {"username": EMAIL, "password": ""})
+    client.post("/login/", {"username": EMAIL, "password": "not-it"})
+    locked = client.post("/login/", {"username": EMAIL, "password": PASSWORD})
+    assert "Too many failed attempts" in locked.text
+    cache.clear()
+
+
+def test_a_look_alike_spelling_of_the_email_shares_the_count() -> None:
+    cache.clear()
+    Account.objects.create_user("a@b.se", PASSWORD)
+    client = Client()
+    for typed in [
+        "a@b.se",
+        "ａ@b.se",
+    ] * 5:  # the second is a full-width a, which Django treats as the same address
+        client.post("/login/", {"username": typed, "password": "not-it"})
+    locked = client.post("/login/", {"username": "a@b.se", "password": PASSWORD})
+    assert "Too many failed attempts" in locked.text
+    cache.clear()

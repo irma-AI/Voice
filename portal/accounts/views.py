@@ -1,6 +1,8 @@
 # pyright: basic
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
+import hashlib
 import hmac
+import unicodedata
 
 from django import forms
 from django.conf import settings
@@ -28,7 +30,11 @@ class LoginForm(AuthenticationForm):
 
     def clean(self):
         # shortcut: counts per email in this process's memory (the image runs one worker), so a restart resets it; move to the database before a second worker. Locks the owner out too for the window, which beats guessing.
-        key = f"login-failures:{clean_email(self.data.get('username', ''))}"
+        # Normalised the way Django's username field does before it authenticates, so a look-alike spelling of one address shares one count.
+        typed = unicodedata.normalize("NFKC", str(self.data.get("username", "")))
+        key = (
+            "login-failures:" + hashlib.sha256(clean_email(typed).encode()).hexdigest()
+        )
         if cache.get(key, 0) >= LOGIN_TRIES:
             raise ValidationError(
                 "Too many failed attempts. Try again in 15 minutes.", code="locked"
@@ -37,9 +43,17 @@ class LoginForm(AuthenticationForm):
             cleaned = super().clean()
         except ValidationError:
             cache.add(key, 0, LOGIN_WINDOW)
-            cache.incr(key)
+            try:
+                cache.incr(key)
+            except (
+                ValueError
+            ):  # the key expired between add and incr: this attempt starts a new window
+                cache.set(key, 1, LOGIN_WINDOW)
             raise
-        cache.delete(key)
+        if (
+            self.user_cache
+        ):  # a blank password skips authenticate() and must not clear the count
+            cache.delete(key)
         return cleaned
 
 
