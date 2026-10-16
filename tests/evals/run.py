@@ -88,11 +88,11 @@ def _totals(runs: Path, run: float, loop_id: str, today: str) -> dict[str, float
     }
 
 
-def _play(scenario: str, run_dir: Path) -> tuple[int, Path]:
+def _play(scenario: str, run_dir: Path, name: str) -> tuple[int, Path]:
     """Runs one Scenario through Pipecat's eval suite; returns its exit code and the call log."""
-    log = run_dir / "calls" / f"{scenario}.jsonl"
+    log = run_dir / "calls" / f"{name}.jsonl"
     cmd = [sys.executable, "-m", "pipecat.evals", "suite", "tests/evals/manifest.yaml"]
-    cmd += ["-s", scenario, "--name", scenario, "--runs-dir", str(run_dir)]
+    cmd += ["-s", scenario, "--name", name, "--runs-dir", str(run_dir)]
     # Own process group: the suite spawns the bot, and killing only the suite would leave the
     # bot's Gemini session open and spending after the time limit.
     proc = subprocess.Popen(
@@ -137,14 +137,38 @@ def missing_audio(ids: list[str], scenarios: Path = SCENARIO_DIR) -> str | None:
     return None
 
 
+MAX_REPEATS = 20
+
+
+def plan(only: str | None) -> list[tuple[str, str]] | None:
+    """(name, Scenario) pairs to play; `<id>_x<N>` plays one Scenario N times, each on its own call.
+
+    None when an id is unknown or N is out of range.
+    """
+    if not only:
+        return [(sc, sc) for sc in SCENARIOS]
+    base, _, n = only.rpartition("_x")
+    if n.isdigit() and base in SCENARIOS:
+        return (
+            [(f"{base}_{i}", base) for i in range(1, int(n) + 1)]
+            if 2 <= int(n) <= MAX_REPEATS
+            else None
+        )
+    return [(only, only)] if only in SCENARIOS else None
+
+
 def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
-    ids = [only] if only else list(SCENARIOS)
-    if unknown := [i for i in ids if i not in SCENARIOS]:
-        print(f"unknown Scenario {unknown}; known: {list(SCENARIOS)}", file=sys.stderr)
+    pairs = plan(only)
+    if pairs is None:
+        print(
+            f"unknown Scenario {only!r}; known: {list(SCENARIOS)}, or <id>_x2 to _x{MAX_REPEATS}",
+            file=sys.stderr,
+        )
         return 2
+    ids = [name for name, _ in pairs]
     # A missing audio file fails the harness before any spend; say so before the first Scenario
     # is played, not after it has been paid for.
-    if missing := missing_audio(ids):
+    if missing := missing_audio(sorted({base for _, base in pairs})):
         print(
             f"missing Caller audio {missing}: run `make eval-audio` (asks Petter first)",
             file=sys.stderr,
@@ -158,13 +182,13 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
     )
     run_dir = runs / run_id
     spent, rows, stopped = 0.0, list[Row](), None
-    for sc in ids:
+    for sc, base in pairs:
         # Fail closed: a cap already reached by earlier runs stops us before any spend.
         if stopped := stopped_by(
             caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))
         ):
             break
-        code, log = _play(sc, run_dir)
+        code, log = _play(base, run_dir, sc)
         if not log.exists():
             missing = Verdict(False, f"no call record (suite exit {code})")
             rows.append(Row(sc, {"suite exit": missing}, 0.0, 0, None))
@@ -177,7 +201,7 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         call = call_from_log(log)
         transcript = "\n".join(f"{t.speaker}: {t.text}" for t in call.turns)
         (run_dir / f"{sc}.transcript.txt").write_text(transcript + "\n", "utf-8")
-        verdicts = {check.__name__: check(call) for check in SCENARIOS[sc]}
+        verdicts = {check.__name__: check(call) for check in SCENARIOS[base]}
         if code != 0:
             verdicts["suite exit"] = Verdict(False, f"the harness exited {code}")
         tokens = sum(u.get("prompt_tokens", 0) for u in usage)

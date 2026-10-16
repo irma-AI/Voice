@@ -7,7 +7,16 @@ from pathlib import Path
 
 from tests.evals.checks import Verdict
 from tests.evals.render_audio import LINES
-from tests.evals.run import ROOT, SCENARIOS, Row, main, missing_audio, report
+from tests.evals.run import (
+    MAX_REPEATS,
+    ROOT,
+    SCENARIOS,
+    Row,
+    main,
+    missing_audio,
+    plan,
+    report,
+)
 from tests.evals.spend import Caps
 
 
@@ -29,6 +38,15 @@ def test_a_reached_day_cap_stops_with_exit_3_before_any_spend(tmp_path: Path) ->
 
 def test_an_unknown_scenario_is_refused(tmp_path: Path) -> None:
     assert main("nope", runs=tmp_path) == 2
+
+
+def test_x_n_plays_one_scenario_n_times_on_separate_calls(tmp_path: Path) -> None:
+    pairs = plan("module_hours_x3")
+    assert pairs == [(f"module_hours_{i}", "module_hours") for i in (1, 2, 3)]
+    assert plan("module_hours") == [("module_hours", "module_hours")]
+    for bad in ("nope_x3", "module_hours_x1", f"module_hours_x{MAX_REPEATS + 1}"):
+        assert plan(bad) is None
+        assert main(bad, runs=tmp_path) == 2
 
 
 def test_the_table_and_exit_code_follow_the_verdicts(tmp_path: Path) -> None:
