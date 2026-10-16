@@ -1,0 +1,37 @@
+# Self-host on one machine: the core, the Portal and Postgres from one command (README § Self-host).
+# Values come from .env (copy .env.example); the services listen on this machine only.
+name: voice-self-host
+services:
+  postgres:
+    image: mirror.gcr.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-selfhost}
+      POSTGRES_DB: portal
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "postgres"], interval: 1s, retries: 30 }
+  portal:
+    build: { context: ., target: portal }
+    depends_on: { postgres: { condition: service_healthy } }
+    # ponytail: the Portal runs in its local mode (mail prints to its log, Django's dev server): fine on one machine, not for a public address. Production mode needs the values listed in .env.example.
+    environment:
+      ENVIRONMENT: local
+      DEBUG: "1"
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-selfhost}@postgres:5432/portal
+      PORTAL_URL: http://localhost:8000
+      CORE_URL: http://localhost:7860
+      CORE_SECRET: ${CORE_SECRET:?set CORE_SECRET in .env (copy .env.example)}
+    ports: ["127.0.0.1:8000:8000"]
+  core:
+    build: { context: ., target: core }
+    depends_on: [portal]
+    environment:
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:?add your Google key to .env (aistudio.google.com)}
+      VOICE_USER: ${VOICE_USER:-voice}
+      VOICE_PASSWORD: ${VOICE_PASSWORD:?set VOICE_PASSWORD in .env (copy .env.example)}
+      SETTINGS_URL: http://portal:8000
+      BUSINESS_ID: "1"  # the first Business invited in a fresh database
+      CORE_SECRET: ${CORE_SECRET:?set CORE_SECRET in .env (copy .env.example)}
+      PORT: "7860"
+    ports: ["127.0.0.1:7860:7860"]
+volumes:
+  pgdata:
