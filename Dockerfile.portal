@@ -1,0 +1,15 @@
+FROM python:3.13-slim
+COPY --from=ghcr.io/astral-sh/uv:0.11.32 /uv /usr/local/bin/uv
+WORKDIR /app
+ENV PATH="/app/.venv/bin:$PATH" DJANGO_SETTINGS_MODULE=portal.settings
+COPY pyproject.toml uv.lock ./
+# Only the Portal's group: the core's Pipecat stays out of this image, as Django stays out of the core's (ADR 0002).
+RUN uv venv && uv export --frozen --only-group portal --no-emit-project -o /tmp/portal.txt && uv pip install -r /tmp/portal.txt
+COPY portal ./portal
+RUN ENVIRONMENT=local DEBUG=1 python -m django collectstatic --noinput
+RUN useradd --system app
+USER app
+EXPOSE 8000
+# DATABASE_URL, DJANGO_SECRET_KEY, ALLOWED_HOSTS, PORTAL_URL, CORE_URL, CORE_SECRET, EMAIL_HOST and EMAIL_FROM come from the environment (Dokploy, .env.example); ENVIRONMENT=production.
+# Migrations run at start, so a deploy and its schema never disagree. One worker: the login limit counts in the worker's memory.
+CMD ["sh", "-c", "python -m django migrate --noinput && exec gunicorn portal.wsgi --bind 0.0.0.0:8000 --workers 1 --threads 4 --no-control-socket"]
