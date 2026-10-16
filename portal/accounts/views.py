@@ -78,10 +78,16 @@ def home(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
+    business = Business.objects.filter(account=request.user).first()
     return render(
         request,
         "accounts/dashboard.html",
-        {"business": Business.objects.filter(account=request.user).first()},
+        {
+            "business": business,
+            "call_url": business
+            and settings.PORTAL_URL.rstrip("/")
+            + reverse("call_link", args=[business.call_slug]),
+        },
     )
 
 
@@ -192,18 +198,27 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     return redirect("modules")
 
 
+def to_core(business: Business) -> HttpResponse:
+    """Sends a browser to the core's call page with a ticket for this one Business: the only way a browser is let to call."""
+    # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
+    if not settings.CORE_SECRET:
+        return HttpResponse("Calls are not set up: CORE_SECRET is empty.", status=503)
+    ticket = mint(settings.CORE_SECRET, business.pk)
+    return redirect(f"{settings.CORE_URL.rstrip('/')}/?ticket={ticket}")
+
+
 @login_required
 @require_POST
 def test_call(request: HttpRequest) -> HttpResponse:
-    """The one way a browser gets to call for a Business: a ticket for the logged-in Business, and nothing else it could name."""
-    business = get_object_or_404(Business, account=request.user)
-    # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
-    if not settings.CORE_SECRET:
-        return HttpResponse(
-            "Test calls are not set up: CORE_SECRET is empty.", status=503
-        )
-    ticket = mint(settings.CORE_SECRET, business.pk)
-    return redirect(f"{settings.CORE_URL.rstrip('/')}/?ticket={ticket}")
+    """A logged-in Business's own test call; it takes no Business from the request."""
+    return to_core(get_object_or_404(Business, account=request.user))
+
+
+@require_GET
+@never_cache
+def call_link(request: HttpRequest, slug: str) -> HttpResponse:
+    """A Business's public call link. Open to anyone, so anyone can start a call for that Business (there is no limit yet, DECISIONS.md)."""
+    return to_core(get_object_or_404(Business, call_slug=slug))
 
 
 @require_GET

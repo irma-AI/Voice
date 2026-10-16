@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 
 from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
@@ -20,6 +21,11 @@ LANGUAGES = {"sv": "Swedish", "en": "English"}
 
 def swedish_only() -> list[str]:
     return ["sv"]
+
+
+def new_call_slug() -> str:
+    """The unguessable part of a Business's public call link."""
+    return secrets.token_urlsafe(16)
 
 
 def clean_email(email: str) -> str:
@@ -69,6 +75,8 @@ class Business(models.Model):
     )
     max_calls_per_day = models.IntegerField(default=10)
     max_minutes_per_day = models.IntegerField(default=30)
+    # The public call link is /call/<call_slug>/; unique in the database, so one link is one Business.
+    call_slug = models.CharField(max_length=40, unique=True, default=new_call_slug)
 
     class Meta:
         constraints = [
