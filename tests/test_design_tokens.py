@@ -1,4 +1,4 @@
-"""The design tokens are one fact in two places: the Portal's source and the core's call page, which may not import the Portal (ADR 0002)."""
+"""The design tokens and typefaces are one fact in two places: the Portal's source and the core's call page, which may not import the Portal (ADR 0002)."""
 
 import re
 from pathlib import Path
@@ -54,3 +54,16 @@ def test_design_md_names_the_same_colours_as_the_token_source() -> None:
         "DESIGN.md's colors differ from the tokens: edit portal/static/portal/tokens.css (the source), "
         "then copy its colours into the colors frontmatter of DESIGN.md"
     )
+
+
+def test_the_core_serves_the_same_typefaces_as_the_portal() -> None:
+    source, copy = ROOT / "portal/static/portal/fonts", ROOT / "voice/static/fonts"
+    names = sorted(p.name for p in source.iterdir())
+    assert names, "nothing was read from the Portal's fonts"
+    assert sorted(p.name for p in copy.iterdir()) == names, (
+        "the font files differ: portal/static/portal/fonts is the source; copy it to voice/static/fonts"
+    )
+    for name in names:
+        assert (source / name).read_bytes() == (copy / name).read_bytes(), (
+            f"{name} differs: copy portal/static/portal/fonts/{name} to voice/static/fonts"
+        )

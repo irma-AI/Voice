@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="sv">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Voice</title>
+<title>__TITLE__</title>
 <style>
   /* Design tokens: a copy of portal/static/portal/tokens.css (the source; the core may not import the Portal, ADR 0002).
-     tests/test_design_tokens.py fails when they differ. Used by the call page's redesign (VOI-87). */
+     tests/test_design_tokens.py fails when they differ. */
   :root {
     --color-blue-hour: #1A2A44;
     --color-deep-sea: #0B1322;
@@ -44,21 +44,185 @@
     --radius-lg: 0.75rem;
     --radius-pill: 9999px;
   }
-  :root { color-scheme: light dark; }
-  body { font: 1.125rem/1.5 system-ui, sans-serif; max-width: 28rem; margin: 3rem auto; padding: 0 1rem; }
-  button { font: inherit; padding: .75rem 1.5rem; }
-  #status { margin-top: 1rem; min-height: 1.5em; }
+  /* The faces are served by the core (voice/static/fonts, a copy of the Portal's; tests/test_design_tokens.py holds them equal). */
+  @font-face { font-family: "Instrument Serif"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/InstrumentSerif-Regular.woff2") format("woff2"); }
+  @font-face { font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("/fonts/Geist-Variable.woff2") format("woff2"); }
+  /* Voice's own look. A Business's Theme (below) swaps the action and the live light for its accent,
+     already adjusted by the Portal so its text colour reads on it (WCAG 2.2 AA). */
+  :root {
+    --action: var(--color-foam);
+    --on-action: var(--color-deep-sea);
+    --action-hover: var(--color-cable-light);
+    --live: var(--color-cable-light);
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+</style>
+<style>__THEME__</style>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    min-height: 100dvh;
+    background: var(--color-deep-sea) radial-gradient(120% 90% at 70% 0%, var(--color-blue-hour) 0%, var(--color-deep-sea) 78%) fixed;
+    color: var(--color-foam);
+    font: 400 var(--text-base)/var(--text-base--line-height) var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    display: grid;
+    place-items: center;
+  }
+  ::selection { background: var(--color-cable-light); color: var(--color-deep-sea); }
+  :focus-visible { outline: 2px solid var(--color-cable-light); outline-offset: 4px; }
+
+  .panel {
+    width: 100%;
+    max-width: 26rem;
+    padding: calc(var(--spacing) * 6) calc(var(--spacing) * 5) calc(var(--spacing) * 7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: calc(var(--spacing) * 5);
+  }
+
+  .brand { min-height: 2.5rem; display: flex; align-items: center; justify-content: center; }
+  .brand img { display: block; max-height: 2.5rem; max-width: 12rem; object-fit: contain; }
+  .brand .name {
+    font-family: var(--font-serif);
+    font-size: var(--text-2xl);
+    line-height: var(--text-2xl--line-height);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  /* The written AI disclosure: in view before the call and for all of it. */
+  .disclosure {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-size: var(--text-xl);
+    line-height: var(--text-xl--line-height);
+    text-wrap: balance;
+  }
+
+  /* A compact Turn: the ring is this call, filling with time. */
+  .instrument { position: relative; width: 10.5rem; aspect-ratio: 1; }
+  .instrument svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  .track { fill: none; stroke: var(--color-granite); stroke-width: 1; }
+  .arc { fill: none; stroke: var(--live); stroke-width: 2; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+  .centre {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: calc(var(--spacing) * 1.5);
+  }
+  .clock { font-size: var(--text-2xl); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .label {
+    font-size: var(--text-xs);
+    line-height: var(--text-xs--line-height);
+    font-weight: 500;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    color: var(--color-foam-muted);
+  }
+  .speaker { display: inline-flex; align-items: center; gap: 0.5em; min-height: 1.4em; }
+
+  /* State: a dot and a label, then a sentence that says what to do. */
+  .state { display: flex; flex-direction: column; align-items: center; gap: calc(var(--spacing) * 2); min-height: 4.5rem; }
+  .chip { display: inline-flex; align-items: center; gap: 0.5em; }
+  .dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; border: 1.5px solid var(--color-foam-faint); flex: none; }
+  .message { margin: 0; max-width: 30ch; font-size: var(--text-sm); line-height: var(--text-sm--line-height); color: var(--color-foam-muted); text-wrap: pretty; }
+
+  [data-state="live"] .chip .dot,
+  .speaker[data-who="agent"] .dot,
+  .speaker[data-who="caller"] .dot { background: var(--live); border-color: var(--live); }
+  [data-state="live"] .chip .label { color: var(--color-foam); }
+  [data-state="connecting"] .chip .dot { border-color: var(--live); animation: wait 1.4s ease-in-out infinite; }
+  [data-state="blocked"] .chip .dot,
+  [data-state="failed"] .chip .dot { border-style: dashed; }
+  .speaker { visibility: hidden; }
+  [data-state="live"] .speaker { visibility: visible; }
+  @keyframes wait { 50% { opacity: 0.25; } }
+
+  .pill {
+    font: 500 0.9375rem/1.2 var(--font-sans);
+    width: 100%;
+    max-width: 18rem;
+    min-height: 3rem;
+    padding: 0.75rem 1.25rem;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--action);
+    color: var(--on-action);
+    cursor: pointer;
+    transition: background-color 0.2s ease-out, color 0.2s ease-out, border-color 0.2s ease-out;
+  }
+  .pill:hover { background: var(--action-hover); }
+  .pill:disabled { cursor: progress; opacity: 0.6; }
+  /* Hanging up is the quiet ghost: the live thing is the call, not the button. */
+  [data-state="live"] .pill { background: transparent; color: var(--color-foam); box-shadow: inset 0 0 0 1px var(--color-foam-faint); }
+  [data-state="live"] .pill:hover { box-shadow: inset 0 0 0 1px var(--color-foam-muted); }
+
+  .fine { margin: 0; font-size: var(--text-xs); line-height: var(--text-xs--line-height); color: var(--color-foam-muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .arc, .pill { transition: none; }
+    [data-state="connecting"] .chip .dot { animation: none; }
+  }
 </style>
 </head>
 <body>
-<h1>Voice</h1>
-<button id="go" type="button">Starta samtal</button>
-<p id="status" role="status" aria-live="polite"></p>
+<main class="panel" id="panel" data-state="start">
+  <header class="brand">__BRAND__</header>
+  <p class="disclosure">You are talking to an AI assistant.</p>
+  <div class="instrument" aria-hidden="true">
+    <svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="48"/><circle class="arc" id="arc" cx="50" cy="50" r="48" pathLength="1000" stroke-dasharray="1000" stroke-dashoffset="1000"/></svg>
+    <div class="centre">
+      <span class="clock" id="clock">0:00</span>
+      <span class="speaker label" id="speaker" data-who=""><span class="dot"></span><span id="speaker-name">Listening</span></span>
+    </div>
+  </div>
+  <div class="state" role="status" aria-live="polite">
+    <span class="chip"><span class="dot"></span><span class="label" id="chip">Ready</span></span>
+    <p class="message" id="message">Press Start call and allow your microphone when your browser asks.</p>
+  </div>
+  <button id="go" class="pill" type="button">Start call</button>
+  <p class="fine">The call uses your microphone.</p>
+</main>
 <script>
 // ponytail: plain page and a hand-written audio path; swap for Pipecat's browser client if barge-in or reconnects need more than this.
-const IN_RATE = __IN_RATE__, OUT_RATE = __OUT_RATE__;
-const go = document.getElementById("go"), statusEl = document.getElementById("status");
+const IN_RATE = __IN_RATE__, OUT_RATE = __OUT_RATE__, MAX_CALL_SECS = __MAX_CALL_SECS__;
+const go = document.getElementById("go"), panel = document.getElementById("panel");
 let call = null;
+
+// Every state the page can be in: its label, what it tells the Caller, and the button.
+const STATES = {
+  start: ["Ready", "Press Start call and allow your microphone when your browser asks.", "Start call"],
+  connecting: ["Connecting", "Allow your microphone if your browser asks.", "Connecting…"],
+  live: ["Live", "Speak whenever you like. The agent hears you.", "Hang up"],
+  ended: ["Call ended", "Thank you for calling.", "Call again"],
+  blocked: ["Microphone blocked", "Your browser blocked the microphone. Allow it for this page, then try again.", "Try again"],
+  failed: ["Couldn't connect", "The call couldn't connect. Check your connection and try again.", "Try again"],
+};
+function show(state) {
+  const [chip, message, button] = STATES[state];
+  panel.dataset.state = state;
+  document.getElementById("chip").textContent = chip;
+  document.getElementById("message").textContent = message;
+  go.textContent = button;
+  go.disabled = state === "connecting";
+}
+
+// The ring and clock: time since the call went live, out of the core's cap.
+const arc = document.getElementById("arc"), clock = document.getElementById("clock");
+const speaker = document.getElementById("speaker"), speakerName = document.getElementById("speaker-name");
+function tick(secs) {
+  clock.textContent = `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, "0")}`;
+  arc.style.strokeDashoffset = String(1000 - Math.min(1, secs / MAX_CALL_SECS) * 1000);
+}
+function speaking(who) {
+  if (speaker.dataset.who === who) return;
+  speaker.dataset.who = who;
+  speakerName.textContent = who === "agent" ? "Agent" : who === "caller" ? "You" : "Listening";
+}
 
 // Runs in the audio thread: hands the microphone over in blocks of 2048 samples.
 const WORKLET = `class Tap extends AudioWorkletProcessor {
@@ -98,8 +262,9 @@ function resampler(fromRate) {
 }
 
 async function start() {
-  go.disabled = true;
-  statusEl.textContent = "Ansluter …";
+  show("connecting");
+  speaking("");
+  tick(0);
   let stream, ctx, ws;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
@@ -112,20 +277,19 @@ async function start() {
   } catch (e) {
     stream?.getTracks().forEach((t) => t.stop());
     ctx?.close();
-    go.disabled = false;
-    statusEl.textContent = e.name === "NotAllowedError" ? "Mikrofonen är blockerad. Tillåt den och försök igen." : "Kunde inte ansluta.";
+    show(e.name === "NotAllowedError" ? "blocked" : "failed");
     return;
   }
   const tap = new AudioWorkletNode(ctx, "tap"), playing = new Set();
   // Chrome's echo cancelling removes only audio that arrives over WebRTC and plays in a media element,
   // not what an AudioContext plays itself, so with the speaker on the microphone heard the agent and
   // cut it off. The agent's audio therefore makes a round trip through a WebRTC connection to this page.
-  const out = ctx.createMediaStreamDestination(), speaker = new Audio();
+  const out = ctx.createMediaStreamDestination(), speakerOut = new Audio();
   const sender = new RTCPeerConnection(), receiver = new RTCPeerConnection();
   try {
     sender.onicecandidate = (e) => e.candidate && receiver.addIceCandidate(e.candidate);
     receiver.onicecandidate = (e) => e.candidate && sender.addIceCandidate(e.candidate);
-    receiver.ontrack = (e) => { speaker.srcObject = e.streams[0]; speaker.play().catch(() => {}); };
+    receiver.ontrack = (e) => { speakerOut.srcObject = e.streams[0]; speakerOut.play().catch(() => {}); };
     out.stream.getTracks().forEach((t) => sender.addTrack(t, out.stream));
     await sender.setLocalDescription(await sender.createOffer());
     await receiver.setRemoteDescription(sender.localDescription);
@@ -134,9 +298,15 @@ async function start() {
   } catch (e) {
     out.connect(ctx.destination);  // no echo cancelling this way, but the call still works
   }
-  let next = 0;
+  let next = 0, callerHeardAt = 0;
   const down = resampler(ctx.sampleRate);
-  tap.port.onmessage = (e) => ws.readyState === 1 && ws.send(down(e.data));
+  tap.port.onmessage = (e) => {
+    // Who is speaking, for the page only: the block's loudness, read before it is sent.
+    let sq = 0;
+    for (const s of e.data) sq += s * s;
+    if (Math.sqrt(sq / e.data.length) > 0.02) callerHeardAt = performance.now();
+    ws.readyState === 1 && ws.send(down(e.data));
+  };
   ctx.createMediaStreamSource(stream).connect(tap);
   ws.onmessage = (e) => {
     if (typeof e.data === "string") {  // {"type": "interrupt"}: the Caller spoke over the agent
@@ -155,23 +325,26 @@ async function start() {
     next += buf.duration;
     playing.add(src);
   };
-  function end(msg) {
+  const began = performance.now();
+  const timer = setInterval(() => {
+    tick((performance.now() - began) / 1000);
+    speaking(playing.size ? "agent" : performance.now() - callerHeardAt < 400 ? "caller" : "");
+  }, 100);
+  function end() {
     call = null;
+    clearInterval(timer);
+    speaking("");
     stream.getTracks().forEach((t) => t.stop());
-    speaker.srcObject = null;
+    speakerOut.srcObject = null;
     sender.close();
     receiver.close();
     ws.close();
     ctx.close();
-    go.textContent = "Starta samtal";
-    go.disabled = false;
-    statusEl.textContent = msg;
+    show("ended");
   }
-  ws.onclose = () => call && end("Samtalet är slut.");
-  call = () => end("Samtalet är slut.");
-  go.textContent = "Lägg på";
-  go.disabled = false;
-  statusEl.textContent = "Samtal pågår.";
+  ws.onclose = () => call && end();
+  call = end;
+  show("live");
 }
 go.onclick = () => (call ? call() : start());
 </script>
