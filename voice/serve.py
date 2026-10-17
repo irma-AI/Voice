@@ -71,8 +71,29 @@ def same_site(origin: str | None, host: str | None) -> bool:
     return bool(origin and host and urlsplit(origin).netloc == host)
 
 
+class OneCallPerBusiness:
+    """Which Businesses have a call open. A link anyone can open would otherwise let one visitor run many paid calls at once.
+
+    shortcut: counts in this process's memory, so it holds only while the core runs as one process; move it to shared storage before a second one.
+    """
+
+    def __init__(self) -> None:
+        self._open: set[int] = set()
+
+    def take(self, business: int) -> bool:
+        """True and the Business is marked open, or False when a call for it is already open."""
+        if business in self._open:
+            return False
+        self._open.add(business)
+        return True
+
+    def release(self, business: int) -> None:
+        self._open.discard(business)
+
+
 def create_app(ticket_secret: str) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    one_call = OneCallPerBusiness()
     app.add_middleware(TicketGate, ticket_secret=ticket_secret)
 
     @app.get("/")
@@ -96,24 +117,33 @@ def create_app(ticket_secret: str) -> FastAPI:
         if ticket is None:
             logger.warning("refused /ws: the call ticket is wrong or has expired")
             return await websocket.close(code=1008)
-        await websocket.accept()
-        transport = FastAPIWebsocketTransport(
-            websocket,
-            FastAPIWebsocketParams(
-                audio_in_enabled=True,
-                audio_out_enabled=True,
-                audio_in_sample_rate=IN_RATE,
-                audio_out_sample_rate=OUT_RATE,
-                serializer=RawPcmSerializer(),
-                session_timeout=MAX_CALL_SECS,
-            ),
-        )
+        # One call at a time per Business, whatever started it (Petter, VOI-59); the slot is taken before anything awaits.
+        if not one_call.take(ticket.business):
+            logger.warning(
+                "refused /ws: Business {} already has a call open", ticket.business
+            )
+            return await websocket.close(code=1008)
+        try:
+            await websocket.accept()
+            transport = FastAPIWebsocketTransport(
+                websocket,
+                FastAPIWebsocketParams(
+                    audio_in_enabled=True,
+                    audio_out_enabled=True,
+                    audio_in_sample_rate=IN_RATE,
+                    audio_out_sample_rate=OUT_RATE,
+                    serializer=RawPcmSerializer(),
+                    session_timeout=MAX_CALL_SECS,
+                ),
+            )
 
-        @transport.event_handler("on_session_timeout")
-        async def _time_up(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
-            await websocket.close()
+            @transport.event_handler("on_session_timeout")
+            async def _time_up(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
+                await websocket.close()
 
-        await run_call(transport, ticket=ticket)
+            await run_call(transport, ticket=ticket)
+        finally:
+            one_call.release(ticket.business)
 
     return app
 

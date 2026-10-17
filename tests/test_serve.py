@@ -15,7 +15,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from voice import serve
 from voice.auth import REFUSAL, TICKET_PATHS
-from voice.serve import RawPcmSerializer, create_app, same_site
+from voice.serve import OneCallPerBusiness, RawPcmSerializer, create_app, same_site
 from voice.ticket import sign
 
 
@@ -60,6 +60,19 @@ def test_only_this_site_may_open_the_call_socket() -> None:
     assert not same_site("https://voice.example.se.evil.example", "voice.example.se")
     assert not same_site(None, "voice.example.se")  # fail closed: no Origin, no call
     assert not same_site("https://voice.example.se", None)
+
+
+def test_a_business_has_one_call_at_a_time_and_other_businesses_are_unaffected() -> (
+    None
+):
+    calls = OneCallPerBusiness()
+    assert calls.take(7)
+    assert not calls.take(7)  # a second call for the same Business is refused
+    assert calls.take(8)  # another Business is not
+    calls.release(7)
+    assert calls.take(7)  # free again once the first call has ended
+    calls.release(7)
+    calls.release(7)  # releasing twice is harmless
 
 
 def test_the_call_page_opens_with_a_portal_ticket_and_refuses_everyone_else() -> None:
