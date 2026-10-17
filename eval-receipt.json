@@ -7,6 +7,6 @@
     "modules/example.py": "55e636c4e0e0ceb3872bf8867d27870917105ac4a476c8ab56f88a1420591f31",
     "tests/evals/business.json": "270e7b8dc7b18dda8772b76529cd5d0fdd8a44b931542442b98dd4596c09cb19",
     "tests/evals/business_module.json": "a5b05642df145464caa239159c212b61d240e26507f72c33a573bf50f70171a7",
-    "pyproject.toml": "6ad47002f96c12cdeba7f0a8292e4be04ee2a8304c4d169db537d33aa0a8521e"
+    "pyproject.toml": "a5a65f4704a85e1d63aecd363d6f6721893aad117e352ae180f3646b2d7c885e"
   }
 }
