@@ -76,7 +76,6 @@ generate-check: ## Fail when a generated file is stale, printing the command tha
 
 build: ## Build every configuration this repo ships
 	docker build -t voice .
-	docker build --target portal -t voice-portal-self-host .
 	docker build -f Dockerfile.portal -t voice-portal .
 
 check: lint typecheck test test-db guards generate-check build ## Everything CI runs

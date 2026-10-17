@@ -10,9 +10,10 @@ services:
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck: { test: ["CMD", "pg_isready", "-U", "postgres"], interval: 1s, retries: 30 }
   portal:
-    build: { context: ., target: portal }
+    build: { context: ., dockerfile: Dockerfile.portal }
     depends_on: { postgres: { condition: service_healthy } }
-    # ponytail: the Portal runs in its local mode (mail prints to its log, Django's dev server): fine on one machine, not for a public address. Production mode needs the values listed in .env.example.
+    # ponytail: the Portal runs in its local mode (mail prints to its log, Django's dev server: gunicorn serves no static files with DEBUG on): fine on one machine, not for a public address. Production mode needs the values listed in .env.example.
+    command: ["sh", "-c", "python -m django migrate --noinput && exec python -m django runserver 0.0.0.0:8000"]
     environment:
       ENVIRONMENT: local
       DEBUG: "1"
