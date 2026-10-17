@@ -29,7 +29,7 @@ from pipecat.transports.websocket.fastapi import (
 from voice.agent import run_call
 from voice.auth import TicketGate
 from voice.settings import describe_source
-from voice.ticket import from_query, ticket_business
+from voice.ticket import from_query, read_ticket
 
 # What Gemini Live takes in and gives out; the page is served with these two numbers.
 IN_RATE = 16000
@@ -91,11 +91,9 @@ def create_app(ticket_secret: str) -> FastAPI:
                 "refused /ws: Origin {!r} does not match Host {!r}", origin, host
             )
             return await websocket.close(code=1008)
-        # The ticket names the Business this call is for; the gate already checked it, and a call never runs without one.
-        business_id = ticket_business(
-            from_query(websocket.scope["query_string"]), ticket_secret
-        )
-        if business_id is None:
+        # The ticket names the Business this call is for and what started it; the gate already checked it, and a call never runs without one.
+        ticket = read_ticket(from_query(websocket.scope["query_string"]), ticket_secret)
+        if ticket is None:
             logger.warning("refused /ws: the call ticket is wrong or has expired")
             return await websocket.close(code=1008)
         await websocket.accept()
@@ -115,7 +113,7 @@ def create_app(ticket_secret: str) -> FastAPI:
         async def _time_up(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
             await websocket.close()
 
-        await run_call(transport, business_id=business_id)
+        await run_call(transport, ticket=ticket)
 
     return app
 
