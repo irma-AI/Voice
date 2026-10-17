@@ -43,6 +43,13 @@ def add(client: Client, name: str, address: str) -> Any:
     return client.post("/modules/", {"name": name, "address": address})
 
 
+def checked(client: Client) -> str:
+    """The page after the Business presses Check, which is the only time the Modules are asked."""
+    response = client.post("/modules/", {"check": "1"})
+    assert response.status_code == 200
+    return response.content.decode()
+
+
 def refused(client: Client, name: str, address: str) -> str:
     response = add(client, name, address)
     assert response.status_code == 200, (name, address)
@@ -126,7 +133,7 @@ def test_the_page_lists_the_actions_a_module_offers(settings: Any) -> None:
     settings.ALLOW_LOCAL_MODULES = True
     _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     add(client, "hours", EXAMPLE)
-    page = client.get("/modules/").content.decode()
+    page = checked(client)
     assert "opening_hours" in page and "cannot be used" not in page
 
 
@@ -134,6 +141,20 @@ def closed_port() -> int:
     with closing(socket.socket()) as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
+
+
+def test_opening_the_page_does_not_ask_the_modules(settings: Any) -> None:
+    settings.ALLOW_LOCAL_MODULES = True
+    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    with closing(socket.socket()) as listening:
+        listening.bind(("127.0.0.1", 0))
+        listening.listen()
+        listening.setblocking(False)
+        add(client, "mine", f"http://127.0.0.1:{listening.getsockname()[1]}/mcp")
+        page = client.get("/modules/").content.decode()
+        with pytest.raises(BlockingIOError):  # nothing connected to it
+            listening.accept()
+    assert "Not checked yet" in page and "mine" in page
 
 
 def test_a_module_that_cannot_be_reached_says_so_and_the_others_still_show(
@@ -144,7 +165,7 @@ def test_a_module_that_cannot_be_reached_says_so_and_the_others_still_show(
     add(client, "dead", f"http://127.0.0.1:{closed_port()}/mcp")
     add(client, "missing", "no-such-program-voice")
     add(client, "hours", EXAMPLE)
-    page = client.get("/modules/").content.decode()
+    page = checked(client)
     assert page.count("cannot be used on a call right now") == 2
     assert "opening_hours" in page
 
@@ -156,7 +177,7 @@ def test_a_module_that_never_answers_says_so(settings: Any) -> None:
         hung.bind(("127.0.0.1", 0))
         hung.listen()
         add(client, "hung", f"http://127.0.0.1:{hung.getsockname()[1]}/mcp")
-        page = client.get("/modules/").content.decode()
+        page = checked(client)
     assert f"did not answer within {probe.PROBE_TIMEOUT_S} seconds" in page
 
 
@@ -165,7 +186,7 @@ def test_a_hosted_page_does_not_reach_into_our_network_for_a_stored_address() ->
     Module.objects.create(
         business=business, name="inside", url="https://127.0.0.1:1/mcp"
     )
-    assert "not on the public internet" in client.get("/modules/").content.decode()
+    assert "not on the public internet" in checked(client)
 
 
 def test_a_module_can_be_removed_and_swapped() -> None:
