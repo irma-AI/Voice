@@ -3,6 +3,8 @@
 Pipecat's own runner (voice/web.py) stays for the eval Channel; Pipecat calls it a development tool.
 """
 
+import asyncio
+import html
 import json
 import os
 import sys
@@ -12,7 +14,7 @@ from urllib.parse import urlsplit
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, WebSocket
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from loguru import logger
 from pipecat.frames.frames import (
     Frame,
@@ -27,8 +29,8 @@ from pipecat.transports.websocket.fastapi import (
 )
 
 from voice.agent import run_call
-from voice.auth import REFUSAL_PAGE, TicketGate
-from voice.settings import describe_source
+from voice.auth import FONTS_PATH, REFUSAL_PAGE, TicketGate
+from voice.settings import Settings, SettingsRefused, describe_source, load_settings
 from voice.ticket import frame_ancestors, from_query, read_ticket
 
 # What Gemini Live takes in and gives out; the page is served with these two numbers.
@@ -38,6 +40,41 @@ OUT_RATE = 24000
 MAX_CALL_SECS = 600
 
 PAGE = (Path(__file__).parent / "page.html").read_text("utf-8")
+# The typefaces the call page uses: a copy of the Portal's, held equal by tests/test_design_tokens.py.
+FONTS = {
+    p.name: p.read_bytes()
+    for p in (Path(__file__).parent / "static" / "fonts").glob("*.woff2")
+}
+
+
+def render_page(settings: Settings | None) -> str:
+    """The call page for one Business, in its Theme; None (no settings to be had) is Voice's own look.
+
+    Text from the settings is escaped; the colours were checked as `#` and six hex digits by the settings port.
+    """
+    theme = settings.theme if settings else None
+    css = ""
+    if theme and theme.accent and theme.accent_text:
+        css = (
+            f":root {{ --action: {theme.accent}; --on-action: {theme.accent_text}; "
+            f"--action-hover: {theme.accent}; --live: {theme.accent}; }}"
+        )
+    name = html.escape(settings.name if settings else "Voice")
+    brand = f'<span class="name">{name}</span>'
+    if theme and theme.logo_url:  # a logo that fails to load gives way to the name
+        brand = (
+            f'<img src="{html.escape(theme.logo_url)}" alt="{name}" '
+            'onerror="this.hidden=true;this.nextElementSibling.hidden=false">'
+            f'<span class="name" hidden>{name}</span>'
+        )
+    return (
+        PAGE.replace("__IN_RATE__", str(IN_RATE))
+        .replace("__OUT_RATE__", str(OUT_RATE))
+        .replace("__MAX_CALL_SECS__", str(MAX_CALL_SECS))
+        .replace("__THEME__", css)
+        .replace("__TITLE__", name)
+        .replace("__BRAND__", brand)
+    )
 
 
 class RawPcmSerializer(FrameSerializer):
@@ -107,11 +144,27 @@ def create_app(ticket_secret: str) -> FastAPI:
         except ValueError:
             logger.warning("refused /: the call ticket has no usable domain")
             return HTMLResponse(REFUSAL_PAGE, status_code=403)
+        # The Theme comes through the settings port the call uses. Without settings the page shows Voice's
+        # own look; the call itself is then refused when it starts (voice/agent.py).
+        try:
+            settings = await asyncio.to_thread(
+                load_settings, os.environ, str(ticket.business)
+            )
+        except SettingsRefused as e:
+            logger.warning("call page in Voice's own look: {}", e)
+            settings = None
         return HTMLResponse(
-            PAGE.replace("__IN_RATE__", str(IN_RATE)).replace(
-                "__OUT_RATE__", str(OUT_RATE)
-            ),
-            headers={"Content-Security-Policy": csp},
+            render_page(settings), headers={"Content-Security-Policy": csp}
+        )
+
+    @app.get(FONTS_PATH + "{name}")
+    async def font(name: str) -> Response:  # pyright: ignore[reportUnusedFunction]
+        if name not in FONTS:
+            return Response(status_code=404)
+        return Response(
+            FONTS[name],
+            media_type="font/woff2",
+            headers={"Cache-Control": "public, max-age=86400"},
         )
 
     @app.websocket("/ws")
