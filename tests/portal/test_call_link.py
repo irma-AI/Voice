@@ -5,6 +5,7 @@
 The ticket is checked by the core's own code (voice/ticket.py), as in tests/portal/test_test_call.py.
 """
 
+import re
 import time
 from html import unescape
 from typing import Any
@@ -24,6 +25,11 @@ from voice.ticket import Ticket, read_ticket
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
 SECRET = "a-secret-for-tests"
+# What a browser sends when the panel on the Business's website loads the call link.
+IN_A_FRAME = {"Sec-Fetch-Dest": "iframe"}
+SENTENCE = (
+    "This call can't be opened from here. Start it from the company's own website."
+)
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +44,7 @@ def test_the_link_sends_anyone_to_the_core_with_a_ticket_for_that_business() -> 
     bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
     Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
 
-    response = Client().get(f"/call/{anna.call_slug}/")  # no login
+    response = Client().get(f"/call/{anna.call_slug}/", headers=IN_A_FRAME)  # no login
 
     assert response.status_code == 302
     parts = urlsplit(response["Location"])
@@ -62,14 +68,47 @@ def test_a_business_with_no_saved_website_gets_no_ticket(
     anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
     assert anna.website_domain == ""
 
-    response = Client().get(f"/call/{anna.call_slug}/")
+    response = Client().get(f"/call/{anna.call_slug}/", headers=IN_A_FRAME)
 
     assert response.status_code == 403 and "Location" not in response
-    assert (
-        response.content.decode()
-        == "This call can't be opened from here. Start it from the company's own website."
-    )
+    assert response.content.decode() == SENTENCE
     assert f"Business {anna.pk} has no website domain" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {},  # a pasted link in a tab on an iPhone before iOS 16.4 says nothing
+        {"Sec-Fetch-Dest": "document"},  # a tab, a pasted link, a popup
+        {"Sec-Fetch-Dest": "empty"},  # a script's fetch
+        {"Sec-Fetch-Dest": ""},
+        {"Sec-Fetch-Dest": "IFRAME"},  # the browser writes it lower case
+    ],
+)
+def test_a_request_that_does_not_say_it_is_in_a_frame_gets_no_ticket(
+    headers: dict[str, str], caplog: pytest.LogCaptureFixture
+) -> None:
+    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+
+    response = Client().get(f"/call/{anna.call_slug}/", headers=headers)
+
+    assert response.status_code == 403 and "Location" not in response
+    assert response.content.decode() == SENTENCE
+    assert f"Business {anna.pk} opened outside a frame" in caplog.text
+
+
+def test_the_call_link_can_be_framed_but_nothing_else_of_the_portal_can() -> None:
+    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+
+    # The panel frames the link, so Django's own refusal to be framed is lifted for it, on the refusal too.
+    for headers in (IN_A_FRAME, {}):
+        response = Client().get(f"/call/{anna.call_slug}/", headers=headers)
+        assert "X-Frame-Options" not in response
+    # Every other page still refuses (the core's frame-ancestors guards the call page itself).
+    assert client.get("/dashboard/")["X-Frame-Options"] == "DENY"
+    assert Client().get("/call-button.js")["X-Frame-Options"] == "DENY"
 
 
 def test_the_core_and_the_portal_hold_the_same_rule_for_a_plain_hostname() -> None:
@@ -92,7 +131,7 @@ def test_a_portal_with_no_secret_sends_nobody_to_the_core(settings: Any) -> None
     anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
     Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
     settings.CORE_SECRET = ""
-    response = Client().get(f"/call/{anna.call_slug}/")
+    response = Client().get(f"/call/{anna.call_slug}/", headers=IN_A_FRAME)
     assert response.status_code == 503 and "Location" not in response
 
 
@@ -106,23 +145,61 @@ def test_every_business_has_its_own_link_and_the_database_refuses_a_shared_one()
         Business.objects.filter(pk=bo.pk).update(call_slug=anna.call_slug)
 
 
-def test_the_dashboard_shows_a_business_its_own_link() -> None:
+def snippet(page: str) -> str:
+    """The script tag on the dashboard, as the Business would paste it."""
+    return unescape(page).split("<code>")[1].split("</code>")[0]
+
+
+def test_the_dashboard_shows_the_script_snippet_only_with_a_saved_website() -> None:
     anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
+
+    closed = client.get("/dashboard/").content.decode()
+    assert "<script" not in closed and "Your call button is closed" in closed
+    assert anna.call_slug not in closed  # no bare call link either
+
+    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
     page = client.get("/dashboard/").content.decode()
-    assert f"https://portal.example.se/call/{anna.call_slug}/" in page
-    assert bo.call_slug not in page
-
-
-def test_the_dashboard_shows_the_button_snippet_for_its_own_link_only() -> None:
-    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
-    page = unescape(client.get("/dashboard/").content.decode())
-    assert (
-        f'<a href="https://portal.example.se/call/{anna.call_slug}/" target="_blank" rel="noopener">Prata med vår AI-assistent</a>'
-        in page
+    assert "closed" not in page
+    assert snippet(page) == (
+        f'<script async src="https://portal.example.se/call-button.js" data-business="{anna.call_slug}"></script>'
     )
     assert bo.call_slug not in page
+    assert f"/call/{anna.call_slug}/" not in page
+
+
+def test_the_script_is_served_with_the_core_it_lets_the_microphone_into() -> None:
+    response = Client().get(
+        "/call-button.js"
+    )  # no login: the Business's website loads it
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "text/javascript; charset=utf-8"
+    script = response.content.decode()
+    assert '"https://voice.example.se"' in script  # CORE_URL's origin, no path
+    assert Client().post("/call-button.js").status_code == 405
+
+
+def test_the_snippet_and_the_script_agree_on_the_tag_and_the_route() -> None:
+    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+
+    tag = snippet(client.get("/dashboard/").content.decode())
+    script = Client().get("/call-button.js").content.decode()
+
+    # The loader finds its Business in the attribute the snippet writes, and opens the route the Portal serves.
+    assert re.search(r' data-business="[^"]+"', tag) and "dataset.business" in script
+    assert "{portal}/call/${encodeURIComponent(tag.dataset.business)}/" in script
+    assert (
+        Client().get(f"/call/{anna.call_slug}/", headers=IN_A_FRAME).status_code == 302
+    )
+
+
+def test_the_script_sends_no_message_to_every_site() -> None:
+    script = Client().get("/call-button.js").content.decode()
+    assert "postMessage" not in script, (
+        "a message between the page and the panel must name its target origin and check the sender's: add that check and edit this test"
+    )
 
 
 def test_a_business_cannot_set_its_own_link_from_the_settings_page() -> None:
