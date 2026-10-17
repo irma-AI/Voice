@@ -3,8 +3,8 @@ docs/adr/                         # created on the first ADR (domain-modeling)
 scripts/checks/baselines/         # created by run.js --init-baseline
 scripts/checks/db-test-required.json  # added when a repo adopts the guard (stack recipe)
 scripts/checks/layers.json        # added when a repo adopts the guard (stack recipe)
-CONTEXT.md                        # created on the first glossary term (domain-modeling)
-CONTEXT-MAP.md                    # multi-context repos only
+GLOSSARY.md                        # created on the first glossary term (domain-modeling)
+GLOSSARY-MAP.md                    # multi-context repos only
 DESIGN.md                         # written by /impeccable
 PRODUCT.md                        # written by /impeccable
 docs/agents/issue-tracker.md      # written by /setup-matt-pocock-skills

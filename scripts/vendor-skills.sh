@@ -10,7 +10,7 @@ node -v
 
 POCOCK=(code-review codebase-design diagnosing-bugs domain-modeling
   grill-with-docs grilling handoff implement improve-codebase-architecture pr research
-  resolving-merge-conflicts setup-matt-pocock-skills tdd to-spec to-tickets triage wait-what
+  setup-matt-pocock-skills tdd to-spec to-tickets triage wait-what
   wayfinder writing-for-agents)
 PONYTAIL=(ponytail ponytail-audit ponytail-debt ponytail-gain ponytail-help ponytail-review)
 
