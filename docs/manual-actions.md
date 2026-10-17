@@ -1,6 +1,6 @@
 # Manual actions for Petter
 
-Things only a person at a computer can do: agents can't change GitHub rulesets or DNS, or click in a dashboard. Every thread adds a line here (via the one open draft PR "Manual actions for Petter") when it finds one. Tick a box when done; when the list is clear, merge.
+Things only a person at a computer can do: agents can't change GitHub rulesets or click in a dashboard. Every thread adds a line here (via the one open draft PR "Manual actions for Petter") when it finds one. Tick a box when done; when the list is clear, merge.
 
 Format: `- [ ] <what to do>, <where>. Needed for: <why>. Added by: <ticket or thread>.`
 
@@ -11,10 +11,6 @@ Format: `- [ ] <what to do>, <where>. Needed for: <why>. Added by: <ticket or th
 ## Optional
 
 - [ ] GitHub, Branches: delete the old `deploy-behind-login` branch. Needed for: tidiness only, it sits on the pre-rewrite history.
-
-## Later, when the Portal goes live (VOI-33)
-
-- [ ] DNS for the sending domain: add an SPF record with `include:spf.hostup.se`. Needed for: Portal invite emails passing spam checks. Agents don't change DNS.
 
 ## Not on this list
 
