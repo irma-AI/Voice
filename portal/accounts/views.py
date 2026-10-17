@@ -4,7 +4,10 @@ import hashlib
 import hmac
 import json
 import unicodedata
+from collections import defaultdict
+from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from django import forms
 from django.conf import settings
@@ -14,7 +17,9 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.db.models import Count, Q, Sum
+from django.db.models.functions import TruncMonth
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_datetime
@@ -128,6 +133,56 @@ def calls(request: HttpRequest) -> HttpResponse:
         request,
         "accounts/calls.html",
         {"rows": rows, "time_zone": settings.TIME_ZONE},
+    )
+
+
+@login_required
+def totals(request: HttpRequest) -> HttpResponse:
+    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls. Only an Account with the marker (set by the `totals_marker` command) may open it."""
+    if not getattr(
+        request.user, "sees_totals", False
+    ):  # fails closed for anything without the marker
+        return HttpResponseForbidden("This page is not open to your account.")
+    month = TruncMonth("started_at", tzinfo=ZoneInfo(settings.TIME_ZONE))
+    sums = (
+        CallRecord.objects.annotate(month=month)
+        .values("month", "business_id", "business__name", "kind")
+        .annotate(
+            calls=Count("id"),
+            seconds=Sum("length_seconds"),
+            dollars=Sum("cost_usd"),
+            unpriced=Count("id", filter=Q(cost_usd__isnull=True)),
+        )
+    )
+    by_row: dict[tuple[Any, int, str], dict[str, tuple[int, str, str, int]]] = (
+        defaultdict(dict)
+    )
+    for s in sums:
+        by_row[(s["month"], s["business_id"], s["business__name"])][s["kind"]] = (
+            s["calls"],
+            f"{s['seconds'] / 60:.1f}",
+            f"{s['dollars'] or Decimal(0):.4f}",
+            s["unpriced"],
+        )
+    empty = (0, "0.0", "0.0000", 0)
+    rows = [
+        (
+            month.strftime("%Y-%m"),
+            name,
+            [kinds.get(kind, empty) for kind in CALL_KINDS],
+        )
+        for (month, _, name), kinds in sorted(
+            by_row.items(), key=lambda r: (-r[0][0].timestamp(), r[0][2], r[0][1])
+        )
+    ]
+    return render(
+        request,
+        "accounts/totals.html",
+        {
+            "rows": rows,
+            "kinds": list(CALL_KINDS.values()),
+            "time_zone": settings.TIME_ZONE,
+        },
     )
 
 
