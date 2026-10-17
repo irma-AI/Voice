@@ -10,6 +10,7 @@ urlpatterns = [
     path("settings/", views.business_settings, name="business_settings"),
     path("modules/", views.modules, name="modules"),
     path("modules/<int:module_id>/remove/", views.remove_module, name="remove_module"),
+    path("calls/", views.calls, name="calls"),
     path("test-call/", views.test_call, name="test_call"),
     path("call/<str:slug>/", views.call_link, name="call_link"),
     path(

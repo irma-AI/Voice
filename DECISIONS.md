@@ -236,3 +236,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-17] VOI-40: a stored Call record is final through a trigger on UPDATE and DELETE, not a revoked permission: a permission binds only the roles we thought of. TRUNCATE and the owner dropping the trigger are not covered: tests flush with TRUNCATE.
 [2026-10-17] VOI-40: the record's cost is a decimal string in the contract, not a JSON number, so no float rounds a dollar amount; its reason and call id are codes with no spaces, so neither can hold the Caller's words.
 [2026-10-17] VOI-40: a repeated call id answers success and keeps the first row even if the second differs: the core builds a record once and retries it unchanged, so a difference would be a core bug that a corrections record, not a refusal, will handle.
+[2026-10-17] VOI-43: TIME_ZONE is read from the environment (default UTC) and a name that is not a time zone stops the Portal, so a typo cannot show wrong times; the hosted Portal's Stockholm is set on Dokploy, not in code (market-neutral).
+[2026-10-17] VOI-43: the calls page lists every record with no cut-off: how many to show is a product number no card from Petter settled, so none was built in.
+[2026-10-17] ESCALATED: how many past calls should a Business's calls page show (all of them today)? -> Petter
+[2026-10-17] RESOLVED 2026-10-17: Petter chose "All calls" on a card: the calls page lists every call; paging comes when a Business has enough calls to need it.

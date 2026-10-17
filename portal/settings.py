@@ -4,6 +4,7 @@
 
 import os
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
@@ -151,5 +152,12 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = (
     BASE_DIR.parent / "staticfiles"
 )  # collectstatic writes here at image build; WhiteNoise serves it
-USE_TZ = True
-TIME_ZONE = "UTC"
+USE_TZ = True  # stored times are UTC
+# The clock the Portal shows times on; a name that is not a time zone stops the Portal rather than showing wrong times.
+TIME_ZONE = os.environ.get("TIME_ZONE", "").strip() or "UTC"
+try:
+    ZoneInfo(TIME_ZONE)
+except (ZoneInfoNotFoundError, ValueError) as error:
+    raise ImproperlyConfigured(
+        f"TIME_ZONE {TIME_ZONE!r} is not a time zone name (see .env.example)"
+    ) from error

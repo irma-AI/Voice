@@ -25,6 +25,7 @@ from django.views.decorators.http import require_GET, require_POST
 from portal.accounts import modules as module_rules
 from portal.accounts import probe
 from portal.accounts.models import (
+    CALL_KINDS,
     LANGUAGES,
     Account,
     Business,
@@ -102,6 +103,31 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             "button_html": call_url
             and f'<a href="{call_url}" target="_blank" rel="noopener">Prata med vår AI-assistent</a>',
         },
+    )
+
+
+@login_required
+def calls(request: HttpRequest) -> HttpResponse:
+    """The logged-in Business's recent calls: start, length, kind. No cost, no call id."""
+    business = Business.objects.filter(account=request.user).first()
+    # shortcut: lists every record, no paging (Petter chose "All calls", DECISIONS.md); add paging before a Business has thousands.
+    records = (
+        CallRecord.objects.filter(business=business).order_by("-started_at")
+        if business
+        else []
+    )
+    rows = [
+        (
+            r.started_at,
+            f"{r.length_seconds // 60}:{r.length_seconds % 60:02d}",
+            CALL_KINDS[r.kind],
+        )
+        for r in records
+    ]
+    return render(
+        request,
+        "accounts/calls.html",
+        {"rows": rows, "time_zone": settings.TIME_ZONE},
     )
 
 
