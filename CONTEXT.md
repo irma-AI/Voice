@@ -29,7 +29,7 @@ A link a Business pastes into its own website, from a snippet on its dashboard. 
 _Avoid_: widget, embed
 
 **Website domain**:
-The registrable domain of a Business's own website (`example.se` for `www.shop.example.se`), saved in its Portal settings. Only the Portal holds it; the agent's settings and the call ticket do not carry it.
+The registrable domain of a Business's own website (`example.se` for `www.shop.example.se`), saved in its Portal settings. The Portal holds it and puts it on a Call link's ticket, so the call page can be framed only by that site; the agent's settings do not carry it.
 _Avoid_: site, URL, host
 
 **Test call**:
