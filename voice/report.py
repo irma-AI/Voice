@@ -23,7 +23,7 @@ from pipecat.frames.frames import Frame, MetricsFrame
 from pipecat.metrics.metrics import LLMUsageMetricsData
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
-from voice.cost import PRICED_MODEL, price
+from voice.cost import MODEL, price
 from voice.settings import PORTAL_TIMEOUT_S, NoRedirect
 from voice.ticket import Ticket
 
@@ -144,7 +144,7 @@ def finish(
     env: Mapping[str, str],
 ) -> bool:
     """Prices the call, logs its record, then sends it. Blocks, so it runs in a thread."""
-    cost = price(totals, PRICED_MODEL, env.get("GOOGLE_API_KEY", "").strip())
+    cost = price(totals, MODEL, env.get("GOOGLE_API_KEY", "").strip())
     record = build_record(call_id, ticket, started_at, length_seconds, totals, cost)
     logger.info("call record {}", json.dumps(record))
     portal, secret = env.get("SETTINGS_URL", "").strip(), env.get("CORE_SECRET", "")

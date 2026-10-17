@@ -26,13 +26,12 @@ from pipecat.transports.base_transport import BaseTransport
 from pipecat.workers.runner import WorkerRunner
 
 from voice.bargein import VAD, BargeInRecorder
+from voice.cost import MODEL
 from voice.modules import Connected, connect_modules, local_modules_allowed
 from voice.record import CallRecorder
 from voice.report import UsageTally, report_call
 from voice.settings import LANGUAGES, Settings, SettingsRefused, load_settings
 from voice.ticket import Ticket
-
-MODEL = "models/gemini-3.8-live"
 
 # Legal wording approved by Petter 2026-10-12; changing it is his call (CLAUDE.md § Stop and ask).
 DISCLOSURE = "Du pratar med en AI-assistent."

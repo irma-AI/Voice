@@ -16,13 +16,12 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from loguru import logger
 
-from voice import agent, cost
-from voice.cost import CostReason, price, token_kinds
+from voice import cost
+from voice.cost import MODEL, CostReason, price, token_kinds
 
 SAMPLE: dict[str, Any] = json.loads(
     (Path(__file__).parent / "catalogue/sample_skus.json").read_text()
 )
-MODEL = agent.MODEL
 KEY = "k3y-not-in-any-log"
 TOTALS = {
     "prompt_tokens": 1200,
@@ -80,12 +79,6 @@ def split_in_two() -> list[dict[str, Any]]:
 
 def the_cost(base: str, totals: dict[str, int] = TOTALS) -> dict[str, str | None]:
     return price(totals, MODEL, KEY, base)
-
-
-def test_the_priced_model_is_the_one_the_agent_runs() -> None:
-    assert cost.PRICED_MODEL == MODEL, (
-        "edit voice/cost.py PRICED_MODEL to match voice/agent.py MODEL"
-    )
 
 
 def test_tokens_are_split_by_kind() -> None:
