@@ -20,5 +20,5 @@ RUN uv sync --frozen --no-default-groups
 COPY voice ./voice
 USER app
 EXPOSE 8000
-# GOOGLE_API_KEY and CORE_SECRET come from the environment (Dokploy); the app refuses to start without them. CORE_SECRET checks the Portal's call tickets, the only way into a call. SETTINGS_URL and BUSINESS_ID tell it where its Business's settings are; without them it starts and refuses every call.
+# GOOGLE_API_KEY and CORE_SECRET come from the environment (Dokploy); the app refuses to start without them. CORE_SECRET checks the Portal's call tickets, the only way into a call. SETTINGS_URL tells it where the Portal's settings are; without it the app starts and refuses every call.
 CMD ["python", "-m", "voice.serve"]
