@@ -324,7 +324,7 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     return redirect("modules")
 
 
-# What a Caller reads when the Business has not saved its website (English; the exact words wait for Petter's okay, VOI-71).
+# What a Caller reads when the Business has not saved its website (English; Petter approved the words on 2026-10-17, VOI-71).
 CALL_LINK_REFUSAL = (
     "This call can't be opened from here. Start it from the company's own website."
 )
