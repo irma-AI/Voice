@@ -1,24 +1,36 @@
 {% extends "base.html" %}
 {% block title %}Dashboard · Voice Portal{% endblock %}
 {% block content %}
-<h1 class="text-4xl">{{ business.name|default:"Your account" }}</h1>
-<p class="mt-4"><a href="{% url 'business_settings' %}" class="underline">Edit your agent's settings</a></p>
-<p class="mt-2"><a href="{% url 'modules' %}" class="underline">Your agent's Modules</a></p>
-<p class="mt-2"><a href="{% url 'calls' %}" class="underline">Your recent calls</a></p>
-{% if sees_totals %}
-<p class="mt-2"><a href="{% url 'totals' %}" class="underline">Totals for every Business</a></p>
-{% endif %}
+<div class="max-w-2xl">
+<h1 class="text-3xl break-words sm:text-4xl">{{ business.name|default:"Your account" }}</h1>
+
 {% if business %}
-<form method="post" action="{% url 'test_call' %}" class="mt-6">
+<form method="post" action="{% url 'test_call' %}" class="mt-8">
   {% csrf_token %}
-  <button type="submit" class="pill">Test call</button>
-  <p class="mt-2 text-sm">Talk to your agent with the settings you saved. It opens the call page in this tab.</p>
+  <button type="submit" class="pill w-full sm:w-auto">Test call</button>
+  <p class="mt-3 text-sm text-foam-muted">Talk to your agent with the settings you saved. It opens the call page in this tab.</p>
 </form>
-<p class="mt-6">Your website domain: {% if business.website_domain %}<strong>{{ business.website_domain }}</strong>{% else %}none set{% endif %}. <a href="{% url 'business_settings' %}" class="underline">Change it</a></p>
-<p class="mt-6">Your public call link: <a href="{{ call_url }}" class="underline break-all">{{ call_url }}</a></p>
-<p class="mt-2 text-sm">Anyone with this link can call your agent from a browser. There is no daily limit yet.</p>
-<h2 class="mt-6 text-2xl">A call button for your website</h2>
-<p class="mt-2 text-sm">Paste this where the button should appear. It opens your call link in a new window.</p>
-<pre class="mt-2 overflow-x-auto rounded border border-granite p-4 text-sm"><code>{{ button_html }}</code></pre>
 {% endif %}
+
+<ul class="rows mt-10">
+  <li><a href="{% url 'business_settings' %}">Edit your agent's settings</a></li>
+  <li><a href="{% url 'modules' %}">Your agent's Modules</a></li>
+  <li><a href="{% url 'calls' %}">Your recent calls</a></li>
+  {% if sees_totals %}<li><a href="{% url 'totals' %}">Totals for every Business</a></li>{% endif %}
+</ul>
+
+{% if business %}
+<section class="mt-10 space-y-3">
+  <p>Your website domain: {% if business.website_domain %}<strong>{{ business.website_domain }}</strong>{% else %}none set{% endif %}. <a href="{% url 'business_settings' %}" class="underline hover:text-cable-light">Change it</a></p>
+  <p>Your public call link: <a href="{{ call_url }}" class="underline break-all hover:text-cable-light">{{ call_url }}</a></p>
+  <p class="text-sm text-foam-muted">Anyone with this link can call your agent from a browser. There is no daily limit yet.</p>
+</section>
+
+<section class="mt-12 border-t border-granite pt-8">
+  <h2 class="text-2xl">A call button for your website</h2>
+  <p class="mt-2 text-sm text-foam-muted">Paste this where the button should appear. It opens your call link in a new window.</p>
+  <pre class="mt-4 overflow-x-auto rounded-md border border-granite bg-deep-sea/60 p-4 text-sm" tabindex="0"><code>{{ button_html }}</code></pre>
+</section>
+{% endif %}
+</div>
 {% endblock %}

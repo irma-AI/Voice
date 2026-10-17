@@ -52,6 +52,9 @@ ALLOW_LOCAL_MODULES = os.environ.get("ALLOW_LOCAL_MODULES", "").strip() == "1"
 # The one Account (by email) that may open the totals page. Empty closes the page to everyone.
 SUPER_ADMIN_EMAIL = os.environ.get("SUPER_ADMIN_EMAIL", "").strip().lower()
 
+# Where the landing page's Request access email goes. Empty hides the button, so the page never shows a dead link.
+CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "").strip()
+
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
