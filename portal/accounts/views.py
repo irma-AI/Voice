@@ -2,8 +2,12 @@
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 import hashlib
 import hmac
+import json
 import unicodedata
+from collections import defaultdict
+from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from django import forms
 from django.conf import settings
@@ -13,15 +17,27 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.db.models import Count, Q, Sum
+from django.db.models.functions import TruncMonth
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from portal.accounts import modules as module_rules
 from portal.accounts import probe
-from portal.accounts.models import LANGUAGES, Account, Business, Module, clean_email
+from portal.accounts.models import (
+    CALL_KINDS,
+    LANGUAGES,
+    Account,
+    Business,
+    CallRecord,
+    Module,
+    clean_email,
+)
 from portal.accounts.ticket import mint
 
 LOGIN_TRIES = 10
@@ -91,6 +107,81 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             # The Business pastes this into its own website; the text is what a caller reads on the button.
             "button_html": call_url
             and f'<a href="{call_url}" target="_blank" rel="noopener">Prata med vår AI-assistent</a>',
+        },
+    )
+
+
+@login_required
+def calls(request: HttpRequest) -> HttpResponse:
+    """The logged-in Business's recent calls: start, length, kind. No cost, no call id."""
+    business = Business.objects.filter(account=request.user).first()
+    # shortcut: lists every record, no paging (Petter chose "All calls", DECISIONS.md); add paging before a Business has thousands.
+    records = (
+        CallRecord.objects.filter(business=business).order_by("-started_at")
+        if business
+        else []
+    )
+    rows = [
+        (
+            r.started_at,
+            f"{r.length_seconds // 60}:{r.length_seconds % 60:02d}",
+            CALL_KINDS[r.kind],
+        )
+        for r in records
+    ]
+    return render(
+        request,
+        "accounts/calls.html",
+        {"rows": rows, "time_zone": settings.TIME_ZONE},
+    )
+
+
+@login_required
+def totals(request: HttpRequest) -> HttpResponse:
+    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls. Only an Account with the marker (set by the `totals_marker` command) may open it."""
+    if not getattr(
+        request.user, "sees_totals", False
+    ):  # fails closed for anything without the marker
+        return HttpResponseForbidden("This page is not open to your account.")
+    month = TruncMonth("started_at", tzinfo=ZoneInfo(settings.TIME_ZONE))
+    sums = (
+        CallRecord.objects.annotate(month=month)
+        .values("month", "business_id", "business__name", "kind")
+        .annotate(
+            calls=Count("id"),
+            seconds=Sum("length_seconds"),
+            dollars=Sum("cost_usd"),
+            unpriced=Count("id", filter=Q(cost_usd__isnull=True)),
+        )
+    )
+    by_row: dict[tuple[Any, int, str], dict[str, tuple[int, str, str, int]]] = (
+        defaultdict(dict)
+    )
+    for s in sums:
+        by_row[(s["month"], s["business_id"], s["business__name"])][s["kind"]] = (
+            s["calls"],
+            f"{s['seconds'] / 60:.1f}",
+            f"{s['dollars'] or Decimal(0):.4f}",
+            s["unpriced"],
+        )
+    empty = (0, "0.0", "0.0000", 0)
+    rows = [
+        (
+            month.strftime("%Y-%m"),
+            name,
+            [kinds.get(kind, empty) for kind in CALL_KINDS],
+        )
+        for (month, _, name), kinds in sorted(
+            by_row.items(), key=lambda r: (-r[0][0].timestamp(), r[0][2], r[0][1])
+        )
+    ]
+    return render(
+        request,
+        "accounts/totals.html",
+        {
+            "rows": rows,
+            "kinds": list(CALL_KINDS.values()),
+            "time_zone": settings.TIME_ZONE,
         },
     )
 
@@ -225,17 +316,71 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     return to_core(get_object_or_404(Business, call_slug=slug))
 
 
+def core_secret_sent(request: HttpRequest) -> bool:
+    """Whether the request carries the shared secret as a Bearer token. An unset secret refuses everyone."""
+    secret: str = settings.CORE_SECRET
+    scheme, _, sent = request.headers.get("Authorization", "").partition(" ")
+    return bool(
+        secret
+        and scheme == "Bearer"
+        and hmac.compare_digest(sent.encode(), secret.encode())
+    )
+
+
 @require_GET
 @never_cache
 def settings_for_core(request: HttpRequest, business_id: int) -> HttpResponse:
-    """The one address the core asks for a Business's settings. Behind the shared secret, not a login; an unset secret refuses everyone."""
-    secret: str = settings.CORE_SECRET
-    scheme, _, sent = request.headers.get("Authorization", "").partition(" ")
-    if (
-        not secret
-        or scheme != "Bearer"
-        or not hmac.compare_digest(sent.encode(), secret.encode())
-    ):
+    """The one address the core asks for a Business's settings. Behind the shared secret, not a login."""
+    if not core_secret_sent(request):
         return JsonResponse({"error": "missing or wrong secret"}, status=401)
     business = get_object_or_404(Business, pk=business_id)
     return JsonResponse(business.as_settings())
+
+
+class CallRecordForm(forms.ModelForm):  # pyright: ignore[reportMissingTypeArgument]
+    """A Call record as the core sends it (contract/call-record.schema.json). The strict spellings are here because the form's defaults accept more than the contract does."""
+
+    started_at = forms.RegexField(
+        regex=r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,6})?Z$"
+    )  # UTC only
+    price_date = forms.DateField(input_formats=["%Y-%m-%d"], required=False)
+
+    class Meta:
+        model = CallRecord
+        fields = "__all__"
+
+    def clean_started_at(self) -> Any:
+        try:
+            return parse_datetime(self.cleaned_data["started_at"])
+        except ValueError:
+            raise ValidationError("not a real moment") from None
+
+    def validate_unique(self) -> None:
+        """A repeated call id is the core retrying, not a mistake: record_call answers it with the stored row."""
+
+
+@csrf_exempt  # the shared secret gates it, not a session
+@require_POST
+@never_cache
+def record_call(request: HttpRequest) -> HttpResponse:
+    """The one address the core sends a finished call's record to. Stores it once per call id; the database refuses every later change."""
+    if not core_secret_sent(request):
+        return JsonResponse({"error": "missing or wrong secret"}, status=401)
+    try:
+        body = json.loads(request.body)
+    except ValueError:
+        body = None
+    if not isinstance(body, dict) or body.keys() != CallRecordForm.base_fields.keys():  # pyright: ignore[reportUnknownMemberType]
+        return JsonResponse({"error": "not a Call record"}, status=400)
+    form = CallRecordForm(body)
+    if not form.is_valid():
+        # Field names only: a refused value never goes back out.
+        return JsonResponse(
+            {"error": "malformed Call record", "fields": sorted(form.errors)},
+            status=400,
+        )
+    values = dict(form.cleaned_data)
+    _, created = CallRecord.objects.get_or_create(
+        call_id=values.pop("call_id"), defaults=values
+    )
+    return JsonResponse({"stored": True}, status=201 if created else 200)

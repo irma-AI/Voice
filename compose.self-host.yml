@@ -21,6 +21,7 @@ services:
       CORE_URL: http://localhost:7860
       CORE_SECRET: ${CORE_SECRET:?set CORE_SECRET in .env (copy .env.example)}
       ALLOW_LOCAL_MODULES: ${ALLOW_LOCAL_MODULES:-}
+      TIME_ZONE: ${TIME_ZONE:-UTC}
     ports: ["127.0.0.1:8000:8000"]
   core:
     build: { context: ., target: core }

@@ -8,6 +8,7 @@ import secrets
 from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.postgres.fields import ArrayField
+from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models.functions import Lower, Trim
 
@@ -17,6 +18,11 @@ log = logging.getLogger(__name__)
 
 # The languages a Business may pick; contract/business-settings.schema.json lists the same two (tests/portal/test_settings_contract.py).
 LANGUAGES = {"sv": "Swedish", "en": "English"}
+
+# A Call record holds numbers, codes and times only; contract/call-record.schema.json lists the same kinds and patterns (tests/portal/test_call_records.py).
+CALL_KINDS = {"test": "Test call", "call_link": "Call link"}
+CALL_ID_PATTERN = r"^[A-Za-z0-9-]{8,64}$"
+COST_REASON_PATTERN = r"^[a-z_]{1,60}$"
 
 
 def swedish_only() -> list[str]:
@@ -50,6 +56,8 @@ class Account(AbstractBaseUser):
     is_active = models.BooleanField(
         default=True
     )  # Django's password reset only emails active accounts
+    # Opens the totals page. Only the `totals_marker` command sets or clears it: a trigger (migration 0008) refuses every other writer.
+    sees_totals = models.BooleanField(default=False, db_default=False)
 
     USERNAME_FIELD = "email"
     objects = AccountManager()
@@ -178,3 +186,67 @@ class Module(models.Model):
         if self.command:
             return {"name": self.name, "command": self.command, "args": self.args}
         return {"name": self.name, "url": self.url}
+
+
+class CallRecord(models.Model):
+    """What the core reported about one finished call. Written once and never changed: the database refuses update and delete for every role (migration 0007)."""
+
+    # Made by the core, so a retried send is the same row.
+    call_id = models.CharField(
+        max_length=64, unique=True, validators=[RegexValidator(CALL_ID_PATTERN)]
+    )
+    business = models.ForeignKey(
+        Business, on_delete=models.PROTECT, related_name="call_records"
+    )
+    kind = models.CharField(max_length=20, choices=list(CALL_KINDS.items()))
+    started_at = models.DateTimeField()  # UTC (USE_TZ), like every stored time
+    length_seconds = models.PositiveIntegerField()
+    prompt_tokens = models.PositiveIntegerField()
+    completion_tokens = models.PositiveIntegerField()
+    input_audio_tokens = models.PositiveIntegerField()
+    output_audio_tokens = models.PositiveIntegerField()
+    thinking_tokens = models.PositiveIntegerField()
+    cached_tokens = models.PositiveIntegerField()
+    # US dollars, Google's own currency; empty with a reason when the core could not work it out.
+    cost_usd = models.DecimalField(
+        max_digits=12,
+        decimal_places=8,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+    )
+    price_date = models.DateField(null=True, blank=True)
+    cost_reason = models.CharField(
+        max_length=60,
+        blank=True,
+        default="",
+        validators=[RegexValidator(COST_REASON_PATTERN)],
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(kind__in=list(CALL_KINDS)),
+                name="call_record_kind_must_be_a_known_kind",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(call_id__regex=CALL_ID_PATTERN),
+                name="call_record_id_must_be_a_plain_code",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(cost_usd__gte=0) | models.Q(cost_usd__isnull=True),
+                name="call_record_cost_must_not_be_negative",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(cost_usd__isnull=False)
+                    & models.Q(price_date__isnull=False)
+                    & models.Q(cost_reason="")
+                )
+                | (
+                    models.Q(cost_usd__isnull=True)
+                    & models.Q(cost_reason__regex=COST_REASON_PATTERN)
+                ),
+                name="call_record_has_a_cost_with_its_price_date_or_a_reason_for_none",
+            ),
+        ]
