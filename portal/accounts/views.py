@@ -29,6 +29,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from portal.accounts import modules as module_rules
 from portal.accounts import probe
+from portal.accounts.domain import parse_domain
 from portal.accounts.models import (
     CALL_KINDS,
     LANGUAGES,
@@ -198,9 +199,23 @@ class SettingsForm(forms.ModelForm):
         choices=list(LANGUAGES.items()), widget=forms.CheckboxSelectMultiple
     )
 
+    # Portal-only: the contract the core reads does not carry it. What was typed is reduced once here to the domain the database stores.
+    website_domain = forms.CharField(
+        label="Your website",
+        required=False,
+        max_length=2000,  # room for a pasted address; what is stored is at most DOMAIN_MAX
+        help_text="The address of your website, for example www.example.se. Only the main domain (example.se) is kept. Leave it empty for none.",
+    )
+
+    def clean_website_domain(self) -> str:
+        try:
+            return parse_domain(self.cleaned_data["website_domain"])
+        except ValueError as e:
+            raise forms.ValidationError(str(e)) from None
+
     class Meta:
         model = Business
-        fields = ("name", "facts", "languages")
+        fields = ("name", "facts", "languages", "website_domain")
         widgets = {  # noqa: RUF012 (Django reads Meta as plain attributes)
             "facts": forms.Textarea(attrs={"rows": 12})
         }

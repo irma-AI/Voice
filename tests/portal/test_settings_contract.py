@@ -37,8 +37,12 @@ def test_what_the_portal_serves_matches_the_schema() -> None:
 MODULES_PAGE = {"modules"}
 
 
+# The Business's website domain is Portal-only (VOI-70): the core is never told it.
+PORTAL_ONLY = {"website_domain"}
+
+
 def test_the_editable_fields_are_exactly_the_schema_properties() -> None:
-    assert set(SettingsForm().fields) == set(PROPERTIES) - MODULES_PAGE, (
+    assert set(SettingsForm().fields) - PORTAL_ONLY == set(PROPERTIES) - MODULES_PAGE, (
         "SettingsForm.Meta.fields and the schema's properties must list the same settings: edit whichever is wrong"
     )
 

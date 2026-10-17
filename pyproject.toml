@@ -21,6 +21,8 @@ portal = [
     "gunicorn>=26.2.0",
     "whitenoise>=6.12.0",
     "mcp",
+    "publicsuffixlist>=1.1.0.20261017",
+    "idna>=3.20",
 ]
 
 [tool.uv]

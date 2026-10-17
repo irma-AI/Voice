@@ -14,6 +14,7 @@
   <button type="submit" class="rounded bg-stone-900 px-4 py-2 text-white">Test call</button>
   <p class="mt-2 text-sm">Talk to your agent with the settings you saved. It opens the call page in this tab.</p>
 </form>
+<p class="mt-6">Your website domain: {% if business.website_domain %}<strong>{{ business.website_domain }}</strong>{% else %}none set{% endif %}. <a href="{% url 'business_settings' %}" class="underline">Change it</a></p>
 <p class="mt-6">Your public call link: <a href="{{ call_url }}" class="underline break-all">{{ call_url }}</a></p>
 <p class="mt-2 text-sm">Anyone with this link can call your agent from a browser. There is no daily limit yet.</p>
 <h2 class="mt-6 text-lg font-semibold">A call button for your website</h2>

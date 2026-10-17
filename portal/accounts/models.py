@@ -13,6 +13,7 @@ from django.db import models
 from django.db.models.functions import Lower, Trim
 
 from portal.accounts import modules as module_rules
+from portal.accounts.domain import DOMAIN_MAX, DOMAIN_PATTERN
 
 log = logging.getLogger(__name__)
 
@@ -81,9 +82,16 @@ class Business(models.Model):
     )
     # The public call link is /call/<call_slug>/; unique in the database, so one link is one Business.
     call_slug = models.CharField(max_length=40, unique=True, default=new_call_slug)
+    # The registrable domain of the Business's own website, or empty for none (domain.py). Portal-only: the settings contract does not carry it.
+    website_domain = models.CharField(max_length=DOMAIN_MAX, blank=True, default="")
 
     class Meta:
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(website_domain="")
+                | models.Q(website_domain__regex=DOMAIN_PATTERN),
+                name="business_website_domain_must_be_empty_or_a_clean_domain",
+            ),
             models.CheckConstraint(
                 condition=models.Q(name__regex=r"\S"),
                 name="business_name_must_not_be_blank",
