@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./tokens.css";
 @source "../../templates";
+@source not "../../../.impeccable";
 
 /* Self-hosted stand-in faces, both SIL OFL 1.1 (licences beside the files in fonts/):
    Instrument Serif from github.com/Instrument/instrument-serif at 65c0ef2,

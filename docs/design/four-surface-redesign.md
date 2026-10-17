@@ -94,10 +94,10 @@ The Portal on phones gets a light variant of the same palette (pale ground, navy
 - Subline: "Voice answers your callers and gets things done through Modules. Connect any service that speaks MCP, and your agent can use it mid-call." MCP is named once; never "connect the tools you already use" (Voice builds no integrations).
 - The speakers are **Caller** and **Agent**, never "Voice".
 
-**Landing concept, still open:** Landing Station (a subsea cable coming ashore at a small station on the Swedish coast at blue hour) or underwater acoustics in the same palette: Sonar Sounding, where Modules are tuned frequency bands, or Hydrophone, where Modules are moored acoustic responders. Mockups are in `.impeccable/mocks/decision/` (not committed).
+**Landing concept, locked 2026-10-17: Turn.** A precise ring is one call: time fills it, the conversation runs inside it as a moving speaker line with the current words, and each step the agent takes lands on it as a labelled dot (Caller, Instructions, Agent, MCP · Bookings, then a hand-off to a Human marked Planned). On phones the ring becomes a vertical rail down the right edge, with the current step and line under the buttons. It loops slowly (40+ seconds), always has a Pause control, and shows one still frame under reduced motion. Petter chose it over metaphor concepts (the sea worlds that gave us the palette, Light Court, Dubbelväv) because it shows how Voice works without explanation. The direction contract is in `.impeccable/surfaces/portal-templates-accounts-home-html.md`, and the live prototype is `.impeccable/mocks/turn-prototype.html`. The other mockups are in `.impeccable/mocks/decision/` (not committed).
 
 ## Not decided here
 
-- The visual world's final concept: see "Landing concept, still open" above.
+- The conversation in the loop: a longer call (move a booking, then ask to be put through to a person), written later by Petter.
 - How the landing page shows the Portal: decided in the Portal ticket.
 - Whether Live transcript costs more on Gemini's bill: not checked.
