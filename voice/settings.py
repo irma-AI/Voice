@@ -34,7 +34,7 @@ MAX_REPLY_BYTES = (
 )
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
+class NoRedirect(urllib.request.HTTPRedirectHandler):
     """A redirect would carry the secret to wherever it points; a moved Portal is a refused call."""
 
     def redirect_request(self, *_: Any, **__: Any) -> None:
@@ -157,7 +157,7 @@ def _from_portal(url: str, secret: str, business_id: str) -> Settings:
         request = urllib.request.Request(
             address, headers={"Authorization": f"Bearer {secret}"}
         )
-        with urllib.request.build_opener(_NoRedirect).open(
+        with urllib.request.build_opener(NoRedirect).open(
             request, timeout=PORTAL_TIMEOUT_S
         ) as reply:
             return parse(json.loads(reply.read(MAX_REPLY_BYTES)))

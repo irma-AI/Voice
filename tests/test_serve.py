@@ -66,7 +66,7 @@ def test_the_call_page_opens_with_a_portal_ticket_and_refuses_everyone_else() ->
     client = TestClient(
         create_app("portal-secret"), base_url="https://voice.example.se"
     )
-    page = f"/?ticket={sign('portal-secret', 7, int(time.time()) + 60)}"
+    page = f"/?ticket={sign('portal-secret', 7, 'test', int(time.time()) + 60)}"
     assert client.get(page).status_code == 200
     refused = client.get("/")
     assert refused.status_code == 403 and REFUSAL in refused.text
@@ -80,7 +80,7 @@ def test_the_socket_refuses_a_missing_or_bad_ticket() -> None:
     for query in (
         "",
         "ticket=7.1.abc",
-        f"ticket={sign('other', 7, int(time.time()) + 60)}",
+        f"ticket={sign('other', 7, 'test', int(time.time()) + 60)}",
     ):
         with (
             pytest.raises(WebSocketDisconnect) as refused,

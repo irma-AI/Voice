@@ -240,3 +240,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-17] VOI-43: the calls page lists every record with no cut-off: how many to show is a product number no card from Petter settled, so none was built in.
 [2026-10-17] ESCALATED: how many past calls should a Business's calls page show (all of them today)? -> Petter
 [2026-10-17] RESOLVED 2026-10-17: Petter chose "All calls" on a card: the calls page lists every call; paging comes when a Business has enough calls to need it.
+[2026-10-17] VOI-41: a call a Portal ticket named leaves a Call record even when it was refused (the model still spoke and cost tokens); the eval Channel names no ticket and leaves none.
+[2026-10-17] VOI-41: token counts are the sum of every usage report, and each raw report is logged; whether Gemini Live reports per turn or running totals is unverified, so the sum may over-count until VOI-42's real call.
+[2026-10-17] VOI-41: sends retry every 5 s for 60 s on any failure, a 4xx included, over backing off or stopping on 4xx: fewer cases, and the log line stays as the copy (ADR 0002 update).
+[2026-10-17] VOI-41: the ticket is now `<business>.<kind>.<expiry>.<signature>`; an old three-part ticket is refused, which costs nothing as a ticket lives ten minutes. One call id (32 hex) now names a call in the barge-in log and the record.

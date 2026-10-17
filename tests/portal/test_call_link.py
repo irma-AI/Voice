@@ -17,7 +17,7 @@ from django.test import Client
 
 from portal.accounts.models import Account, Business
 from tests.portal.helpers import business_with_login
-from voice.ticket import ticket_business
+from voice.ticket import Ticket, read_ticket
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
@@ -45,8 +45,9 @@ def test_the_link_sends_anyone_to_the_core_with_a_ticket_for_that_business() -> 
         "/",
     )
     ticket = parse_qs(parts.query)["ticket"][0]
-    assert ticket_business(ticket, SECRET) == anna.pk != bo.pk
-    assert ticket_business(ticket, SECRET, time.time() + 3600) is None
+    assert read_ticket(ticket, SECRET) == Ticket(anna.pk, "call_link")
+    assert anna.pk != bo.pk
+    assert read_ticket(ticket, SECRET, time.time() + 3600) is None
 
 
 def test_the_link_cannot_be_guessed_and_only_reads() -> None:

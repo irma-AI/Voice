@@ -3,8 +3,10 @@
 import asyncio
 import os
 import sys
+import time
 import uuid
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
@@ -26,7 +28,9 @@ from pipecat.workers.runner import WorkerRunner
 from voice.bargein import VAD, BargeInRecorder
 from voice.modules import Connected, connect_modules, local_modules_allowed
 from voice.record import CallRecorder
+from voice.report import UsageTally, report_call
 from voice.settings import LANGUAGES, Settings, SettingsRefused, load_settings
+from voice.ticket import Ticket
 
 MODEL = "models/gemini-3.8-live"
 
@@ -94,14 +98,14 @@ class HangUpWhenDone(FrameProcessor):
 async def run_call(
     transport: BaseTransport,
     *,
-    business_id: int | None = None,
+    ticket: Ticket | None = None,
     idle_timeout_secs: float | None = None,
     record_to: Path | None = None,
     handle_sigint: bool = False,
 ) -> None:
     """Runs one call on any Channel's transport until the Caller leaves.
 
-    `business_id` is the Business a Portal ticket named; the eval Channel names none and reads a settings file.
+    `ticket` is what a Portal ticket named, the Business and the kind of call; the eval Channel names none and reads a settings file.
     """
     # Pipecat logs what the Caller said at DEBUG, and its dev runner resets the level to DEBUG
     # at startup; transcripts never go in logs (.claude/rules/security.md), so cap it per call.
@@ -115,7 +119,7 @@ async def run_call(
         settings = await asyncio.to_thread(
             load_settings,
             os.environ,
-            None if business_id is None else str(business_id),
+            None if ticket is None else str(ticket.business),
         )
         # The Business's Modules are read once, here: Gemini Live fixes its tool list when the call starts.
         modules = await connect_modules(settings.modules, local_modules_allowed())
@@ -126,6 +130,7 @@ async def run_call(
     try:
         await _run(
             transport,
+            ticket,
             instruction,
             refused,
             modules.actions,
@@ -139,6 +144,7 @@ async def run_call(
 
 async def _run(
     transport: BaseTransport,
+    ticket: Ticket | None,
     instruction: str,
     refused: bool,
     actions: list[FunctionSchema],
@@ -171,7 +177,10 @@ async def _run(
             2, CallRecorder(record_to)
         )  # the Caller's transcript, which travels upstream
     # The barge-in events (the first words after one, not the rest) go to the server log in production, with an id for the call (never a number).
-    steps.insert(2, BargeInRecorder(uuid.uuid4().hex[:12], record_to))
+    call_id = uuid.uuid4().hex
+    steps.insert(2, BargeInRecorder(call_id, record_to))
+    tally = UsageTally(call_id)
+    steps.insert(steps.index(llm) + 1, tally)
     if refused:
         steps.insert(
             steps.index(llm) + 1, HangUpWhenDone(lambda: worker.stop_when_done())
@@ -193,4 +202,16 @@ async def _run(
     async def _hang_up(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
         await runner.cancel()
 
-    await runner.run()
+    started_at, started = datetime.now(UTC), time.monotonic()
+    try:
+        await runner.run()
+    finally:
+        # A call a Portal ticket named leaves a Call record (VOI-41); the eval Channel names none.
+        if ticket is not None:
+            report_call(
+                call_id,
+                ticket,
+                started_at,
+                round(time.monotonic() - started),
+                tally.totals,
+            )

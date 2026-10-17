@@ -15,7 +15,7 @@ from portal.accounts.models import Business
 from portal.accounts.ticket import TTL_SECONDS
 from tests.portal.helpers import business_with_login
 from voice.settings import load_settings
-from voice.ticket import ticket_business
+from voice.ticket import Ticket, read_ticket
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
@@ -50,9 +50,10 @@ def test_the_button_sends_a_business_to_the_core_with_a_ticket_for_itself() -> N
     assert response.status_code == 302
     ticket = ticket_in(response["Location"])
     drift = "portal/accounts/ticket.py and voice/ticket.py disagree: edit the one that changed"
-    assert ticket_business(ticket, SECRET) == business.pk != other.pk, drift
-    assert ticket_business(ticket, SECRET, time.time() + TTL_SECONDS + 5) is None, drift
-    assert ticket_business(ticket, "another-secret") is None, drift
+    assert read_ticket(ticket, SECRET) == Ticket(business.pk, "test"), drift
+    assert business.pk != other.pk
+    assert read_ticket(ticket, SECRET, time.time() + TTL_SECONDS + 5) is None, drift
+    assert read_ticket(ticket, "another-secret") is None, drift
 
 
 def test_a_visitor_gets_no_ticket_and_a_page_visit_starts_nothing() -> None:
@@ -89,10 +90,10 @@ def test_the_core_reads_the_ticketed_businesss_settings_from_the_real_portal(
     business_with_login("bo.testsson@example.com", "Bo's Bikes")
 
     ticket = ticket_in(client.post("/test-call/")["Location"])
-    named = ticket_business(ticket, SECRET)
+    named = read_ticket(ticket, SECRET)
     assert named is not None
     core_env = {"SETTINGS_URL": live_server.url, "CORE_SECRET": SECRET}
-    got = load_settings(core_env, str(named))
+    got = load_settings(core_env, str(named.business))
     assert (got.name, got.facts) == ("Anna's Salon", "Open 8-17.")
 
 
