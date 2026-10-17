@@ -1,7 +1,6 @@
 """Seam 2: the web Channel's pure rules, free. The audio converter and the same-site check."""
 
 import asyncio
-import base64
 import time
 
 import pytest
@@ -14,7 +13,8 @@ from pipecat.frames.frames import (
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from voice.auth import TICKET_PATHS
+from voice import serve
+from voice.auth import REFUSAL, TICKET_PATHS
 from voice.serve import RawPcmSerializer, create_app, same_site
 from voice.ticket import sign
 
@@ -62,19 +62,23 @@ def test_only_this_site_may_open_the_call_socket() -> None:
     assert not same_site("https://voice.example.se", None)
 
 
-def test_the_call_page_opens_with_a_portal_ticket_and_the_socket_refuses_a_bad_one() -> (
-    None
-):
-    app = create_app("voice", "s3cret", "portal-secret")
-    client = TestClient(app, base_url="https://voice.example.se")
+def test_the_call_page_opens_with_a_portal_ticket_and_refuses_everyone_else() -> None:
+    client = TestClient(
+        create_app("portal-secret"), base_url="https://voice.example.se"
+    )
     page = f"/?ticket={sign('portal-secret', 7, int(time.time()) + 60)}"
     assert client.get(page).status_code == 200
-    assert client.get("/").status_code == 401
+    refused = client.get("/")
+    assert refused.status_code == 403 and REFUSAL in refused.text
 
-    # Even the shared login cannot start a call with a ticket that does not check out: no silent fallback to another Business.
-    login = {"Authorization": "Basic " + base64.b64encode(b"voice:s3cret").decode()}
-    same_origin = {**login, "Origin": "https://voice.example.se"}
+
+def test_the_socket_refuses_a_missing_or_bad_ticket() -> None:
+    client = TestClient(
+        create_app("portal-secret"), base_url="https://voice.example.se"
+    )
+    same_origin = {"Origin": "https://voice.example.se"}
     for query in (
+        "",
         "ticket=7.1.abc",
         f"ticket={sign('other', 7, int(time.time()) + 60)}",
     ):
@@ -86,7 +90,19 @@ def test_the_call_page_opens_with_a_portal_ticket_and_the_socket_refuses_a_bad_o
         assert refused.value.code == 1008
 
 
+def test_the_web_channel_will_not_start_without_the_portal_secret(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        serve, "load_dotenv", lambda: None
+    )  # a developer's .env must not leak in
+    monkeypatch.setenv("GOOGLE_API_KEY", "key")
+    monkeypatch.setenv("CORE_SECRET", " ")
+    with pytest.raises(SystemExit, match="CORE_SECRET"):
+        serve.main()
+
+
 def test_a_ticket_opens_exactly_the_pages_the_app_has() -> None:
     # A new route is outside the ticket until this list is edited on purpose (voice/auth.py TICKET_PATHS).
-    routes = {getattr(r, "path", None) for r in create_app("voice", "s3cret").routes}
+    routes = {getattr(r, "path", None) for r in create_app("s3cret").routes}
     assert routes == set(TICKET_PATHS)
