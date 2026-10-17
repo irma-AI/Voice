@@ -1,12 +1,15 @@
 # Manual actions for Petter
 
-Things only a person at a computer can do: agents can't change GitHub rulesets or click in a dashboard. Every thread adds a line here (via the one open draft PR "Manual actions for Petter") when it finds one. Tick a box when done; when the list is clear, merge.
+Things only Petter can do: agents can't change GitHub rulesets, click in a dashboard, or make a real phone call. Every thread adds a line here (via the one open draft PR "Manual actions for Petter") when it finds one. Tick a box when done; when the list is clear, merge.
 
 Format: `- [ ] <what to do>, <where>. Needed for: <why>. Added by: <ticket or thread>.`
 
 ## Do when at a computer
 
 - [ ] GitHub, Settings, Rules, Rulesets, `main`: under "Require a pull request before merging", tick "Require conversation resolution before merging" and "Dismiss stale pull request approvals when new commits are pushed", then Save. Needed for: the live ruleset lacks the two rules `.github/rulesets/main.json` lists, and agents get a 403 on rulesets. Added by: the merge-rules work (PR #25, PR #27).
+- [ ] Google Cloud: switch on the Cloud Billing API for the core's Google project and let the core's key call it. Needed for: until then every call's cost is empty with the reason "catalogue unreadable". Added by: VOI-42 (PR #55).
+- [ ] Make one short real call, then tell the thread "VOI-42: cost of each call". Needed for: its tokens and dollars get compared with Google's usage page, which also settles whether the model reports per-turn or running token totals. Do this after the Cloud Billing API is on. Added by: VOI-42 (PR #55).
+- [ ] Say "go" in the thread "Clean Claude line from main" when you want the cleaned history pushed to `main`. Needed for: removes the old Claude co-author lines from main's history; the prepared rewrite is on hold and will be rebuilt on the newest `main`. A force-push is refused by the `main` ruleset, so expect to lift it for the push and turn it back on after (the same as the 2026-10-13 rewrite). Added by: the history clean-up thread.
 
 ## Optional
 
@@ -14,6 +17,14 @@ Format: `- [ ] <what to do>, <where>. Needed for: <why>. Added by: <ticket or th
 - [ ] GitHub, Branches: delete the scratch branch `claude/project-thread-d56n2t-scratch-base`. Needed for: tidiness only, it was left over from testing and threads can't delete branches. Added by: VOI-36 (PR #37).
 - [ ] GitHub, Branches: delete the leftover branch `voi-48-claude-footer-guard`. Needed for: tidiness only, its PR #50 merged on 2026-10-17 and the proxy blocks branch deletes from sessions. Added by: VOI-48 (PR #50).
 
-## Not on this list
+## Not at a computer
 
-Phone calls and other tests Petter does by hand (the noisy phone call, VOI-34): they are tickets, not computer work.
+- [ ] Make a real phone call in a noisy place and tell the thread "VOI-19: real phone calls in noise". Needed for: the barge-in settings (start sensitivity low, 300 ms padding) were changed on a guess and never judged on a real noisy call. Added by: VOI-34.
+
+## Waiting for your answer
+
+Not computer steps; each has a thread waiting on you.
+
+- [ ] Should the opening AI-disclosure line be impossible to interrupt? One call had it cut after half a second. It changes what callers hear, so it is your call. Thread: "Assistant interrupts itself on speaker".
+- [ ] Rotate the Portal database password? A Dokploy deploy response printed it once in a session's tool result; the database has no outside port. Open as an `ESCALATED` line in `DECISIONS.md`.
+- [ ] Does the totals page's Test calls column show 6? Thread: "Ponytail audit for over-engineering".
