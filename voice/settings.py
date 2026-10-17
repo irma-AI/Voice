@@ -9,6 +9,7 @@ one that was switched off (ADR 0002). The Portal never imports this, and this ne
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
@@ -27,6 +28,10 @@ MODULE_URL_MAX = 2000
 MODULE_COMMAND_MAX = 500
 MODULE_ARGS_MAX = 20
 MODULE_ARG_MAX = 500
+COLOUR_PATTERN = (
+    r"#[0-9a-f]{6}"  # the schema's theme accent and accent_text, anchored there
+)
+LOGO_URL_MAX = 2000
 # ponytail: a call waits this long in silence for the Portal before it is refused; make it a setting if the Portal is slow in practice.
 PORTAL_TIMEOUT_S = 5
 MAX_REPLY_BYTES = (
@@ -56,11 +61,43 @@ class Module:
 
 
 @dataclass(frozen=True)
+class Theme:
+    """The Business's look for its Callers: an accent (already made readable under `accent_text` by the Portal) and a logo address, each optional."""
+
+    accent: str | None = None
+    accent_text: str | None = None
+    logo_url: str | None = None
+
+
+@dataclass(frozen=True)
 class Settings:
     name: str
     facts: str
     languages: tuple[str, ...]
     modules: tuple[Module, ...] = ()
+    theme: Theme = Theme()
+
+
+def _theme(data: object) -> Theme:
+    if not isinstance(data, dict):
+        raise SettingsRefused("the theme is not a JSON object")
+    d: dict[str, Any] = data  # pyright: ignore[reportUnknownVariableType]
+    if set(d) - {"accent", "accent_text", "logo_url"} or (
+        ("accent" in d) != ("accent_text" in d)
+    ):
+        raise SettingsRefused(
+            "the theme has an accent with its text colour, a logo_url, or both"
+        )
+    for key in {"accent", "accent_text"} & set(d):
+        if not (isinstance(d[key], str) and re.fullmatch(COLOUR_PATTERN, d[key])):
+            raise SettingsRefused("a theme colour is not # and six hex digits")
+    if "logo_url" in d and not (
+        isinstance(d["logo_url"], str)
+        and len(d["logo_url"]) <= LOGO_URL_MAX
+        and d["logo_url"].startswith(("http://", "https://"))
+    ):
+        raise SettingsRefused("the theme's logo_url is not a short http address")
+    return Theme(d.get("accent"), d.get("accent_text"), d.get("logo_url"))
 
 
 def _text(value: object, longest: int) -> str:
@@ -103,10 +140,10 @@ def parse(data: object) -> Settings:
     if (
         not {"name", "facts", "languages"}
         <= set(d)
-        <= {"name", "facts", "languages", "modules"}
+        <= {"name", "facts", "languages", "modules", "theme"}
     ):
         raise SettingsRefused(
-            "settings do not have name, facts and languages, and at most modules besides"
+            "settings do not have name, facts and languages, and at most modules and a theme besides"
         )
     name, facts, languages = d["name"], d["facts"], d["languages"]
     raw_modules = d.get("modules", [])
@@ -128,6 +165,7 @@ def parse(data: object) -> Settings:
         facts,
         tuple(languages),  # pyright: ignore[reportUnknownArgumentType]
         tuple(_module(m) for m in modules),
+        _theme(d["theme"]) if "theme" in d else Theme(),
     )
 
 

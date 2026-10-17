@@ -14,6 +14,17 @@
       "minItems": 1,
       "items": { "enum": ["sv", "en"] }
     },
+    "theme": {
+      "description": "The Business's Theme, optional and shown only to its Callers (GLOSSARY.md); absent for Voice's own look. `accent` is the colour as Callers see it, already adjusted by the Portal so `accent_text` on it meets WCAG 2.2 AA; the two come together. `logo_url` is the Portal's public address of the logo, which names no Business.",
+      "type": "object",
+      "additionalProperties": false,
+      "dependentRequired": { "accent": ["accent_text"], "accent_text": ["accent"] },
+      "properties": {
+        "accent": { "type": "string", "pattern": "^#[0-9a-f]{6}$" },
+        "accent_text": { "type": "string", "pattern": "^#[0-9a-f]{6}$" },
+        "logo_url": { "type": "string", "pattern": "^https?://", "maxLength": 2000 }
+      }
+    },
     "modules": {
       "description": "The Business's Modules (MCP servers), optional. A remote Module has a url; a local one a command, which the core runs only where self-hosting allows it (ALLOW_LOCAL_MODULES). The Portal's Modules page (VOI-28) fills it.",
       "type": "array",

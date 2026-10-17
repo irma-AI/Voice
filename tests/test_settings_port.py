@@ -18,8 +18,10 @@ from tests.evals.checks import BUSINESS_FILE, MODULE_BUSINESS_FILE
 from tests.portal.contract import SCHEMA, schema_errors
 from voice.agent import DISCLOSURE, REFUSAL, refusal_instruction, system_instruction
 from voice.settings import (
+    COLOUR_PATTERN,
     FACTS_MAX,
     LANGUAGES,
+    LOGO_URL_MAX,
     MODULE_ARG_MAX,
     MODULE_ARGS_MAX,
     MODULE_COMMAND_MAX,
@@ -30,6 +32,7 @@ from voice.settings import (
     Module,
     Settings,
     SettingsRefused,
+    Theme,
     describe_source,
     load_settings,
     parse,
@@ -104,6 +107,39 @@ def test_the_cores_limits_match_the_schema() -> None:
         (MODULE_ARG_MAX, local["properties"]["args"]["items"]["maxLength"], "an arg"),
     ]:
         assert core == schema, f"edit the core's limit or the schema's for {what}"
+    theme = props["theme"]["properties"]
+    assert (
+        theme["accent"]["pattern"]
+        == theme["accent_text"]["pattern"]
+        == f"^{COLOUR_PATTERN}$"
+    ), "edit COLOUR_PATTERN in voice/settings.py or the schema's theme colour patterns"
+    assert LOGO_URL_MAX == theme["logo_url"]["maxLength"], (
+        "edit LOGO_URL_MAX or the schema's logo_url maxLength"
+    )
+
+
+THEME_CASES: list[Any] = [
+    {},
+    {"accent": "#1a2a44", "accent_text": "#ffffff"},
+    {"logo_url": "https://portal.example/logo/abc/"},
+    {
+        "accent": "#1a2a44",
+        "accent_text": "#ffffff",
+        "logo_url": "http://localhost:8000/logo/abc/",
+    },
+    {"accent": "#1a2a44"},
+    {"accent_text": "#ffffff"},
+    {"accent": "#1A2A44", "accent_text": "#ffffff"},
+    {"accent": "1a2a44", "accent_text": "#ffffff"},
+    {"accent": "#1a2a4", "accent_text": "#ffffff"},
+    {"accent": "red", "accent_text": "#ffffff"},
+    {"accent": 5, "accent_text": "#ffffff"},
+    {"logo_url": "javascript:alert(1)"},
+    {"logo_url": "https://" + "x" * LOGO_URL_MAX},
+    {"logo_url": None},
+    {"logo": "https://x"},
+    "not an object",
+]
 
 
 MODULE_CASES: list[Any] = [
@@ -146,6 +182,7 @@ MODULE_CASES: list[Any] = [
         {**GOOD, "languages": [dict[str, str]()]},
         {**GOOD, "extra": 1},
         *({**GOOD, "modules": modules} for modules in MODULE_CASES),
+        *({**GOOD, "theme": theme} for theme in THEME_CASES),
         {"name": "A", "facts": ""},
         ["not", "an", "object"],
     ],
@@ -215,6 +252,19 @@ def test_modules_come_through_from_the_portal() -> None:
         Module("booking", url="https://modules.example/mcp"),
         Module("hours", command="python", args=("-m", "x")),
     )
+
+
+def test_the_theme_comes_through_from_the_portal() -> None:
+    theme = {
+        "accent": "#1a2a44",
+        "accent_text": "#ffffff",
+        "logo_url": "https://portal.example/logo/abc/",
+    }
+    with fake_portal(body={**GOOD, "theme": theme}) as url:
+        got = load_settings(portal_env(url), "7")
+    assert got.theme == Theme("#1a2a44", "#ffffff", "https://portal.example/logo/abc/")
+    with fake_portal() as url:  # no theme: Voice's own look
+        assert load_settings(portal_env(url), "7").theme == Theme()
 
 
 def test_a_missing_or_broken_file_refuses(tmp_path: Path) -> None:

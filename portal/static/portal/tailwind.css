@@ -35,7 +35,13 @@
     border-color: var(--color-cable-light); outline-offset: 1px;
   }
   form input[type="checkbox"] { @apply mr-2 size-4 align-middle; accent-color: var(--color-cable-light); }
-  form .errorlist { @apply text-sm text-red-300; }
+  form label.check { @apply flex items-center text-base font-normal text-foam; }
+  form input[type="file"] { @apply cursor-pointer py-2 text-sm text-foam-muted; }
+  form input[type="file"]::file-selector-button {
+    @apply mr-3 cursor-pointer rounded-pill border-0 bg-foam px-4 py-1.5 text-sm font-medium text-deep-sea transition-colors;
+  }
+  form input[type="file"]:hover::file-selector-button { @apply bg-cable-light; }
+  form input[type="color"] { @apply block h-11 w-20 cursor-pointer p-1; }  form .errorlist { @apply text-sm text-red-300; }
   form .helptext { @apply text-sm text-foam-muted; }
 }
 

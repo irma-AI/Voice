@@ -3,6 +3,8 @@
 import re
 from pathlib import Path
 
+from portal.accounts.theme import DEEP_SEA, FOAM
+
 ROOT = Path(__file__).parent.parent
 SOURCE = ROOT / "portal/static/portal/tokens.css"
 CORE_COPY = ROOT / "voice/page.html"
@@ -23,3 +25,11 @@ def test_the_call_page_holds_the_same_tokens_as_the_portal_source() -> None:
         "the tokens differ: edit portal/static/portal/tokens.css (the source), "
         "then copy its declarations into the first :root block of voice/page.html"
     )
+
+
+def test_the_texts_an_accent_carries_are_the_token_colours() -> None:
+    source = declarations(SOURCE.read_text("utf-8"), "@theme static {")
+    assert (FOAM, DEEP_SEA) == (
+        source["--color-foam"].lower(),
+        source["--color-deep-sea"].lower(),
+    ), "set FOAM and DEEP_SEA in portal/accounts/theme.py to the colours in tokens.css"
