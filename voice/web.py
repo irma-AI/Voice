@@ -7,7 +7,6 @@ from pathlib import Path
 from pipecat.evals.transport import EvalTransport, EvalTransportParams
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport  # pyright: ignore[reportUnknownVariableType]  # untyped dict values upstream
-from pipecat.transports.base_transport import TransportParams
 
 from voice.agent import run_call
 
@@ -17,9 +16,6 @@ async def bot(runner_args: RunnerArguments) -> None:
     transport = await create_transport(
         runner_args,
         {
-            "webrtc": lambda: TransportParams(
-                audio_in_enabled=True, audio_out_enabled=True
-            ),
             "eval": lambda: EvalTransportParams(
                 audio_in_enabled=True, audio_out_enabled=True
             ),
