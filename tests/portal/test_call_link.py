@@ -1,6 +1,6 @@
 # pyright: basic
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
-"""A Business's public call link sends anyone to the core with a ticket for that Business only (make test-db).
+"""A Business's call link sends a page loaded in a frame to the core with a ticket for that Business only, once it has saved its website (make test-db).
 
 The ticket is checked by the core's own code (voice/ticket.py), as in tests/portal/test_test_call.py.
 """

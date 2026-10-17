@@ -3,7 +3,8 @@
 // the page and the panel (nothing to check the sender of); the launcher removes the panel to end the call.
 (() => {
   const tag = document.currentScript;
-  if (!tag || !tag.src || !tag.dataset.business) return;
+  // A second tag (pasted twice, or added by a tag manager) would stack a second launcher on the first.
+  if (!tag || !tag.src || !tag.dataset.business || document.querySelector("[data-voice-call-button]")) return;
   const portal = new URL(tag.src).origin;
   const core = "{{ core_origin|escapejs }}";
   const label = "Prata med vår AI-assistent";
@@ -11,6 +12,7 @@
 
   const launcher = document.createElement("button");
   launcher.type = "button";
+  launcher.dataset.voiceCallButton = "";
   launcher.textContent = label;
   launcher.setAttribute("aria-expanded", "false");
   launcher.style.cssText = "position:fixed;right:1rem;bottom:1rem;z-index:2147483000;padding:.75rem 1.25rem;border:0;border-radius:2rem;background:#1c1917;color:#fff;font:1rem system-ui,sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)";

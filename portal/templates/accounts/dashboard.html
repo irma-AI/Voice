@@ -17,7 +17,7 @@
 <p class="mt-6">Your website domain: {% if business.website_domain %}<strong>{{ business.website_domain }}</strong>{% else %}none set{% endif %}. <a href="{% url 'business_settings' %}" class="underline">Change it</a></p>
 <h2 class="mt-6 text-lg font-semibold">A call button for your website</h2>
 {% if button_html %}
-<p class="mt-2 text-sm">Paste this on every page of {{ business.website_domain }} (or a subdomain) where the button should appear, just before the closing &lt;/body&gt; tag. A button appears in the corner; pressing it opens the call in a panel on the page. It works only on your website domain.</p>
+<p class="mt-2 text-sm">Paste this on every page of {{ business.website_domain }} (or a subdomain) where the button should appear, just before the closing &lt;/body&gt; tag. A button appears in the corner; pressing it opens the call in a panel on the page. Browsers are told to let only your website domain show it.</p>
 <pre class="mt-2 overflow-x-auto rounded border border-stone-200 bg-white p-4 text-sm"><code>{{ button_html }}</code></pre>
 {% else %}
 <p class="mt-2 text-sm">Your call button is closed: save your website domain in <a href="{% url 'business_settings' %}" class="underline">your settings</a> first, and the snippet to paste shows here.</p>

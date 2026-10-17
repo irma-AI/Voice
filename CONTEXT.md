@@ -21,11 +21,11 @@ The business whose calls the agent answers, with its own facts and Modules. One 
 _Avoid_: tenant, customer, clinic, client, agency
 
 **Call link**:
-The address (`/call/<unguessable>/` on the Portal) a Business's Call button opens in its panel. It starts a call with the Business's settings only for a page loaded in a frame, and only once the Business has saved a Website domain; in a tab, or pasted anywhere else, it refuses.
+The address (`/call/<unguessable>/` on the Portal) a Business's Call button opens in its panel. It starts a call with the Business's settings only for a page loaded in a frame, and only once the Business has saved a Website domain; in a tab, or pasted anywhere else, it refuses a browser that says so (a script can send the header; not enforced).
 _Avoid_: public URL, widget
 
 **Call button**:
-A button on a Business's own website, added with a script tag from its dashboard (shown once a Website domain is saved). A launcher sits in the corner of the page; pressing it opens the Call link in a panel on that page, and pressing it again ends the call. It works only on the Website domain and its subdomains.
+A button on a Business's own website, added with a script tag from its dashboard (shown once a Website domain is saved). A launcher sits in the corner of the page; pressing it opens the Call link in a panel on that page, and pressing it again ends the call. Browsers are told to let only the Website domain and its subdomains show it (not seen in a real browser yet).
 _Avoid_: widget, embed
 
 **Website domain**:

@@ -323,7 +323,7 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     return redirect("modules")
 
 
-# What a Caller reads when the call link is opened from anywhere but a frame on the Business's website, or the Business has not saved one (English; Petter approved the words on 2026-10-17, VOI-71).
+# What a Caller reads when the call link is opened from anywhere but a frame on the Business's website, or the Business has not saved one (English; Petter approved the words on 2026-10-17 for a Business with no saved website, VOI-71; showing them for a request outside a frame (VOI-73) waits for his okay).
 CALL_LINK_REFUSAL = (
     "This call can't be opened from here. Start it from the company's own website."
 )
