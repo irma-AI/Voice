@@ -1,0 +1,79 @@
+# Can a Business's call link be limited to one website domain?
+
+Written 2026-10-17. All pages below were read 2026-10-17. Nothing here was tried in a real browser: **not checked** in a browser or against the live Portal. This is research, not a decision.
+
+## What is known
+
+Today `call_link` (`portal/accounts/views.py`) is open to anyone and 302s to the core with a signed 10-minute ticket. The Business pastes a plain `<a href target="_blank">`. The threat is another site, or anyone pasting the link, starting paid calls.
+
+**1. What a plain link click carries.**
+
+- A click on a link is a top-level navigation. The browser sends `Referer` (spelled so) with the address of the page holding the link, cut down by the referrer policy. [MDN Referer](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referer), read 2026-10-17.
+- The default policy is `strict-origin-when-cross-origin`: "The default referrer policy is ..." [Referrer Policy §3](https://w3c.github.io/webappsec-referrer-policy/), read 2026-10-17. Cross-origin HTTPS to HTTPS sends only the origin (`https://shop.example.se/`, no path, no query). Same-origin sends the full URL. HTTPS to HTTP sends no header. [MDN Referrer-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy), read 2026-10-17. Our link is HTTPS, so a Business page on HTTPS sends its origin. A Business page on plain HTTP is not a downgrade (the rule sends nothing only when the page is trustworthy and the target is not, [Referrer Policy §3.7](https://w3c.github.io/webappsec-referrer-policy/), read 2026-10-17), so it should send its origin too; not seen in a browser, **not checked**.
+- `rel="noreferrer"` on the link: "No Referer header will be included", and it also acts as `noopener`. [HTML §4.6.8.15](https://html.spec.whatwg.org/multipage/links.html), read 2026-10-17. The Business's snippet is ours, so we control that it is absent.
+- `target="_blank"` alone implies `noopener` for `a` elements, which cuts `window.opener` but does not touch the Referer. [HTML §4.6.5 "get an element's noopener"](https://html.spec.whatwg.org/multipage/links.html), read 2026-10-17. Same page: the link's referrer policy is `no-referrer` only if `noreferrer` is present, otherwise the `referrerpolicy` attribute.
+- The Business's own page can still strip it: a `Referrer-Policy: no-referrer` header, `<meta name="referrer" content="no-referrer">` or `referrerpolicy` on the link. [MDN Referrer-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy), read 2026-10-17; the meta keyword is defined by the HTML Standard ([Referrer Policy §4.2](https://w3c.github.io/webappsec-referrer-policy/), read 2026-10-17). A stricter policy (`no-referrer`, `same-origin`) means our Portal sees nothing, and the Business would have to change that, which we cannot do from the snippet. The snippet can set `referrerpolicy="origin"` on its own link (MDN above lists the attribute on `<a>`); **not checked** that a page-wide `no-referrer` header loses to the link attribute (MDN says it does not spell out precedence).
+- The header can be missing for reasons we cannot see: "user agents MAY allow users to suppress the referrer header entirely" and may alter it "to enforce arbitrary policy considerations". [Referrer Policy §8.3 and §9.1](https://w3c.github.io/webappsec-referrer-policy/), read 2026-10-17.
+- `Origin` on a top-level GET navigation: absent. The Fetch algorithm adds `Origin` for CORS-tainted requests, websockets, and for methods other than GET/HEAD; a plain navigation GET falls in none of these. [Fetch "append a request Origin header"](https://fetch.spec.whatwg.org/#append-a-request-origin-header), read 2026-10-17. MDN agrees same-origin GET/HEAD omit it but does not discuss navigations ([MDN Origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Origin), read 2026-10-17).
+- `Sec-Fetch-Site` is `same-origin`, `same-site`, `cross-site` or `none` (typed address, bookmark). `Sec-Fetch-Mode` would be `navigate`, `Sec-Fetch-Dest` `document` for a top-level click. None of these carries the initiating host name. [Fetch Metadata §2](https://w3c.github.io/webappsec-fetch-metadata/), read 2026-10-17; [MDN Sec-Fetch-Site](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Sec-Fetch-Site), read 2026-10-17. They tell a click apart from a typed address, nothing more. So **`Referer` is the only place the site's name travels** on a plain click.
+- The 302 to the core: the core's request is a second navigation. What `Referer` it carries after a redirect is **not checked**; the check does not need it, because the Portal sees the first request.
+
+**2. Can the header be trusted?**
+
+- `Referer`, `Origin` and anything starting `Sec-` are forbidden header names: a page's JavaScript cannot set them. [Fetch §2.2.2 forbidden request-header](https://fetch.spec.whatwg.org/#forbidden-request-header), read 2026-10-17 (same on MDN Referer/Origin pages above).
+- That binds browsers only. `curl`, a script or a server can send any `Referer`. Plain words: **the check stops another site's page from linking or embedding the call link in a browser (a deterrent). It is not a secret and does not stop a script.** Google says the same of its own feature indirectly: referrer restrictions are "meant for browser-based clients"; for servers use IP restrictions ([Maps API security](https://developers.google.com/maps/api-security-best-practices), read 2026-10-17). hCaptcha says its hostname value "is derived from the user's browser, and should not be used for authentication of any kind" ([hCaptcha docs](https://docs.hcaptcha.com/), read 2026-10-17).
+- The threat "a person pastes the link in a post" is not stopped by the header either: the link works fine as a typed address (no `Referer`), unless missing means refuse (see Open choices).
+
+**3. Matching the top domain correctly.**
+
+- "Top domain" is the registrable domain: a host's public suffix plus the label before it, from the Public Suffix List. [URL Standard, host public suffix and registrable domain](https://url.spec.whatwg.org/), read 2026-10-17. `example.com` is the registrable domain of `shop.example.com`; `com` alone has none. [HTML, schemelessly same site](https://html.spec.whatwg.org/multipage/browsers.html), read 2026-10-17: equal registrable domains, non-null.
+- The PSL is updated "a few times per week"; apps should download it at most once a day. [publicsuffix.org/list](https://publicsuffix.org/list/), read 2026-10-17. Its algorithm: most labels wins, exception rules win, default rule is `*`, wildcards exist. [PSL Format](https://github.com/publicsuffix/list/wiki/Format), read 2026-10-17. The list has an ICANN and a PRIVATE section (`github.io`-style). With private rules on, `alice.github.io` and `bob.github.io` are different registrable domains; with them off they are the same. Which to use is a choice (below).
+- The URL Standard itself warns the registrable domain "cannot be relied-upon to provide a hard security boundary, as the public suffix list will diverge from client to client" and prefers origins. [URL Standard](https://url.spec.whatwg.org/), read 2026-10-17.
+- Library: neither `tldextract` nor `publicsuffix2` is in `pyproject.toml` or `uv.lock` (checked by grep in the repo). `idna` 3.20 is only there as another package's dependency. Django 6.1.2's wheel has no public-suffix code (grep of the wheel, empty). So a new dependency is needed. `tldextract` is the common one: splits host into subdomain / domain / suffix with the PSL, fetches the list on first use and caches it, falls back to a bundled snapshot, can run with network off (`suffix_list_urls=()`), `include_psl_private_domains` switches the PRIVATE section, BSD-3. [tldextract README](https://github.com/john-kurkowski/tldextract), read 2026-10-17. Whether it is the best pick (vs `publicsuffixlist`, `publicsuffix2`): **not checked**.
+- Traps: naive `endswith("example.se")` accepts `evil-example.se`; "contains" accepts `example.se.evil.com`; "last two labels" is wrong for `co.uk`-style suffixes (the `forums.bbc.co.uk` case in the tldextract README). Compare whole registrable domains for equality, never substrings.
+- Normalise first: parse the `Referer` URL, take the host (Python's `urlsplit(...).hostname` returns it lower case, no port or userinfo, [urllib.parse](https://docs.python.org/3/library/urllib.parse.html), read 2026-10-17), drop a trailing dot, require scheme `https` (or `http` if allowed). Convert IDN to punycode before compare: the standard `idna` codec is the older IDNA 2003; Python's codecs docs point to a separate module for IDNA 2008 ([codecs](https://docs.python.org/3/library/codecs.html), read 2026-10-17). Browsers already send punycode in `Referer`; the stored domain must be saved in the same form. IP-address hosts and `localhost` have no registrable domain: refuse. Idna-package details: **not checked** (PyPI page blocked).
+
+**4. Precedents.**
+
+| Vendor | Checks | Missing header | Documented limits |
+|---|---|---|---|
+| Google Cloud / Maps API key "websites" ([API keys](https://docs.cloud.google.com/docs/authentication/api-keys), read 2026-10-17) | HTTP referrer, `https://*.example.com` wildcard for subdomains, optional port | not said on this page, **not checked** | browsers that send only the origin cannot use path-specific rules; header "may be withheld or trimmed"; not for servers ([Maps security](https://developers.google.com/maps/api-security-best-practices), read 2026-10-17) |
+| reCAPTCHA key domains ([domain validation](https://developers.google.com/recaptcha/docs/domain_validation), read 2026-10-17) | key tied to listed domains and their subdomains; page marked deprecated | not said, **not checked** | can switch the check off and verify the hostname on your server |
+| hCaptcha ([docs](https://docs.hcaptcha.com/), read 2026-10-17) | returns `hostname` for you to compare | may be `not-provided` under load | "should not be used for authentication of any kind" |
+| Cloudflare Turnstile ([get started](https://developers.cloudflare.com/turnstile/get-started/), read 2026-10-17) | per-widget "hostnames" list; advice: restrict to domains you control | how enforced: not on this page, **not checked** | sitekey is public |
+
+Stripe, YouTube and Vimeo domain restrictions: **not checked** (not read; Vimeo's help URL I tried returned 404).
+
+**5. Stronger options.**
+
+- **(a) Server-signed value from the Business's server.** The only value the Business can make that others cannot forge. Needs code on the Business's own server, which the plain snippet excludes. Not read anywhere further; it is our own HMAC ticket idea moved to their side.
+- **(b) Portal-served script that fetches the ticket with CORS.** The page's script calls a Portal endpoint with `fetch`; the browser sets `Origin` and a page cannot change it (forbidden header, §2 above). The Portal answers with `Access-Control-Allow-Origin` set to that one Business origin; the browser blocks the page from reading the reply for any other site. [Fetch CORS check](https://fetch.spec.whatwg.org/), read 2026-10-17: success only if the header equals the request's serialized origin. [MDN CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS), read 2026-10-17: reply varies per origin, so send `Vary: Origin`. Gives an `Origin` that is always present on a `fetch` (unlike `Referer`), but it matches an origin, not a registrable domain (we would compare in code and echo the exact origin), and it still stops nothing outside browsers: `curl` sends any `Origin`. Needs a script on their page: more to paste.
+- **(c) Iframe embed.** `Content-Security-Policy: frame-ancestors https://a.example https://b.example` on the call page lists who may embed it; each ancestor is checked and the directive does not work in a `<meta>` tag. [MDN frame-ancestors](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/frame-ancestors), read 2026-10-17. The browser, not a header we trust, enforces it, so it is stronger than `Referer`. Microphone use inside a cross-origin frame needs the parent's iframe `allow="microphone"`; the default allowlist for `microphone` is `self`. [MDN Permissions-Policy microphone](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy/microphone) and [MDN iframe `allow`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe), read 2026-10-17. It does not stop someone opening the call URL directly in their own tab, so the link itself still needs a check. It is a bigger change than the link snippet: new snippet, a new embedded page, a mic permission prompt inside a frame. Wildcard host patterns in `frame-ancestors` match origins, not registrable domains; the spec text for that was not read, **not checked**.
+- **(d) CAPTCHA or rate limit.** A challenge before the ticket, or a cap on tickets per Business per hour. Complements any of the above; only mentioned, not researched.
+
+**6. Where the check would sit.**
+
+- Only the first request, the Portal's `call_link`, can see the `Referer`. The core gets a second navigation from a 302 and `/ws` already checks `Origin == Host` against its own page, which says nothing about the Business's site.
+- So the check goes in `call_link` before `to_core` mints the ticket: read `Referer`, reduce to registrable domain, compare to the Business's stored domain, refuse otherwise (and fail closed if the PSL cannot load: CLAUDE.md rule 3).
+- The ticket is an HMAC over `business_id.kind.expires`. It could carry the checked domain as a fourth field, but nothing in the core would use it today. Not needed for the check; **not designed** beyond this.
+- The database rule "a Business has at most one domain" and where it is stored fall under `.claude/rules/data.md` (not read for this note).
+
+## Open choices for Petter (questions, not decisions)
+
+1. When the `Referer` is missing (stripped by the visitor's browser, by the Business's own policy, or a typed or pasted link), refuse or allow?
+2. Who can change a Business's domain: the Business in its dashboard, or only Petter?
+3. If a Business's own page strips `Referer` and its visitors get refused, is that acceptable collateral, and what does the dashboard tell the Business?
+4. The Business's own "copy link" in the dashboard (for a social post, an email, a QR code) has no site `Referer`. Should that user have a separate unrestricted link, or none?
+5. Should `alice.github.io` and `bob.github.io` count as the same domain (PSL private section off) or different (on)?
+6. Do `http://` pages count, or only `https://`?
+
+## What to do / what would settle it
+
+- A real check in a browser: a throwaway page on a second domain with the snippet, once with `Referrer-Policy: no-referrer` on the page, once with the default, once from a typed address, in Chrome, Safari and Firefox on a phone. Read what `Referer` and `Sec-Fetch-*` arrive at `call_link` (log them, no personal data). This is the "seen to hold" step; nothing above has been seen.
+
+## Verdict
+
+- Yes, for browsers: `call_link` can refuse a click whose `Referer` registrable domain differs from the Business's stored one, with a PSL library (new dependency).
+- It stops other sites that link or embed the link in a browser, and casual copying where the header survives. It does not stop `curl`, a script that sends any `Referer`, or a pasted link if missing means allow.
+- Least work: store one domain per Business, check `Referer` in `call_link`, refuse on mismatch; the missing-header answer is Petter's (question 1).
+- A real stop for sites needs (b) or (c), which put code or an iframe on the Business's page.
