@@ -54,6 +54,23 @@ def test_the_example_call_is_text_a_screen_reader_can_read(settings: Any) -> Non
     assert "Example call · illustrative" in page
 
 
+def test_the_portal_showcase_is_the_portals_own_form_and_module_row_labelled_as_an_example(
+    settings: Any,
+) -> None:
+    settings.CONTACT_EMAIL = ""
+    page = landing()
+    assert "Example Business · illustrative, not real data" in page
+    # The Portal's own settings form fields, disabled so nothing can be sent.
+    for field in ('name="name"', 'name="facts"', 'name="languages"'):
+        assert field in page, field
+    assert 'name="website_domain"' not in page
+    assert "<fieldset disabled" in page
+    # The Portal's own Module row, without its Remove button.
+    assert "https://bookings.example.com/mcp" in page
+    assert "What it offers" in page and "move_booking" in page
+    assert "Remove" not in page
+
+
 def test_request_access_is_hidden_while_contact_email_is_empty(settings: Any) -> None:
     settings.CONTACT_EMAIL = ""
     page = landing()
