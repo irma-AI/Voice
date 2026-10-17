@@ -101,7 +101,7 @@ async def run_call(
 ) -> None:
     """Runs one call on any Channel's transport until the Caller leaves.
 
-    `business_id` is the Business a Portal ticket named; without it the core's own BUSINESS_ID applies.
+    `business_id` is the Business a Portal ticket named; the eval Channel names none and reads a settings file.
     """
     # Pipecat logs what the Caller said at DEBUG, and its dev runner resets the level to DEBUG
     # at startup; transcripts never go in logs (.claude/rules/security.md), so cap it per call.

@@ -28,10 +28,7 @@ services:
     depends_on: [portal]
     environment:
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:?add your Google key to .env (aistudio.google.com)}
-      VOICE_USER: ${VOICE_USER:-voice}
-      VOICE_PASSWORD: ${VOICE_PASSWORD:?set VOICE_PASSWORD in .env (copy .env.example)}
       SETTINGS_URL: http://portal:8000
-      BUSINESS_ID: "1"  # the first Business invited in a fresh database
       CORE_SECRET: ${CORE_SECRET:?set CORE_SECRET in .env (copy .env.example)}
       ALLOW_LOCAL_MODULES: ${ALLOW_LOCAL_MODULES:-}
       PORT: "7860"

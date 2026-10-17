@@ -75,7 +75,7 @@ LOCAL: dict[str, Any] = {"name": "hours", "command": "python", "args": ["-m", "x
 
 
 def portal_env(url: str) -> dict[str, str]:
-    return {"SETTINGS_URL": url, "CORE_SECRET": "s3cret", "BUSINESS_ID": "7"}
+    return {"SETTINGS_URL": url, "CORE_SECRET": "s3cret"}
 
 
 # --- the shape: one definition in contract/, the core's copy of its limits must agree ---
@@ -177,13 +177,21 @@ def test_two_sources_refuse_instead_of_guessing(tmp_path: Path) -> None:
     assert "refused" in describe_source(both)
 
 
-def test_a_portal_address_needs_its_secret_and_business() -> None:
-    for env in (
-        {"SETTINGS_URL": "http://x"},
-        {"SETTINGS_URL": "http://x", "CORE_SECRET": "s"},
+def test_a_portal_address_needs_its_secret() -> None:
+    with pytest.raises(SettingsRefused, match="missing"):
+        load_settings({"SETTINGS_URL": "http://x"}, "7")
+
+
+def test_a_call_that_names_no_business_is_refused_by_the_portal_and_never_asked() -> (
+    None
+):
+    asked: list[str] = []
+    with (
+        fake_portal(paths=asked) as url,
+        pytest.raises(SettingsRefused, match="names no Business"),
     ):
-        with pytest.raises(SettingsRefused, match="missing"):
-            load_settings(env)
+        load_settings(portal_env(url))
+    assert asked == []
 
 
 def test_the_eval_channels_test_business_is_valid_settings() -> None:
@@ -202,7 +210,7 @@ def test_the_eval_channels_module_business_names_its_module() -> None:
 
 def test_modules_come_through_from_the_portal() -> None:
     with fake_portal(body={**GOOD, "modules": [REMOTE, LOCAL]}) as url:
-        got = load_settings(portal_env(url))
+        got = load_settings(portal_env(url), "7")
     assert got.modules == (
         Module("booking", url="https://modules.example/mcp"),
         Module("hours", command="python", args=("-m", "x")),
@@ -220,14 +228,10 @@ def test_a_missing_or_broken_file_refuses(tmp_path: Path) -> None:
 # --- the Portal adapter ---
 
 
-def test_a_named_business_wins_over_the_cores_own_and_never_comes_from_a_file(
-    tmp_path: Path,
-) -> None:
+def test_a_named_business_is_the_one_asked_for_and_never_comes_from_a_file() -> None:
     asked: list[str] = []
     with fake_portal(paths=asked) as url:
-        load_settings(
-            portal_env(url), "42"
-        )  # a ticket named Business 42; BUSINESS_ID is 7
+        load_settings(portal_env(url), "42")  # a ticket named Business 42
     assert asked == ["/api/settings/42/"]
     with pytest.raises(SettingsRefused, match="named Business"):
         load_settings({"SETTINGS_FILE": str(BUSINESS_FILE)}, "42")
@@ -239,42 +243,42 @@ def test_a_named_business_wins_over_the_cores_own_and_never_comes_from_a_file(
 
 def test_the_portal_is_asked_for_the_business_with_the_secret() -> None:
     with fake_portal() as url:
-        got = load_settings(portal_env(url))
+        got = load_settings(portal_env(url), "7")
     assert got == Settings("Anna's Salon", "Öppet 8-17.", ("sv", "en"))
 
 
 def test_a_settings_change_shows_up_in_the_next_call() -> None:
     with fake_portal() as url:
-        first = load_settings(portal_env(url))
+        first = load_settings(portal_env(url), "7")
     with fake_portal(body={**GOOD, "facts": "Stängt i juli."}) as url:
-        second = load_settings(portal_env(url))
+        second = load_settings(portal_env(url), "7")
     assert (first.facts, second.facts) == ("Öppet 8-17.", "Stängt i juli.")
 
 
 def test_a_wrong_secret_a_bad_reply_or_a_down_portal_refuses() -> None:
     with fake_portal() as url, pytest.raises(SettingsRefused, match="401"):
-        load_settings({**portal_env(url), "CORE_SECRET": "wrong"})
+        load_settings({**portal_env(url), "CORE_SECRET": "wrong"}, "7")
     with (
         fake_portal(body={**GOOD, "languages": []}) as url,
         pytest.raises(SettingsRefused),
     ):
-        load_settings(portal_env(url))
+        load_settings(portal_env(url), "7")
     with fake_portal(status=404) as url, pytest.raises(SettingsRefused, match="404"):
-        load_settings(portal_env(url))
+        load_settings(portal_env(url), "7")
     with fake_portal(status=302) as url, pytest.raises(SettingsRefused, match="302"):
         load_settings(
-            portal_env(url)
+            portal_env(url), "7"
         )  # a moved Portal is refused, never followed with the secret
     with fake_portal() as url:  # the server has stopped by the time we ask
         pass
     with pytest.raises(SettingsRefused, match="no settings"):
-        load_settings(portal_env(url))
+        load_settings(portal_env(url), "7")
 
 
 def test_a_business_id_that_is_not_a_number_never_reaches_a_path() -> None:
     for bad in ("..", "1/../2", "1?x=y", "-1"):
-        with pytest.raises(SettingsRefused, match="BUSINESS_ID"):
-            load_settings({**portal_env("http://127.0.0.1:1"), "BUSINESS_ID": bad})
+        with pytest.raises(SettingsRefused, match="not a number"):
+            load_settings(portal_env("http://127.0.0.1:1"), bad)
 
 
 def test_the_refusal_text_names_the_portal_host_never_a_password_in_its_address() -> (
@@ -282,36 +286,36 @@ def test_the_refusal_text_names_the_portal_host_never_a_password_in_its_address(
 ):
     env = portal_env("http://user:pw@127.0.0.1:1")
     with pytest.raises(SettingsRefused) as refused:
-        load_settings(env)
+        load_settings(env, "7")
     assert "pw" not in str(refused.value) and "user" not in str(refused.value)
 
 
 def test_a_reply_nested_too_deep_or_an_address_that_is_not_http_refuses() -> None:
     with fake_portal(body="[" * 60000) as url, pytest.raises(SettingsRefused):
-        load_settings(portal_env(url))
+        load_settings(portal_env(url), "7")
     for bad in ("file:///etc/passwd", "http//x", "ftp://x"):
         with pytest.raises(SettingsRefused, match="http"):
-            load_settings(portal_env(bad))
+            load_settings(portal_env(bad), "7")
 
 
 def test_a_secret_with_a_line_break_refuses_without_printing_it() -> None:
     with fake_portal() as url, pytest.raises(SettingsRefused) as refused:
-        load_settings({**portal_env(url), "CORE_SECRET": "sekret\nX: y"})
+        load_settings({**portal_env(url), "CORE_SECRET": "sekret\nX: y"}, "7")
     assert "sekret" not in str(refused.value)
 
 
 def test_the_env_example_names_exactly_one_settings_source() -> None:
     values = {k: v or "" for k, v in dotenv_values(".env.example").items()}
-    load_settings(
-        values
-    )  # raises if it names none, or both (the Portal's own PORTAL_URL is a different setting)
+    # Both would refuse every call; none too. A local run uses the Portal (the file source is for evals only).
+    assert bool(values.get("SETTINGS_URL")) != bool(values.get("SETTINGS_FILE"))
+    assert values.get("SETTINGS_URL") and values.get("CORE_SECRET")
 
 
 def test_the_secret_never_reaches_the_refusal_text() -> None:
     with fake_portal() as url:
         pass
     with pytest.raises(SettingsRefused) as refused:
-        load_settings(portal_env(url))
+        load_settings(portal_env(url), "7")
     assert "s3cret" not in str(refused.value)
 
 
