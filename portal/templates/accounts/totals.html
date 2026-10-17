@@ -1,34 +1,34 @@
 {% extends "base.html" %}
 {% block title %}Totals · Voice Portal{% endblock %}
 {% block content %}
-<h1 class="text-4xl">Totals</h1>
-<p class="mt-2 text-foam-muted">Every Business per month, newest first. Months follow {{ time_zone }}. Minutes are rounded to one decimal; dollars are the sum of the calls that have a cost, and "no cost" counts the calls that have none.</p>
+<h1 class="text-4xl sm:text-[3.5rem] sm:leading-none">Totals</h1>
+<p class="mt-4 max-w-prose text-foam-muted">Every Business per month, newest first. Months follow {{ time_zone }}. Minutes are rounded to one decimal; dollars are the sum of the calls that have a cost, and "no cost" counts the calls that have none.</p>
 
-<div class="mt-6 overflow-x-auto">
-  <table class="w-full border-collapse text-left text-sm">
-    <thead>
+<div class="mt-10 overflow-x-auto">
+  <table class="w-full border-collapse text-left text-sm tabular-nums">
+    <thead class="text-xs font-medium tracking-label text-foam-muted uppercase">
       <tr class="border-b border-granite">
-        <th class="p-2" rowspan="2">Month</th>
-        <th class="p-2" rowspan="2">Business</th>
-        {% for kind in kinds %}<th class="p-2" colspan="4">{{ kind }}s</th>{% endfor %}
+        <th scope="col" class="p-2" rowspan="2">Month</th>
+        <th scope="col" class="p-2" rowspan="2">Business</th>
+        {% for kind in kinds %}<th scope="colgroup" class="p-2 text-center" colspan="4">{{ kind }}s</th>{% endfor %}
       </tr>
       <tr class="border-b border-granite">
         {% for kind in kinds %}
-        <th class="p-2">calls</th><th class="p-2">minutes</th><th class="p-2">dollars</th><th class="p-2">no cost</th>
+        <th scope="col" class="p-2 text-right">calls</th><th scope="col" class="p-2 text-right">minutes</th><th scope="col" class="p-2 text-right">dollars</th><th scope="col" class="p-2 text-right">no cost</th>
         {% endfor %}
       </tr>
     </thead>
     <tbody>
       {% for month, name, cells in rows %}
       <tr class="border-b border-granite">
-        <td class="p-2">{{ month }}</td>
+        <td class="p-2 whitespace-nowrap">{{ month }}</td>
         <td class="p-2">{{ name }}</td>
         {% for calls, minutes, dollars, unpriced in cells %}
-        <td class="p-2">{{ calls }}</td><td class="p-2">{{ minutes }}</td><td class="p-2">${{ dollars }}</td><td class="p-2">{{ unpriced }}</td>
+        <td class="p-2 text-right">{{ calls }}</td><td class="p-2 text-right">{{ minutes }}</td><td class="p-2 text-right">${{ dollars }}</td><td class="p-2 text-right">{{ unpriced }}</td>
         {% endfor %}
       </tr>
       {% empty %}
-      <tr><td class="p-2" colspan="99">No calls yet.</td></tr>
+      <tr><td class="p-2 text-foam-muted" colspan="99">No calls yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
