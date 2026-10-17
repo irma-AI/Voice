@@ -1,8 +1,10 @@
 """The call reports port: what the core tells the Portal about one finished call (VOI-41).
 
-At call end the core builds one Call record (contract/call-record.schema.json), writes it to its server log as one
-line, and only then sends it to the Portal's record address in the background, retrying for up to a minute. The log
-line is the copy that survives a Portal that stays down or a restart mid-retry. Nothing here delays or cuts a call.
+At call end the core prices the call (voice/cost.py), builds one Call record (contract/call-record.schema.json),
+writes it to its server log as one line, and only then sends it to the Portal's record address, all in the background,
+retrying the send for up to a minute. The log line is the copy that survives a Portal that stays down or a restart
+mid-retry; the raw usage reports are logged as they arrive, so the tokens survive a restart before it. Nothing here
+delays or cuts a call.
 """
 
 import asyncio
@@ -21,6 +23,7 @@ from pipecat.frames.frames import Frame, MetricsFrame
 from pipecat.metrics.metrics import LLMUsageMetricsData
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
+from voice.cost import PRICED_MODEL, price
 from voice.settings import PORTAL_TIMEOUT_S, NoRedirect
 from voice.ticket import Ticket
 
@@ -68,8 +71,9 @@ def build_record(
     started_at: datetime,
     length_seconds: int,
     totals: Mapping[str, int],
+    cost: Mapping[str, str | None],
 ) -> dict[str, Any]:
-    """The Call record, in the shape of contract/call-record.schema.json. The cost is VOI-42's."""
+    """The Call record, in the shape of contract/call-record.schema.json. `cost` is `voice.cost.price`'s three fields."""
     return {
         "call_id": call_id,
         "business": ticket.business,
@@ -77,9 +81,7 @@ def build_record(
         "started_at": started_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "length_seconds": length_seconds,
         **totals,
-        "cost_usd": None,
-        "price_date": None,
-        "cost_reason": "not_built_yet",
+        **cost,
     }
 
 
@@ -133,6 +135,27 @@ def deliver(
         time.sleep(pause_s)
 
 
+def finish(
+    call_id: str,
+    ticket: Ticket,
+    started_at: datetime,
+    length_seconds: int,
+    totals: Mapping[str, int],
+    env: Mapping[str, str],
+) -> bool:
+    """Prices the call, logs its record, then sends it. Blocks, so it runs in a thread."""
+    cost = price(totals, PRICED_MODEL, env.get("GOOGLE_API_KEY", "").strip())
+    record = build_record(call_id, ticket, started_at, length_seconds, totals, cost)
+    logger.info("call record {}", json.dumps(record))
+    portal, secret = env.get("SETTINGS_URL", "").strip(), env.get("CORE_SECRET", "")
+    if not (portal and secret):
+        logger.error(
+            "call {}: record not sent, SETTINGS_URL or CORE_SECRET is not set", call_id
+        )
+        return False
+    return deliver(record, portal, secret)
+
+
 def report_call(
     call_id: str,
     ticket: Ticket,
@@ -141,17 +164,11 @@ def report_call(
     totals: Mapping[str, int],
     env: Mapping[str, str] = os.environ,
 ) -> None:
-    """Logs the call's record, then starts sending it and returns: the caller never waits on the Portal. Needs a running loop."""
-    record = build_record(call_id, ticket, started_at, length_seconds, totals)
-    logger.info("call record {}", json.dumps(record))
-    portal, secret = env.get("SETTINGS_URL", "").strip(), env.get("CORE_SECRET", "")
-    if not (portal and secret):
-        logger.error(
-            "call {}: record not sent, SETTINGS_URL or CORE_SECRET is not set", call_id
-        )
-        return
+    """Starts pricing, logging and sending the call's record and returns: the caller never waits on Google or the Portal. Needs a running loop."""
     task = asyncio.get_running_loop().create_task(
-        asyncio.to_thread(deliver, record, portal, secret)
+        asyncio.to_thread(
+            finish, call_id, ticket, started_at, length_seconds, totals, env
+        )
     )
     sending.add(task)
     task.add_done_callback(sending.discard)

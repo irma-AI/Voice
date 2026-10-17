@@ -43,8 +43,12 @@ TOTALS = {
 }
 
 
+# No Google key in these tests' environment: the record is priced as far as the key (the pricing itself is tests/test_cost_catalogue.py).
+NO_KEY = {"cost_usd": None, "price_date": None, "cost_reason": "no_google_key"}
+
+
 def a_record() -> dict[str, Any]:
-    return build_record("c0ffee0123456789", TICKET, STARTED, 184, TOTALS)
+    return build_record("c0ffee0123456789", TICKET, STARTED, 184, TOTALS, NO_KEY)
 
 
 @contextmanager
@@ -99,7 +103,7 @@ def test_a_finished_call_makes_a_record_the_contract_accepts() -> None:
         "call_link",
         184,
     )
-    assert record["cost_usd"] is None and record["cost_reason"] == "not_built_yet"
+    assert record["cost_usd"] is None and record["cost_reason"] == "no_google_key"
 
 
 def test_the_tally_adds_up_every_usage_report_of_a_call() -> None:
@@ -197,9 +201,9 @@ def test_the_record_is_logged_before_any_send_and_the_call_never_waits_on_it() -
             began = time.monotonic()
             report_call("c0ffee0123456789", TICKET, STARTED, 184, TOTALS, env)
             took = time.monotonic() - began
-            logged_before_send = len(lines)
-            # The Portal is stuck; the call is already over. Let it answer and wait for the send to end.
+            # The Portal is stuck; the call is already over. Let the record reach the log, then let the Portal answer.
             await asyncio.sleep(0.2)
+            logged_before_send = len(lines)
             hold.set()
             await asyncio.gather(*report.sending)
             return took, logged_before_send
@@ -216,6 +220,7 @@ def test_the_record_is_logged_before_any_send_and_the_call_never_waits_on_it() -
 def test_no_portal_to_send_to_is_logged_not_ignored() -> None:
     async def end_of_call() -> None:
         report_call("c0ffee0123456789", TICKET, STARTED, 1, TOTALS, {})
+        await asyncio.gather(*report.sending)
 
     with log_lines() as lines:
         asyncio.run(end_of_call())
