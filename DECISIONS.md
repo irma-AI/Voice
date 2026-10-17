@@ -289,3 +289,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-17] VOI-79: landing direction is Turn (a ring that is one call; a vertical rail on phones) over metaphor worlds, Petter's pick: it shows the call flow without explanation. The sea rounds kept only the palette and type.
 [2026-10-17] VOI-79: Impeccable buildPath is code-first (.impeccable/config.json), Petter's choice: Turn is motion and exact text that generated comps can't hold; the live prototype is the reference.
 [2026-10-17] VOI-79: committed only the surface brief, config and the Turn prototype from .impeccable/; the decision-round mockups (AI-generated, ~40 images) stay local.
+[2026-10-17] playwright-cli guidance lives only in next-step's screenshot step, not a .claude/rules file: that step already runs it, and a rule would need a paths: glob that fits no one file set. It is a design tool, not a test seam.
