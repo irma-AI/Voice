@@ -24,6 +24,14 @@ _Avoid_: tenant, customer, clinic, client, agency
 A Business's public address (`/call/<unguessable>/` on the Portal) where anyone can start a call with its settings.
 _Avoid_: public URL, widget
 
+**Test call**:
+A call a Business starts from its own Portal to try its agent. Every other call comes through its Call link.
+_Avoid_: demo call, trial call
+
+**Call record**:
+What one call that reached the model used: when it started, how long it ran, what the model used and what that cost, and whether it was a Test call or came through the Call link. Never the words or the audio, and never changed once kept.
+_Avoid_: usage log, call log, CDR
+
 **Barge-in**:
 The Caller speaking while the agent talks, so the agent stops. A false barge-in is one where no words followed, usually noise.
 _Avoid_: interruption, cut-off
