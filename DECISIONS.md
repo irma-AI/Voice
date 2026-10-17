@@ -295,3 +295,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-17] VOI-81: the Portal ground is dark (Deep sea under a Blue hour glow), as the ticket's brief asked; the light daylight variant in the redesign brief is left for the Portal restyle (VOI-86).
 [2026-10-17] VOI-81: added two derived tokens beside the five colours, Foam at 72% for secondary text and at 50% for control borders, because Granite on Deep sea is about 1.7:1 and fails the 3:1 that form-field borders need.
 [2026-10-17] VOI-81: the other Portal pages got only class swaps (stone greys to tokens, the dark button to the pill) so they stay readable on the dark ground until VOI-85 and VOI-86 restyle them; copy, routes and behaviour are unchanged.
+[2026-10-14] Manual actions for Petter live in docs/manual-actions.md, kept by one long-lived draft PR so it never merges by itself: agents cannot do them, and he works through the list in one sitting (Petter).
