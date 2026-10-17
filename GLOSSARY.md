@@ -25,7 +25,7 @@ The address (`/call/<unguessable>/` on the Portal) a Business's Call button open
 _Avoid_: public URL, widget
 
 **Call button**:
-A button on a Business's own website, added with a script tag from its dashboard (shown once a Website domain is saved). A launcher sits in the corner of the page; pressing it opens the Call link in a panel on that page, and pressing it again ends the call. Browsers are told to let only the Website domain and its subdomains show it (not seen in a real browser yet).
+A button on a Business's own website, added with a script tag from its dashboard (shown once a Website domain is saved). A launcher sits in the corner of the page; pressing it opens the Call link in a panel on that page, and pressing it again ends the call. Browsers are told to let only the Website domain and its subdomains show it (seen in desktop Chromium, not yet on a phone).
 _Avoid_: widget, embed
 
 **Website domain**:
