@@ -85,6 +85,37 @@ def test_the_call_page_opens_with_a_portal_ticket_and_refuses_everyone_else() ->
     assert refused.status_code == 403 and REFUSAL in refused.text
 
 
+def test_the_call_page_says_which_site_may_frame_it() -> None:
+    client = TestClient(
+        create_app("portal-secret"), base_url="https://voice.example.se"
+    )
+    expires = int(time.time()) + 60
+
+    def page(kind: str, domain: str) -> str:
+        ticket = sign("portal-secret", 7, kind, expires, domain)
+        return client.get(f"/?ticket={ticket}").headers.get(
+            "content-security-policy", ""
+        )
+
+    assert page("test", "") == "frame-ancestors 'none'"
+    assert (
+        page("call_link", "example.se")
+        == "frame-ancestors https://example.se https://*.example.se"
+    )
+
+
+def test_a_call_link_ticket_without_a_clean_domain_opens_no_page() -> None:
+    client = TestClient(
+        create_app("portal-secret"), base_url="https://voice.example.se"
+    )
+    expires = int(time.time()) + 60
+    for domain in ("", "example.se;", "https://example.se", "exa mple.se"):
+        ticket = sign("portal-secret", 7, "call_link", expires, domain)
+        refused = client.get(f"/?ticket={ticket}")
+        assert refused.status_code == 403, domain
+        assert "content-security-policy" not in refused.headers, domain
+
+
 def test_the_socket_refuses_a_missing_or_bad_ticket() -> None:
     client = TestClient(
         create_app("portal-secret"), base_url="https://voice.example.se"
