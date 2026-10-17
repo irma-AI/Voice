@@ -86,18 +86,12 @@ def test_the_core_reads_the_ticketed_businesss_settings_from_the_real_portal(
 ) -> None:
     anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     Business.objects.filter(pk=anna.pk).update(facts="Open 8-17.")
-    business_with_login(
-        "bo.testsson@example.com", "Bo's Bikes"
-    )  # the core's own BUSINESS_ID points here
+    business_with_login("bo.testsson@example.com", "Bo's Bikes")
 
     ticket = ticket_in(client.post("/test-call/")["Location"])
     named = ticket_business(ticket, SECRET)
     assert named is not None
-    core_env = {
-        "SETTINGS_URL": live_server.url,
-        "CORE_SECRET": SECRET,
-        "BUSINESS_ID": str(Business.objects.get(name="Bo's Bikes").pk),
-    }
+    core_env = {"SETTINGS_URL": live_server.url, "CORE_SECRET": SECRET}
     got = load_settings(core_env, str(named))
     assert (got.name, got.facts) == ("Anna's Salon", "Open 8-17.")
 
