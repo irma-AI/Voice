@@ -67,8 +67,37 @@ Petter, verbatim: "The current design is just placeholder for testing but i want
 - VOI-76: research the translation framework and how the core shares strings with the Portal.
 - VOI-69 / VOI-73: the embedded Call button and panel.
 
+## Settled in the direction rounds (2026-10-17)
+
+From the `/impeccable` decision page (seed `81c20105`). This holds what Petter settled while the landing concept keeps iterating; `DESIGN.md` is written later from the built world and replaces this section.
+
+**Brand direction (Petter, verbatim terms):** Nordic minimalism, luxury, reliable, natural conversation, cutting-edge tech, always on. In the company of Legora (legora.com) and Accounted (accounted.se, Petter's inspiration). Never retro, never enterprise, never playful. Also ruled out along the way: generic AI startup (gradients, glowing orbs), corporate call-centre, cold developer tool, cute chatbot or mascots, monochrome "luxury", space and cloud imagery.
+
+**Palette** (from the Landing Station board):
+
+| Name | Hex | Role |
+|---|---|---|
+| Blue hour | `#1A2A44` | main ground |
+| Deep sea | `#0B1322` | deepest ground, dark surfaces |
+| Cable light | `#F5D9A8` | the one warm accent: the live thing, the active Module, focus |
+| Foam | `#FFFFFF` | text and primary pill buttons on dark |
+| Granite | `#3A3F47` | quiet surfaces, borders, muted UI |
+
+The Portal on phones gets a light variant of the same palette (pale ground, navy text, cable light as accent), since it's used in daylight. Not yet checked for WCAG 2.2 AA contrast.
+
+**Type:** a refined, high-contrast serif for headlines and spoken lines, paired with a clean modern sans for interface text. The exact faces and their licences are not chosen yet. The mockups render the serif in the style of Reckless Neue (a paid licence) and the sans in the style of Inter.
+
+**Components seen and liked on the board:** white pill "Request access"; text link "Open code · Self-host it"; a call panel with a separate label column, **Caller** and **Agent**; Module rows marked "Connected" with an "Add a Module" entry; call-state chips (Connecting, Live, Agent speaking, Ended, Microphone blocked); a round launcher for the embedded call; a thin warm line connecting elements.
+
+**Copy settled:**
+- Headline: "Voice for the agentic company."
+- Subline: "Voice answers your callers and gets things done through Modules. Connect any service that speaks MCP, and your agent can use it mid-call." MCP is named once; never "connect the tools you already use" (Voice builds no integrations).
+- The speakers are **Caller** and **Agent**, never "Voice".
+
+**Landing concept, still open:** Landing Station (a subsea cable coming ashore at a small station on the Swedish coast at blue hour) or underwater acoustics in the same palette: Sonar Sounding, where Modules are tuned frequency bands, or Hydrophone, where Modules are moored acoustic responders. Mockups are in `.impeccable/mocks/decision/` (not committed).
+
 ## Not decided here
 
-- The visual world itself: impeccable new-work, next.
+- The visual world's final concept: see "Landing concept, still open" above.
 - How the landing page shows the Portal: decided in the Portal ticket.
 - Whether Live transcript costs more on Gemini's bill: not checked.
