@@ -92,6 +92,11 @@ def home(request: HttpRequest) -> HttpResponse:
     return render(request, "accounts/home.html")
 
 
+def sees_totals(account: Any) -> bool:
+    """False when `TOTALS_EMAIL` is unset: nobody is let in."""
+    return bool(settings.TOTALS_EMAIL) and account.email == settings.TOTALS_EMAIL
+
+
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
     business = Business.objects.filter(account=request.user).first()
@@ -103,6 +108,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         "accounts/dashboard.html",
         {
             "business": business,
+            "sees_totals": sees_totals(request.user),
             "call_url": call_url,
             # The Business pastes this into its own website; the text is what a caller reads on the button.
             "button_html": call_url
@@ -138,10 +144,8 @@ def calls(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def totals(request: HttpRequest) -> HttpResponse:
-    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls. Only an Account with the marker (set by the `totals_marker` command) may open it."""
-    if not getattr(
-        request.user, "sees_totals", False
-    ):  # fails closed for anything without the marker
+    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls. Only the Account whose email is `TOTALS_EMAIL` may open it."""
+    if not sees_totals(request.user):
         return HttpResponseForbidden("This page is not open to your account.")
     month = TruncMonth("started_at", tzinfo=ZoneInfo(settings.TIME_ZONE))
     sums = (

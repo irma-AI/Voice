@@ -49,6 +49,9 @@ if not DEBUG and not CORE_URL.startswith(
 # Self-hosting's switch, the same one the core reads (voice/modules.py): a local Module, or an http or private address, is accepted only when it is 1. Hosted never sets it.
 ALLOW_LOCAL_MODULES = os.environ.get("ALLOW_LOCAL_MODULES", "").strip() == "1"
 
+# The one Account (by email) that may open the totals page. Empty closes the page to everyone.
+TOTALS_EMAIL = os.environ.get("TOTALS_EMAIL", "").strip().lower()
+
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
