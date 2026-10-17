@@ -1,7 +1,7 @@
 """The settings port: where the core learns which Business a call is for, and what it may say.
 
 One interface, `load_settings()`, and two adapters chosen by the environment: the Portal's settings
-address, or a file in the same shape (contract/business-settings.schema.json) for evals and local runs.
+address, or a file in the same shape (contract/business-settings.schema.json) for evals.
 Anything else (nothing set, both set, the Portal down, a reply that breaks the shape) raises
 `SettingsRefused`, and the caller refuses the call: a fallback could serve another Business's facts, or
 one that was switched off (ADR 0002). The Portal never imports this, and this never imports the Portal.
@@ -151,7 +151,7 @@ def _from_portal(url: str, secret: str, business_id: str) -> Settings:
         raise SettingsRefused("SETTINGS_URL must be an http or https address")
     # The id is the Portal's database id until VOI-29 adds the public call link.
     if not business_id.isascii() or not business_id.isdigit():
-        raise SettingsRefused("BUSINESS_ID must be the Business's number in the Portal")
+        raise SettingsRefused("the Business's number is not a number")
     address = f"{url.rstrip('/')}/api/settings/{business_id}/"
     try:
         request = urllib.request.Request(
@@ -176,8 +176,9 @@ def load_settings(
 ) -> Settings:
     """The settings for the next call, read fresh each time so a Portal change shows up in it.
 
-    `business_id` names the Business a ticket was signed for (voice/ticket.py) and wins over BUSINESS_ID. Only the
-    Portal can serve a named Business: a file holds one Business's settings, which would be another's here.
+    `business_id` names the Business a ticket was signed for (voice/ticket.py). The Portal serves only a named
+    Business, and a file only the eval Channel, which names none: a file holds one Business's settings, which
+    would be another's for a named one.
     """
     portal = env.get("SETTINGS_URL", "").strip()
     file = env.get("SETTINGS_FILE", "").strip()
@@ -192,19 +193,14 @@ def load_settings(
             )
         return _from_file(file)
     if portal:
-        secret, business = (
-            env.get("CORE_SECRET", ""),
-            (
-                env.get("BUSINESS_ID", "") if business_id is None else business_id
-            ).strip(),
-        )
-        if not secret or not business:
-            raise SettingsRefused(
-                "SETTINGS_URL is set but CORE_SECRET or BUSINESS_ID is missing"
-            )
-        return _from_portal(portal, secret, business)
+        if business_id is None:
+            raise SettingsRefused("the call names no Business")
+        secret = env.get("CORE_SECRET", "")
+        if not secret:
+            raise SettingsRefused("SETTINGS_URL is set but CORE_SECRET is missing")
+        return _from_portal(portal, secret, business_id.strip())
     raise SettingsRefused(
-        "no settings source: set SETTINGS_URL (with CORE_SECRET and BUSINESS_ID), or SETTINGS_FILE for evals and local runs"
+        "no settings source: set SETTINGS_URL (with CORE_SECRET), or SETTINGS_FILE for evals"
     )
 
 
