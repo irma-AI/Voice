@@ -1,16 +1,14 @@
 # pyright: basic
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 import getpass
-import hashlib
-import json
 import logging
 from typing import Any
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.db import connection, transaction
 
 from portal.accounts.models import Account, clean_email
+from portal.accounts.prod_script import check_target, reviewed_digest
 
 audit = logging.getLogger("portal.audit")
 
@@ -30,35 +28,19 @@ class Command(BaseCommand):
         parser.add_argument("--approved-hash")
 
     def handle(self, *args: Any, **options: Any) -> None:
-        if options["target"] != settings.ENVIRONMENT:
-            raise CommandError(
-                f"--target {options['target']} but this process runs in {settings.ENVIRONMENT}"
-            )
+        check_target(options)
         email = clean_email(options["email"])
         wanted = not options["clear"]
         account = Account.objects.filter(email=email).first()
         if account is None:
             raise CommandError("no Account has that email")
-        plan = json.dumps(
-            {
-                "target": options["target"],
-                "account": email,
-                "sees_totals": f"{account.sees_totals} -> {wanted}",
-            },
-            sort_keys=True,
-            indent=1,
+        digest = reviewed_digest(
+            self,
+            options,
+            {"account": email, "sees_totals": f"{account.sees_totals} -> {wanted}"},
         )
-        digest = hashlib.sha256(plan.encode()).hexdigest()
-        self.stdout.write(f"target: {options['target']}\n{plan}\nplan sha256: {digest}")
-        if not options["execute"]:
-            self.stdout.write(
-                "dry run, nothing changed. After review: --execute --approved-hash=<sha256>"
-            )
+        if digest is None:
             return
-        if options["approved_hash"] != digest:
-            raise CommandError(
-                "the plan changed since it was reviewed: review the new dry run"
-            )
         with transaction.atomic():
             with connection.cursor() as cursor:
                 # Lets this transaction through the trigger in migration 0008.
