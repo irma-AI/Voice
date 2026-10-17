@@ -240,5 +240,8 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-17] VOI-43: the calls page lists every record with no cut-off: how many to show is a product number no card from Petter settled, so none was built in.
 [2026-10-17] ESCALATED: how many past calls should a Business's calls page show (all of them today)? -> Petter
 [2026-10-17] RESOLVED 2026-10-17: Petter chose "All calls" on a card: the calls page lists every call; paging comes when a Business has enough calls to need it.
+[2026-10-17] VOI-44: the totals marker is an Account column guarded by a database trigger that only the `totals_marker` command passes, not just a form that leaves it out: a page, script or admin cannot set it either. Anyone who can run SQL on the server still can.
+[2026-10-17] VOI-44: an Account that is logged in without the marker gets 403, not 404: the page's existence is no secret in an invite-only Portal and 403 says plainly why.
+[2026-10-17] VOI-44: the page lists every month that has calls, with no cut-off or paging, and shows minutes to one decimal and dollars to four: the ticket named no number, so none was built in (Petter chose "All calls" for the calls page).
 [2026-10-17] VOI-49 (Petter): a green, ready PR turns on auto-merge by itself and merge-check is deleted; the evals-approved label, the Evals Approve and the Stop and ask areas stay. Declined: renaming low-risk-paths.json (no_ticket and fenced still live there).
 [2026-10-17] VOI-49: a merge to main is the routine deploy and needs no go; only a new app, host or deploy setting waits. Diverged from CLAUDE.md's old "deploying anything"; a PR that edits guards or scripts/ now merges unread.
