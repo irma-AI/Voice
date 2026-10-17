@@ -12,6 +12,7 @@ web
 
 - **Primary: small Swedish businesses on the hosted service.** An owner or staff member, not technical, who wants the business's calls answered. They are invited, set the agent up once (name, free-text facts, languages, Modules), try it with a Test call, paste a Call button on their website, and come back now and then to see recent calls.
 - **Secondary: self-hosters.** Technical people who run their own copy with their own Google key and wire their own Modules (MCP servers).
+- Owners use the Portal **phone first**, between jobs; desktop is secondary.
 - **Callers** never see the Portal; they meet the product only on the call page, in Swedish by default.
 
 ## Product Purpose
@@ -35,7 +36,8 @@ Voice answers a Business's callers with a live AI voice agent, in Swedish or Eng
 
 - Shipped: login, invite, password reset, settings (name, facts, languages), Modules, Test call, Call link and Call button snippet, recent calls, an operator totals page.
 - A Business's settings stay a name, free-text facts and languages; anything more structured comes as a Module, never a fixed Portal field.
-- Languages: Swedish and English only.
+- Call languages: Swedish and English only.
+- Portal UI language: English, because the code is open and language-agnostic. Translations, Swedish first, are planned (VOI-67).
 - Stack: Django, Tailwind, htmx, Postgres (ADR 0002).
 - Undecided: phone Channel (later), daily call limits (none yet), the MCP-tool surface for every Portal/core action (planned, see Positioning).
 
@@ -55,3 +57,7 @@ No customers, testimonials, case studies, usage numbers or pricing exist yet. Do
 2. Everything a person can do, an agent can do too, through the same one way in.
 3. Be plain about cost and limits: say what a call spends and what is not limited yet.
 4. The call comes first: nothing in the Portal may slow or break a live call.
+
+## Accessibility & Inclusion
+
+The Portal and the call page meet WCAG 2.2 AA.
