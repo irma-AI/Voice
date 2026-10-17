@@ -12,6 +12,7 @@ Format: `- [ ] <what to do>, <where>. Needed for: <why>. Added by: <ticket or th
 
 - [ ] GitHub, Branches: delete the old `deploy-behind-login` branch. Needed for: tidiness only, it sits on the pre-rewrite history.
 - [ ] GitHub, Branches: delete the scratch branch `claude/project-thread-d56n2t-scratch-base`. Needed for: tidiness only, it was left over from testing and threads can't delete branches. Added by: VOI-36 (PR #37).
+- [ ] GitHub, Branches: delete the leftover branch `voi-48-claude-footer-guard`. Needed for: tidiness only, its PR #50 merged on 2026-10-17 and the proxy blocks branch deletes from sessions. Added by: VOI-48 (PR #50).
 
 ## Not on this list
 
