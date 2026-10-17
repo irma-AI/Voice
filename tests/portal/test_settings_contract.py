@@ -6,6 +6,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from portal.accounts import modules as module_rules
+from portal.accounts import theme
 from portal.accounts.models import LANGUAGES, Account, Business, Module
 from portal.accounts.views import SettingsForm
 from tests.portal.contract import SCHEMA, schema_errors
@@ -40,11 +41,46 @@ MODULES_PAGE = {"modules"}
 # The Business's website domain is Portal-only (VOI-70): the core is never told it.
 PORTAL_ONLY = {"website_domain"}
 
+# The form's Theme fields, which the contract carries together as `theme` (VOI-83).
+THEME_FIELDS = {"logo", "remove_logo", "use_accent", "accent"}
+
 
 def test_the_editable_fields_are_exactly_the_schema_properties() -> None:
-    assert set(SettingsForm().fields) - PORTAL_ONLY == set(PROPERTIES) - MODULES_PAGE, (
+    fields = set(SettingsForm().fields) - PORTAL_ONLY
+    assert THEME_FIELDS <= fields, (
+        "SettingsForm lost a Theme field: edit THEME_FIELDS or the form"
+    )
+    assert fields - THEME_FIELDS | {"theme"} == set(PROPERTIES) - MODULES_PAGE, (
         "SettingsForm.Meta.fields and the schema's properties must list the same settings: edit whichever is wrong"
     )
+
+
+@pytest.mark.db
+@pytest.mark.django_db
+def test_what_the_portal_serves_for_a_theme_matches_the_schema() -> None:
+    business = Business.objects.create(
+        account=Account.objects.create_user("anna.testsson@example.com", "x" * 20),
+        name="Anna's Salon",
+        accent="#1c7ed6",
+    )
+    business.set_logo(b"\x89PNG\r\n\x1a\n" + b"\x00" * 40)
+    business.save()
+    served = business.as_settings()
+    errors = schema_errors(served)
+    assert not errors, f"edit Business.theme or the schema: {errors}"
+    assert set(served["theme"]) == set(PROPERTIES["theme"]["properties"])  # pyright: ignore[reportArgumentType]
+
+
+def test_the_accent_is_the_same_colour_rule_in_the_database_and_the_schema() -> None:
+    colours = PROPERTIES["theme"]["properties"]
+    assert (
+        colours["accent"]["pattern"]
+        == colours["accent_text"]["pattern"]
+        == theme.ACCENT_PATTERN
+    ), (
+        "set the schema's theme accent patterns and ACCENT_PATTERN in portal/accounts/theme.py to one rule"
+    )
+    assert Business._meta.get_field("accent").max_length == len("#000000")  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
 
 
 def test_what_the_portal_serves_for_modules_matches_the_schema() -> None:

@@ -2,6 +2,7 @@
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 from __future__ import annotations
 
+import hashlib
 import logging
 import secrets
 
@@ -10,9 +11,12 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
-from django.db.models.functions import Lower, Trim
+from django.db.models.functions import Length, Lower, Trim
+from django.db.models.lookups import Exact, LessThanOrEqual
+from django.urls import reverse
 
 from portal.accounts import modules as module_rules
+from portal.accounts import theme
 from portal.accounts.domain import DOMAIN_MAX, DOMAIN_PATTERN
 
 log = logging.getLogger(__name__)
@@ -24,6 +28,36 @@ LANGUAGES = {"sv": "Swedish", "en": "English"}
 CALL_KINDS = {"test": "Test call", "call_link": "Call link"}
 CALL_ID_PATTERN = r"^[A-Za-z0-9-]{8,64}$"
 COST_REASON_PATTERN = r"^[a-z_]{1,60}$"
+
+
+def _logo_is_png_webp_or_jpeg() -> models.Q:
+    """True in Postgres when the logo's bytes start like one of theme.LOGO_SIGNATURES: the type is read from the bytes."""
+
+    def starts(at: int, magic: bytes) -> Exact:
+        part = models.Func(
+            models.F("logo"),
+            models.Value(at + 1),
+            models.Value(len(magic)),
+            function="SUBSTRING",
+            output_field=models.BinaryField(),
+        )
+        return Exact(part, models.Value(magic, output_field=models.BinaryField()))
+
+    either = models.Q()
+    for parts in theme.LOGO_SIGNATURES.values():
+        either |= models.Q(*(starts(at, magic) for at, magic in parts))
+    return either
+
+
+def _hash_of_the_logo() -> models.Func:
+    return models.Func(
+        models.Func(
+            models.F("logo"), function="SHA256", output_field=models.BinaryField()
+        ),
+        models.Value("hex"),
+        function="ENCODE",
+        output_field=models.CharField(),
+    )
 
 
 def swedish_only() -> list[str]:
@@ -84,9 +118,37 @@ class Business(models.Model):
     call_slug = models.CharField(max_length=40, unique=True, default=new_call_slug)
     # The registrable domain of the Business's own website, or empty for none (domain.py). Portal-only: the settings contract does not carry it.
     website_domain = models.CharField(max_length=DOMAIN_MAX, blank=True, default="")
+    # The Theme (theme.py): shown only to the Business's Callers. Empty or NULL is Voice's own look.
+    logo = models.BinaryField(null=True, blank=True)
+    # The logo's public address is /logo/<logo_key>/: the SHA-256 of its bytes, so it names no Business and a new logo is a new address.
+    # Set only by set_logo; the database refuses a key that is not the hash of the bytes beside it.
+    logo_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    accent = models.CharField(max_length=7, blank=True, default="")
 
     class Meta:
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(logo__isnull=True)
+                | models.Q(LessThanOrEqual(Length("logo"), theme.LOGO_MAX_BYTES)),
+                name=f"business_logo_must_be_at_most_{theme.LOGO_MAX_BYTES // 1024}_kb",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(logo__isnull=True) | _logo_is_png_webp_or_jpeg(),
+                name="business_logo_must_be_png_webp_or_jpeg",
+            ),
+            models.CheckConstraint(
+                condition=(models.Q(logo__isnull=True) & models.Q(logo_key=""))
+                | models.Q(
+                    models.Q(logo__isnull=False),
+                    Exact(models.F("logo_key"), _hash_of_the_logo()),
+                ),
+                name="business_logo_key_must_be_the_sha256_of_the_logo_use_set_logo",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(accent="")
+                | models.Q(accent__regex=theme.ACCENT_PATTERN),
+                name="business_accent_must_be_empty_or_a_six_digit_hex_colour",
+            ),
             models.CheckConstraint(
                 condition=models.Q(website_domain="")
                 | models.Q(website_domain__regex=DOMAIN_PATTERN),
@@ -108,12 +170,31 @@ class Business(models.Model):
 
     def as_settings(self) -> dict[str, object]:
         """What the settings address serves: exactly the properties of contract/business-settings.schema.json."""
-        return {
+        served: dict[str, object] = {
             "name": self.name,
             "facts": self.facts,
             "languages": self.languages,
             "modules": [m.as_setting() for m in self.modules_to_serve()],
         }
+        if found := self.theme():
+            served["theme"] = found
+        return served
+
+    def set_logo(self, data: bytes | None) -> None:
+        """The one way a logo and its key change together (save() writes them); None removes the logo."""
+        self.logo = data
+        self.logo_key = hashlib.sha256(data).hexdigest() if data is not None else ""
+
+    def theme(self) -> dict[str, str]:
+        """The contract's `theme`: the accent as Callers see it (adjusted for AA at each read, theme.on_accent) with the text it carries, and the logo's public address. Empty for Voice's own look."""
+        found: dict[str, str] = {}
+        if self.accent:
+            found["accent"], found["accent_text"] = theme.on_accent(self.accent)
+        if self.logo_key:
+            found["logo_url"] = settings.PORTAL_URL.rstrip("/") + reverse(
+                "logo", args=[self.logo_key]
+            )
+        return found
 
     def modules_to_serve(self) -> list[Module]:
         """The Modules the core is told about. A local one is left out unless self-hosting allows it: the settings check itself, whatever wrote the row."""

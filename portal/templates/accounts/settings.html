@@ -1,7 +1,42 @@
-{% extends "registration/form_page.html" %}
+{% extends "base.html" %}
 {% block title %}Settings · Voice Portal{% endblock %}
-{% block heading %}Your agent's settings{% endblock %}
-{% block intro %}
+{% block content %}
+<div class="max-w-md">
+<h1 class="text-4xl sm:text-[3.5rem] sm:leading-none">Your agent's settings</h1>
 <p class="mt-2 text-foam-muted">A change applies from the next call. Calls in progress are not touched.</p>
 {% if saved %}<p class="mt-4 rounded bg-green-100 px-3 py-2 text-green-900" role="status">Saved.</p>{% endif %}
+<form method="post" enctype="multipart/form-data" class="mt-8 space-y-5">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  {{ form.name.as_field_group }}
+  {{ form.facts.as_field_group }}
+  {{ form.languages.as_field_group }}
+  {{ form.website_domain.as_field_group }}
+
+  <fieldset class="space-y-5 border-t border-granite pt-8">
+    <legend class="float-left mb-1 w-full font-serif text-3xl">Theme</legend>
+    <p class="clear-left text-sm text-foam-muted">Your logo and one accent colour, shown only to your Callers. Without them, Callers see Voice's own look.</p>
+
+    {% if theme.logo_url %}
+    <div class="flex flex-wrap items-center gap-4">
+      <img src="{{ theme.logo_url }}" alt="Your logo" class="h-14 w-auto max-w-40 rounded-md bg-foam object-contain p-2">
+      <label class="check"><input type="checkbox" name="remove_logo" id="id_remove_logo"> Remove my logo</label>
+    </div>
+    {% endif %}
+    {{ form.logo.as_field_group }}
+
+    <label class="check" for="id_use_accent">{{ form.use_accent }} Use an accent colour</label>
+    {{ form.accent.as_field_group }}
+    {% if theme.accent %}
+    <div class="space-y-2">
+      <p class="text-sm text-foam-muted">What your Callers see:</p>
+      <p class="inline-block rounded-pill px-5 py-2.5 text-[0.9375rem] font-medium" style="background-color: {{ theme.accent }}; color: {{ theme.accent_text }}">Talk to our assistant</p>
+      {% if theme.accent != picked_accent %}<p class="text-sm text-foam-muted">Adjusted from {{ picked_accent }} to {{ theme.accent }} so the text on it stays readable.</p>{% endif %}
+    </div>
+    {% endif %}
+  </fieldset>
+
+  <button class="pill mt-2">Save</button>
+</form>
+</div>
 {% endblock %}

@@ -20,7 +20,13 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import (
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    HttpResponseForbidden,
+    JsonResponse,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_datetime
@@ -39,6 +45,15 @@ from portal.accounts.models import (
     CallRecord,
     Module,
     clean_email,
+)
+from portal.accounts.theme import (
+    DEEP_SEA,
+    LOGO_MAX_BYTES,
+    LOGO_PROBLEM,
+    LOGO_SIGNATURES,
+    logo_type,
+    parse_accent,
+    size_problem,
 )
 from portal.accounts.ticket import mint
 
@@ -216,6 +231,62 @@ class SettingsForm(forms.ModelForm):
         except ValueError as e:
             raise forms.ValidationError(str(e)) from None
 
+    # The Theme (theme.py), shown only to the Business's Callers. The contract carries it as `theme`.
+    logo = forms.FileField(
+        label="Logo",
+        required=False,
+        widget=forms.FileInput(attrs={"accept": ",".join(LOGO_SIGNATURES)}),
+        help_text=f"PNG, WebP or JPEG, at most {LOGO_MAX_BYTES // 1024} KB. Your Callers see it on the call page.",
+    )
+    remove_logo = forms.BooleanField(label="Remove my logo", required=False)
+    use_accent = forms.BooleanField(label="Use an accent colour", required=False)
+    accent = forms.CharField(
+        label="Accent colour",
+        required=False,
+        max_length=20,
+        widget=forms.TextInput(attrs={"type": "color"}),
+        help_text="Your Callers see it on the call page and the Call button. Voice adjusts it when text on it would be hard to read.",
+    )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.initial["use_accent"] = bool(self.instance.accent)
+        self.initial["accent"] = self.instance.accent or DEEP_SEA
+
+    def clean_logo(self) -> bytes | None:
+        """The upload's bytes, or None when nothing was uploaded. Its type is read from the bytes, never the file name."""
+        upload = self.cleaned_data.get("logo")
+        if not upload:
+            return None
+        if upload.size > LOGO_MAX_BYTES:
+            raise forms.ValidationError(size_problem(upload.size))
+        data = upload.read(LOGO_MAX_BYTES + 1)
+        if len(data) > LOGO_MAX_BYTES:
+            raise forms.ValidationError(size_problem(len(data)))
+        if logo_type(data) is None:
+            raise forms.ValidationError(LOGO_PROBLEM)
+        return data
+
+    def clean_accent(self) -> str:
+        """The colour to store: "" when the box is unticked, so the colour input's own value is never saved by accident."""
+        if not self.data.get("use_accent"):
+            return ""
+        try:
+            return parse_accent(self.cleaned_data["accent"])
+        except ValueError as e:
+            raise forms.ValidationError(str(e)) from None
+
+    def save(self, commit: bool = True) -> Business:
+        business: Business = super().save(commit=False)
+        if self.cleaned_data["logo"] is not None:
+            business.set_logo(self.cleaned_data["logo"])
+        elif self.cleaned_data["remove_logo"]:
+            business.set_logo(None)
+        business.accent = self.cleaned_data["accent"]
+        if commit:
+            business.save()
+        return business
+
     class Meta:
         model = Business
         fields = ("name", "facts", "languages", "website_domain")
@@ -230,15 +301,37 @@ class SettingsForm(forms.ModelForm):
 @login_required
 def business_settings(request: HttpRequest) -> HttpResponse:
     business = get_object_or_404(Business, account=request.user)
-    form = SettingsForm(request.POST or None, instance=business)
+    form = SettingsForm(request.POST or None, request.FILES or None, instance=business)
     if request.method == "POST" and form.is_valid():
         form.save()
         return redirect(f"{reverse('business_settings')}?saved=1")
+    # A refused form leaves the Theme as saved: only save() writes the logo and the accent onto the instance.
     return render(
         request,
         "accounts/settings.html",
-        {"form": form, "saved": "saved" in request.GET},
+        {
+            "form": form,
+            "saved": "saved" in request.GET,
+            "theme": business.theme(),
+            "picked_accent": business.accent,
+        },
     )
+
+
+@require_GET
+def logo(request: HttpRequest, key: str) -> HttpResponse:
+    """A Business's logo, public on purpose: the core's call page loads it from here. The address is the hash of the bytes, so it names no Business."""
+    business = Business.objects.filter(logo_key=key).exclude(logo=None).first()
+    if business is None:
+        raise Http404
+    data = bytes(business.logo or b"")
+    response = HttpResponse(data, content_type=logo_type(data))
+    # The same address always holds the same bytes, so a browser may keep it for a year.
+    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Security-Policy"] = "default-src 'none'"
+    response["Cross-Origin-Resource-Policy"] = "cross-origin"
+    return response
 
 
 class ModuleForm(forms.Form):
