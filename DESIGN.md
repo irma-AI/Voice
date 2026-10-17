@@ -217,6 +217,9 @@ A label with a small dot before it. Works today: Cable light text and filled dot
 ### Use list
 A borderless list ruled by Granite hairlines: serif row head, Foam muted description, status mark right-aligned.
 
+### Saved notice and call preview
+The saved notice is Foam text after a filled Cable light dot (it marks a live change). The settings page's call preview is the one bounded panel in the Portal: a Foam panel with Deep sea text holding the Business's logo, a ring mark and the button in the adjusted accent, because it stands in for a panel on the Business's own website. It shows the Theme as saved.
+
 ### Turn (signature)
 The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light progress arc filling clockwise over the loop, a hollow dot per step with a sans label and an italic serif note; a Planned step leaves by a dashed exit. Inside: a speaker line that is flat in silence, Foam for the Caller and Cable light for the Agent, with the current line and the previous one at 55% opacity. Phones: the rail described under Layout. It always has a Pause control, and under reduced motion it starts paused on one complete still frame. Steps and lines fade in over 1 to 1.2s on a soft ease-out.
 
@@ -238,6 +241,6 @@ The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light pro
 ## Open
 
 - Final typefaces and their licences; Instrument Serif and Geist are stand-ins.
-- The light daylight variant of the palette for the Portal on phones (VOI-86).
+- The light daylight variant of the palette for the Portal on phones: declined in VOI-86 (see DECISIONS.md); needs a measured palette first.
 - WCAG 2.2 AA contrast has not been checked across the whole palette; only Granite as a control border was measured and ruled out.
 - Error and alert colours have no token yet.

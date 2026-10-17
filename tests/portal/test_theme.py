@@ -272,3 +272,32 @@ def test_a_logo_address_never_takes_a_business_id_or_a_call_link() -> None:
     save(client, logo=upload(PNG))
     for guess in (str(business.pk), business.call_slug, "0" * 64):
         assert Client().get(f"/logo/{guess}/").status_code == 404
+
+
+def preview(client: Client) -> str:
+    page = client.get("/settings/").content.decode()
+    return page[page.index('class="call-preview"') :].split("</p>\n      </div>")[0]
+
+
+@pytest.mark.db
+@pytest.mark.django_db
+def test_the_settings_preview_shows_the_adjusted_accent_and_the_logo(
+    settings: Any,
+) -> None:
+    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    save(client, logo=upload(PNG), use_accent="on", accent="#1c7ed6")
+    told = told_to_core(business, settings)["theme"]
+    shown = preview(client)
+    assert f'src="{told["logo_url"]}"' in shown
+    assert f"background-color: {told['accent']}; color: {told['accent_text']}" in shown
+    assert "#1c7ed6" not in shown  # the accent as picked is not what Callers see
+
+
+@pytest.mark.db
+@pytest.mark.django_db
+def test_the_settings_preview_without_a_theme_is_voices_own_look() -> None:
+    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    shown = preview(client)
+    assert "Talk to our assistant" in shown
+    assert "style=" not in shown
+    assert "<img" not in shown

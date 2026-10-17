@@ -41,7 +41,8 @@
     @apply mr-3 cursor-pointer rounded-pill border-0 bg-foam px-4 py-1.5 text-sm font-medium text-deep-sea transition-colors;
   }
   form input[type="file"]:hover::file-selector-button { @apply bg-cable-light; }
-  form input[type="color"] { @apply block h-11 w-20 cursor-pointer p-1; }  form .errorlist { @apply text-sm text-red-300; }
+  form input[type="color"] { @apply block h-11 w-20 cursor-pointer p-1; }
+  form .errorlist { @apply text-sm text-red-300; }
   form .helptext { @apply text-sm text-foam-muted; }
 }
 
@@ -160,4 +161,23 @@
   @media (max-width: 860px) { .land-ways { grid-template-columns: 1fr; } }
 
   .land-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-top: 7rem; padding: 2rem var(--spacing-gutter) 3rem; border-top: 1px solid var(--color-granite); }
+}
+
+/* Portal pages (dashboard, settings): a ruled list of links, the saved notice and the Theme preview of the call panel. */
+@layer components {
+  .rows { @apply m-0 list-none border-b border-granite p-0; }
+  .rows a { @apply block border-t border-granite py-4 text-lg text-foam no-underline transition-colors; }
+  .rows a:hover { @apply text-cable-light; }
+  /* Cable light marks what is live: the notice that a save went through carries the filled dot. */
+  .status { @apply flex items-center gap-3 text-base text-foam; }
+  .status::before { content: ""; @apply size-2.5 shrink-0 rounded-full bg-cable-light; }
+
+  /* The call panel as a Business's Callers see it: a Foam panel (it sits on the Business's own site) with the logo,
+     the ring mark and the button in the accent. Static: it shows the saved Theme, so no script carries the contrast rule. */
+  .call-preview { @apply max-w-xs rounded-lg bg-foam p-5 text-deep-sea; }
+  .call-preview-head { @apply flex items-center justify-between gap-4; }
+  .call-preview-logo { @apply h-10 w-auto max-w-40 object-contain; }
+  .call-preview-name { @apply font-serif text-2xl leading-none; }
+  .call-preview-ring { @apply size-7 shrink-0 rounded-full border-[3px] border-deep-sea; }
+  .call-preview-button { @apply mt-6 mb-0 rounded-pill bg-deep-sea px-5 py-2.5 text-center text-[0.9375rem] font-medium text-foam; }
 }
