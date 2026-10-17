@@ -5,7 +5,7 @@ paths:
 
 # Scripts that change shared or production data
 
-Every such script follows one contract, whatever its language. In the Portal that is a Django management command (`portal/accounts/management/commands/invite_business.py` is the example).
+Every such script follows one contract, whatever its language. In the Portal that is a Django management command (`portal/accounts/management/commands/invite_business.py` is the example). Steps 2 and 3 live in `portal/accounts/prod_script.py` (`check_target`, `reviewed_digest`): a new command calls them instead of copying them.
 
 1. **Dry run by default.** With no flags it changes nothing: it prints the plan, each row or object it would change and how, in a stable order.
 2. **Execute only the reviewed plan.** `--execute` refuses to run anything but the plan a person reviewed: the command prints a sha256 of the dry run's plan, and `--execute --approved-hash=<sha256>` runs only if it matches.

@@ -17,7 +17,7 @@ async def app(scope: Scope, receive: Receive, send: Send) -> None:
 
 
 def ticket_query(secret: str = SECRET, business: int = 7, expires_in: int = 60) -> str:
-    return "ticket=" + sign(secret, business, int(time.time()) + expires_in)
+    return "ticket=" + sign(secret, business, "test", int(time.time()) + expires_in)
 
 
 def run_asgi(

@@ -1,5 +1,5 @@
 name: Setup
-description: Installs this repo's toolchain and dependencies. The one CI step each repo fills in (docs/agents/recipes/).
+description: Installs this repo's toolchain and dependencies.
 runs:
   using: composite
   steps:

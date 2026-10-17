@@ -1,16 +1,14 @@
 # pyright: basic
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 import getpass
-import hashlib
-import json
 import logging
 from typing import Any
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from portal.accounts.invite import invite
 from portal.accounts.models import clean_email
+from portal.accounts.prod_script import check_target, reviewed_digest
 
 audit = logging.getLogger("portal.audit")
 
@@ -30,30 +28,14 @@ class Command(BaseCommand):
         parser.add_argument("--approved-hash")
 
     def handle(self, *args: Any, **options: Any) -> None:
-        if options["target"] != settings.ENVIRONMENT:
-            raise CommandError(
-                f"--target {options['target']} but this process runs in {settings.ENVIRONMENT}"
-            )
-        plan = json.dumps(
-            {
-                "target": options["target"],
-                "invite": clean_email(options["email"]),
-                "name": options["name"],
-            },
-            sort_keys=True,
-            indent=1,
+        check_target(options)
+        digest = reviewed_digest(
+            self,
+            options,
+            {"invite": clean_email(options["email"]), "name": options["name"]},
         )
-        digest = hashlib.sha256(plan.encode()).hexdigest()
-        self.stdout.write(f"target: {options['target']}\n{plan}\nplan sha256: {digest}")
-        if not options["execute"]:
-            self.stdout.write(
-                "dry run, nothing changed. After review: --execute --approved-hash=<sha256>"
-            )
+        if digest is None:
             return
-        if options["approved_hash"] != digest:
-            raise CommandError(
-                "the plan changed since it was reviewed: review the new dry run"
-            )
         try:
             account = invite(options["name"], options["email"])
         except ValueError as refused:

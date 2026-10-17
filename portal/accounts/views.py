@@ -256,7 +256,8 @@ class ModuleForm(forms.Form):
 def modules(request: HttpRequest) -> HttpResponse:
     """The Business's Modules, the Actions each offers right now, and the form to add one."""
     business = get_object_or_404(Business, account=request.user)
-    form = ModuleForm(request.POST or None, business=business)
+    checking = request.method == "POST" and "check" in request.POST
+    form = ModuleForm(None if checking else request.POST or None, business=business)
     if request.method == "POST" and form.is_valid():
         try:
             with transaction.atomic():
@@ -271,8 +272,14 @@ def modules(request: HttpRequest) -> HttpResponse:
         else:
             return redirect("modules")
     mine = list(business.modules.order_by("id"))  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
-    offers = probe.what_they_offer(
-        [(m.url, m.command, m.args) for m in mine], settings.ALLOW_LOCAL_MODULES
+    # The Modules are asked only when the Business presses Check: a slow one would otherwise hold a request thread on every page view, and
+    # those threads also answer the core's settings request at each call start.
+    offers = (
+        probe.what_they_offer(
+            [(m.url, m.command, m.args) for m in mine], settings.ALLOW_LOCAL_MODULES
+        )
+        if checking
+        else [None] * len(mine)
     )
     return render(
         request,
@@ -293,12 +300,12 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     return redirect("modules")
 
 
-def to_core(business: Business) -> HttpResponse:
-    """Sends a browser to the core's call page with a ticket for this one Business: the only way a browser is let to call."""
+def to_core(business: Business, kind: str) -> HttpResponse:
+    """Sends a browser to the core's call page with a ticket for this one Business and the kind of call: the only way a browser is let to call."""
     # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
     if not settings.CORE_SECRET:
         return HttpResponse("Calls are not set up: CORE_SECRET is empty.", status=503)
-    ticket = mint(settings.CORE_SECRET, business.pk)
+    ticket = mint(settings.CORE_SECRET, business.pk, kind)
     return redirect(f"{settings.CORE_URL.rstrip('/')}/?ticket={ticket}")
 
 
@@ -306,14 +313,14 @@ def to_core(business: Business) -> HttpResponse:
 @require_POST
 def test_call(request: HttpRequest) -> HttpResponse:
     """A logged-in Business's own test call; it takes no Business from the request."""
-    return to_core(get_object_or_404(Business, account=request.user))
+    return to_core(get_object_or_404(Business, account=request.user), "test")
 
 
 @require_GET
 @never_cache
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     """A Business's public call link. Open to anyone, so anyone can start a call for that Business (there is no limit yet, DECISIONS.md)."""
-    return to_core(get_object_or_404(Business, call_slug=slug))
+    return to_core(get_object_or_404(Business, call_slug=slug), "call_link")
 
 
 def core_secret_sent(request: HttpRequest) -> bool:

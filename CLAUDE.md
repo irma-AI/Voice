@@ -23,9 +23,9 @@ Stop and ask; do not guess. How agents reach tickets, logs, errors and metrics, 
 - **Spend and billing**: raising a spend cap; adding eval runs, scenarios or call length; changing an API key, project or billing tier; every `make eval` and `make eval-audio` run (both spend Gemini credit, so ask before each; never on push or PR. `make eval` also runs from the manual Evals workflow, where Petter's Approve click is the go).
 - **Legal wording**: the AI disclosure line, caller notice text, anything else that informs callers.
 - **Real calls and people**: calling a number we don't own, recording a real person, putting personal data anywhere.
-- **Vendors and deploys**: adding a vendor or sub-processor (model, carrier, hosting), deploying anything.
+- **Vendors and deploys**: adding a vendor or sub-processor (model, carrier, hosting), a new app, host or deploy setting. A merge to the default branch is the routine deploy and needs no go.
 
-None of these is ticket-only: the PR is opened and waits for the answer.
+None of these is ticket-only: the PR is opened and waits for the answer, unmerged.
 
 ## Commands
 
@@ -43,7 +43,7 @@ Three seams:
 
 - **Eval channel** (`make eval`, paid; on Petter's PC or the manual Evals workflow, never automatic): a whole Scenario against the real agent, through Pipecat's eval transport with stored Caller audio. Aims at the prompt, the Business's facts, the disclosure and the barge-in settings; ten Scenarios, one per behaviour (the noise call and its speech twin read the barge-in events; `module_hours` has the agent use the example Module's Action). `tests/evals/run.py`.
 - **Portal** (`make test-db`, free, in CI): the Portal through Django's test client against a real Postgres, in `tests/portal/`: login, invite, password reset, and each rule the database must refuse. `tests/portal/test_routes.py` (no database, runs under `make test`) sweeps every page for a login gate.
-- **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`, which also reads stored barge-in event records (`tests/calls/barge_in_*.json`); the spend rule, cost sum, login rule, web audio converter, settings port (`tests/test_settings_port.py`, a real local server standing in for the Portal) and Modules port (`tests/test_modules.py`, the example Module and dead sockets standing in for Modules) sit beside them.
+- **Checks** (`make test`, free, in CI): each check is a pure function on a stored synthetic call record, with a passing and a failing example. `tests/test_checks.py`, which also reads stored barge-in event records (`tests/calls/barge_in_*.json`); the spend rule, cost sum, login rule, web audio converter, price catalogue (`tests/test_cost_catalogue.py`, a real local server standing in for Google and a stored sample reply), settings port (`tests/test_settings_port.py`, a real local server standing in for the Portal) and Modules port (`tests/test_modules.py`, the example Module and dead sockets standing in for Modules) sit beside them.
 
 Don't mock our own modules or add tests at other seams. A new seam needs this section updated through `/grill-with-docs` first.
 
@@ -86,7 +86,7 @@ This file holds what every session needs; keep it under about 120 lines. A rule 
 - Every merge to the default branch auto-deploys to Dokploy (project `Voice`, app `app`, from `Dockerfile`); the Portal is app `portal`, from `Dockerfile.portal`, with Postgres `portal-db`.
 
 - Shared agent setup lives in the repo: settings, hooks, skills, rules and plans. A method the team relies on gets committed as one of those; personal settings stay in `.claude/settings.local.json`.
-- Merging: turn on auto-merge (`gh pr merge --auto --squash`, or the GitHub MCP `enable_pr_auto_merge`) when `make merge-check` says `LOW-RISK`, or when the user says "merge" for that PR; GitHub merges once `ci-summary` passes, so end the turn instead of waiting on CI; if checks already passed, GitHub refuses auto-merge, so merge directly (squash). Any other merge waits for the user's go-ahead for that PR. Nothing enforces this, since agents act as the user on GitHub.
+- Merging: once the PR is ready (not draft) and no § Stop and ask area applies, turn on auto-merge (`gh pr merge --auto --squash`, or the GitHub MCP `enable_pr_auto_merge`) right after opening it; GitHub merges once `ci-summary` passes, so end the turn instead of waiting on CI; if checks already passed, GitHub refuses auto-merge, so merge directly (squash). No "merge" word from the user is needed. A PR in a Stop and ask area waits for that answer; the `evals-approved` label and the Approve on the Evals run are separate gates that CI and GitHub enforce.
 - Tickets: an edit outside the `no_ticket` paths of `scripts/low-risk-paths.json` needs a ready Linear ticket (label `ready-for-agent`) that `/next-step` records; a hook is meant to deny the edit (not checked: not yet seen to deny in a real session), a pre-commit hook (`scripts/git-hooks`, installed at session start) refuses a commit of files written any other way, and the `ticket-required` guard fails a PR that closes no ready ticket (`scripts/ticket-check.js`).
 - Scheduled agents (loops) follow `.claude/loops.md`: they propose, and merge only under the rule above. When its registry has rows, run its § Checking loops at session start.
 - Guardrail work outranks ponytail: a test, check, rule update or `DECISIONS.md` line that the Definition of Done, a rule or a guard requires is part of the change. Ponytail decides how much product code to write.

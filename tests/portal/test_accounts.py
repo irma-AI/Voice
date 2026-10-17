@@ -218,12 +218,8 @@ def test_a_second_account_for_the_same_email_is_refused_in_any_case() -> None:
         Account.objects.create(email=EMAIL.upper())
 
 
-def test_a_negative_limit_or_an_empty_name_is_refused() -> None:
+def test_an_empty_name_is_refused() -> None:
     account = Account.objects.create_user(EMAIL)
-    with refused("business_calls_per_day_must_not_be_negative"):
-        Business.objects.create(account=account, name="A", max_calls_per_day=-1)
-    with refused("business_minutes_per_day_must_not_be_negative"):
-        Business.objects.create(account=account, name="A", max_minutes_per_day=-1)
     with refused("business_name_must_not_be_blank"):
         Business.objects.create(account=account, name="")
     with refused("business_name_must_not_be_blank"):

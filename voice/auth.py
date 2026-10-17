@@ -6,7 +6,7 @@ It sits in front of every route, so nobody without a Business's call link can st
 from loguru import logger
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from voice.ticket import from_query, ticket_business
+from voice.ticket import from_query, read_ticket
 
 # The only pages a ticket opens: the call page and its WebSocket.
 TICKET_PATHS = ("/", "/ws")
@@ -32,7 +32,7 @@ class TicketGate:
             return await self.app(scope, receive, send)
         if (
             scope.get("path") in TICKET_PATHS
-            and ticket_business(
+            and read_ticket(
                 from_query(scope.get("query_string", b"")), self.ticket_secret
             )
             is not None

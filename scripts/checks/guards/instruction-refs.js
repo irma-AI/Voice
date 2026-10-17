@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // Guard: every repo path and `make <target>` named in an agent doc exists, and CLAUDE.md
 // stays within its line cap. Agent docs: CLAUDE.md, AGENTS.md, README.md, .claude/loops.md,
-// .claude/rules/, hand-written skills (not in skills-lock.json) and docs/agents/ (minus
-// recipes). Paths created on first use go in scripts/checks/instruction-refs.ignore.
+// .claude/rules/, hand-written skills (not in skills-lock.json) and docs/agents/. Paths created on first use go in scripts/checks/instruction-refs.ignore.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -29,7 +28,7 @@ const docs = [
   ...walk('.claude/rules'),
   ...(exists('.claude/skills') ? fs.readdirSync(path.join(ROOT, '.claude/skills')) : [])
     .filter((d) => !vendored.includes(d)).flatMap((d) => walk(path.join('.claude/skills', d))),
-  ...walk('docs/agents').filter((f) => !f.startsWith('docs/agents/recipes/')),
+  ...walk('docs/agents'),
 ].filter((f) => f.endsWith('.md'));
 
 const makeTargets = exists('Makefile')

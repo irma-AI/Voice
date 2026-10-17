@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from voice.cost import token_kinds
+
 PRICES_FILE = Path(__file__).parent / "prices.json"
 
 
@@ -15,17 +17,20 @@ def cost_sek(
     per_m = prices["usd_per_million_tokens"]
     usd = 0.0
     for u in usage_events:
-        audio_in = u.get("input_audio_tokens", 0)
-        audio_out = u.get("output_audio_tokens", 0)
-        text_in = max(u.get("prompt_tokens", 0) - audio_in, 0)
-        # Thinking tokens are billed as output; counted on top in case the model reports them apart.
-        text_out = max(u.get("completion_tokens", 0) - audio_out, 0) + u.get(
-            "reasoning_tokens", 0
+        # The core's own token split (voice/cost.py); thinking tokens go in under the name the record uses.
+        kinds = token_kinds(
+            {
+                "prompt_tokens": u.get("prompt_tokens", 0),
+                "completion_tokens": u.get("completion_tokens", 0),
+                "input_audio_tokens": u.get("input_audio_tokens", 0),
+                "output_audio_tokens": u.get("output_audio_tokens", 0),
+                "thinking_tokens": u.get("reasoning_tokens", 0),
+            }
         )
         usd += (
-            audio_in * per_m["audio_in"]
-            + text_in * per_m["text_in"]
-            + audio_out * per_m["audio_out"]
-            + text_out * per_m["text_out"]
+            kinds["input", "audio"] * per_m["audio_in"]
+            + kinds["input", "text"] * per_m["text_in"]
+            + kinds["output", "audio"] * per_m["audio_out"]
+            + kinds["output", "text"] * per_m["text_out"]
         ) / 1e6
     return usd * prices["sek_per_usd"]
