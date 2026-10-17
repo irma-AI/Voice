@@ -300,3 +300,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-18] VOI-84: dropped "more than one call at a time" from the use cases: one call per Business is Petter's standing choice and nothing plans more, so a Planned mark would be a claim (finish review). Planned keeps Hand-off and the MCP tools from PRODUCT.md.
 [2026-10-18] VOI-84: a logged-in Business sees the same landing page with "Your dashboard" where a visitor sees Log in; no redirect, so the page keeps one behaviour for everyone.
 [2026-10-18] VOI-84: the Pause control changes its label (Pause/Play) and has no aria-pressed, since a toggle that also renames itself reads twice; one button per layout (ring, rail) shares one state.
+[2026-10-18] VOI-84: DESIGN.md repeats the colour tokens in its frontmatter (the documenter's format), so tests/test_design_tokens.py holds them to tokens.css, the source, rather than leaving a second unchecked copy (hard rule 5).
