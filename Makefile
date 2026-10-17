@@ -1,11 +1,7 @@
 # The one command interface: CI, hooks, loops and agents call only these targets.
-# Fill each body for this repo's stack (docs/agents/recipes/). An unfilled target fails,
-# so CI never passes while checking nothing. A target that does not apply here becomes
-# `@echo "n/a: <reason>"`, which records the choice.
+# A target that does not apply here is `@echo "n/a: <reason>"`, which records the choice.
 .DEFAULT_GOAL := help
 .PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio seed check lint typecheck test test-db guards generate generate-check build
-
-unconfigured = @echo "make $(1): not configured yet. Fill in this target for your stack (docs/agents/recipes/)." >&2; exit 1
 
 help: ## List the targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
