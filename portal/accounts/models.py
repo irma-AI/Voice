@@ -56,8 +56,6 @@ class Account(AbstractBaseUser):
     is_active = models.BooleanField(
         default=True
     )  # Django's password reset only emails active accounts
-    # Opens the totals page. Only the `totals_marker` command sets or clears it: a trigger (migration 0008) refuses every other writer.
-    sees_totals = models.BooleanField(default=False, db_default=False)
 
     USERNAME_FIELD = "email"
     objects = AccountManager()
