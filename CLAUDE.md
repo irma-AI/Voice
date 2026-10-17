@@ -81,7 +81,7 @@ This file holds what every session needs; keep it under about 120 lines. A rule 
 ## Workflow
 
 - Branches: `<linear-id>-<slug>`, or `<slug>` without an issue.
-- Research goes in `docs/research/<topic>.md`.
+- Research goes in `docs/research/<topic>.md`; prefer the official docs and source code of the tools we use (`pyproject.toml`, `package.json`, Dokploy, browser and WebRTC specs) over other write-ups, and cite each with its link and the date read.
 - No Claude attribution in PRs or commits: no "Generated with Claude Code" footer, no claude.ai session link, no `Co-Authored-By` or `Claude-Session` trailers. The GitHub tool appends that footer and a session link to every PR body it opens, so re-read the body after opening a PR and delete them (keep the "Requested by" block), and never add them to a PR comment. The `no-claude-identity` guard fails a PR whose commits are authored by Claude or carry those, or whose title or body does, and a PreToolUse hook (`scripts/claude-attribution-gate.js`) refuses a GitHub tool write whose text does, comments included; sessions commit as Petter (`scripts/git-identity.sh`, run at session start), because GitHub's squash merge adds a `Co-authored-by` line for every other commit author. When merging, pass your own title and message.
 - Every merge to the default branch auto-deploys to Dokploy (project `Voice`, app `app`, from `Dockerfile`); the Portal is app `portal`, from `Dockerfile.portal`, with Postgres `portal-db`.
 
