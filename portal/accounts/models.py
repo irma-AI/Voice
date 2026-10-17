@@ -81,8 +81,6 @@ class Business(models.Model):
         models.CharField(max_length=2, choices=list(LANGUAGES.items())),
         default=swedish_only,
     )
-    max_calls_per_day = models.IntegerField(default=10)
-    max_minutes_per_day = models.IntegerField(default=30)
     # The public call link is /call/<call_slug>/; unique in the database, so one link is one Business.
     call_slug = models.CharField(max_length=40, unique=True, default=new_call_slug)
 
@@ -96,14 +94,6 @@ class Business(models.Model):
                 condition=models.Q(languages__len__gte=1)
                 & models.Q(languages__contained_by=list(LANGUAGES)),
                 name="business_languages_must_be_one_or_more_known",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(max_calls_per_day__gte=0),
-                name="business_calls_per_day_must_not_be_negative",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(max_minutes_per_day__gte=0),
-                name="business_minutes_per_day_must_not_be_negative",
             ),
         ]
 
