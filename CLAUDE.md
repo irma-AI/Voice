@@ -35,7 +35,7 @@ None of these is ticket-only: the PR is opened and waits for the answer, unmerge
 
 ## Architecture
 
-Layers, dependency direction and the one interface per cross-cutting concern: `ARCHITECTURE.md`, enforced by the `layers` guard once `scripts/checks/layers.json` exists.
+Layers, dependency direction and the one interface per cross-cutting concern: `ARCHITECTURE.md`, enforced by the `layers` guard from `scripts/checks/layers.json`.
 
 ## Tests
 

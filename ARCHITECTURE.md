@@ -20,7 +20,7 @@ The **Portal** (`portal/`, ADR 0002) is a second service beside these layers: a 
 
 ## Dependency direction
 
-Dependencies point down the list: Channel imports Agent, Agent imports Settings port, Actions port, Call reports port, Barge-in and Call record, nothing imports upward. Not enforced yet: `scripts/checks/layers.json` does not exist, so the `layers` guard is off (`DECISIONS.md`). When it exists, a layer may import only the layers its `may_import` names, and the guard fails any other import.
+Dependencies point down the list: Channel imports Agent, Agent imports Settings port, Actions port, Call reports port, Barge-in and Call record, nothing imports upward. Enforced by the `layers` guard from `scripts/checks/layers.json`, which is the one place each layer's files and what it may import are written: `voice/ticket.py` (the call ticket) is a leaf that Call reports, the Agent and the Channel may import, `voice/auth.py` sits with the Channel, and `voice/cost.py` with Call reports. The Portal is its own layer in that file: it imports nothing from `voice/`, and `voice/` imports nothing from it. A layer may import only the layers its `may_import` names, and the guard fails any other import; a new `voice/` file belongs in a layer there, or it is not checked. Not checked: the order inside the Portal (models under `invite.py` and views), and `tests/`.
 
 ## Cross-cutting concerns
 
