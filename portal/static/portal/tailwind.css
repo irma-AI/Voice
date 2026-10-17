@@ -1,12 +1,49 @@
 @import "tailwindcss";
+@import "./tokens.css";
 @source "../../templates";
 @source not "../../../.impeccable";
 
+/* Self-hosted stand-in faces, both SIL OFL 1.1 (licences beside the files in fonts/):
+   Instrument Serif from github.com/Instrument/instrument-serif at 65c0ef2,
+   Geist from github.com/vercel/geist-font at e1f671c. */
+@font-face { font-family: "Instrument Serif"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/InstrumentSerif-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Instrument Serif"; font-style: italic; font-weight: 400; font-display: swap; src: url("fonts/InstrumentSerif-Italic.woff2") format("woff2"); }
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("fonts/Geist-Variable.woff2") format("woff2"); }
+
 @layer base {
-  form div { @apply space-y-1; }
-  form label { @apply block text-sm font-medium; }
-  form input:not([type="hidden"], [type="checkbox"]), form textarea { @apply w-full rounded border border-stone-300 bg-white px-3 py-2; }
-  form input[type="checkbox"] { @apply mr-2; }
-  form .errorlist { @apply text-sm text-red-700; }
-  form .helptext { @apply text-sm text-stone-600; }
+  html { color-scheme: dark; -webkit-text-size-adjust: 100%; }
+  body {
+    @apply min-h-dvh bg-deep-sea font-sans text-base text-foam antialiased;
+    background-image: radial-gradient(120% 90% at 70% 0%, var(--color-blue-hour) 0%, var(--color-deep-sea) 78%);
+    background-attachment: fixed;
+  }
+  ::selection { background: var(--color-cable-light); color: var(--color-deep-sea); }
+  :focus-visible { outline: 2px solid var(--color-cable-light); outline-offset: 3px; }
+  h1, h2 { @apply font-serif font-normal; letter-spacing: -0.01em; text-wrap: balance; }
+  a { text-underline-offset: 0.3em; text-decoration-color: var(--color-foam-faint); }
+  a:hover { text-decoration-color: var(--color-cable-light); }
+  code, pre { font-variant-numeric: tabular-nums; }
+
+  form div { @apply space-y-1.5; }
+  form label { @apply block text-sm font-medium text-foam-muted; }
+  form input:not([type="hidden"], [type="checkbox"]), form textarea, form select {
+    @apply w-full rounded-md border border-foam-faint bg-deep-sea/60 px-3 py-2.5 text-base text-foam;
+    caret-color: var(--color-cable-light);
+  }
+  form input:not([type="hidden"], [type="checkbox"]):hover, form textarea:hover { border-color: var(--color-foam-muted); }
+  form input:not([type="hidden"], [type="checkbox"]):focus-visible, form textarea:focus-visible {
+    border-color: var(--color-cable-light); outline-offset: 1px;
+  }
+  form input[type="checkbox"] { @apply mr-2 size-4 align-middle; accent-color: var(--color-cable-light); }
+  form .errorlist { @apply text-sm text-red-300; }
+  form .helptext { @apply text-sm text-foam-muted; }
+}
+
+@layer components {
+  /* The primary action: a Foam pill that warms to Cable light. */
+  .pill {
+    @apply inline-block rounded-pill bg-foam px-5 py-2.5 text-[0.9375rem] font-medium text-deep-sea no-underline transition-colors;
+  }
+  .pill:hover { @apply bg-cable-light; }
+  .pill:focus-visible { outline-offset: 4px; }
 }

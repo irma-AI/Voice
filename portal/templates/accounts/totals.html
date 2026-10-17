@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Totals · Voice Portal{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold">Totals</h1>
-<p class="mt-2 text-stone-700">Every Business per month, newest first. Months follow {{ time_zone }}. Minutes are rounded to one decimal; dollars are the sum of the calls that have a cost, and "no cost" counts the calls that have none.</p>
+<h1 class="text-4xl">Totals</h1>
+<p class="mt-2 text-foam-muted">Every Business per month, newest first. Months follow {{ time_zone }}. Minutes are rounded to one decimal; dollars are the sum of the calls that have a cost, and "no cost" counts the calls that have none.</p>
 
 <div class="mt-6 overflow-x-auto">
   <table class="w-full border-collapse text-left text-sm">
     <thead>
-      <tr class="border-b border-stone-300">
+      <tr class="border-b border-granite">
         <th class="p-2" rowspan="2">Month</th>
         <th class="p-2" rowspan="2">Business</th>
         {% for kind in kinds %}<th class="p-2" colspan="4">{{ kind }}s</th>{% endfor %}
       </tr>
-      <tr class="border-b border-stone-300">
+      <tr class="border-b border-granite">
         {% for kind in kinds %}
         <th class="p-2">calls</th><th class="p-2">minutes</th><th class="p-2">dollars</th><th class="p-2">no cost</th>
         {% endfor %}
@@ -20,7 +20,7 @@
     </thead>
     <tbody>
       {% for month, name, cells in rows %}
-      <tr class="border-b border-stone-200">
+      <tr class="border-b border-granite">
         <td class="p-2">{{ month }}</td>
         <td class="p-2">{{ name }}</td>
         {% for calls, minutes, dollars, unpriced in cells %}
