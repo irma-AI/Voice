@@ -2,7 +2,7 @@
 
 A **loop** is a scheduled agent: a routine, a scheduled CI job or a cron-started session that works without a person watching. Every loop follows this policy.
 
-## Propose; merge only what is low-risk
+## Propose; merge under the repo's rule
 
 - A loop may open PRs on its own `loop/<loop name>-<ref>` branch, comment, label and file issues. It never pushes to the default branch or approves, and merges only under `CLAUDE.md` § Workflow's merge rule.
 - Ticket-only areas (`CLAUDE.md` § Stop and ask) get an issue from a loop, never a PR.
