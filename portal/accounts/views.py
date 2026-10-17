@@ -108,7 +108,10 @@ class Login(auth.LoginView):
 
 
 def home(request: HttpRequest) -> HttpResponse:
-    return render(request, "accounts/home.html")
+    """The landing page, open to everyone; a logged-in Business sees a link to its dashboard where a visitor sees Log in."""
+    return render(
+        request, "accounts/home.html", {"contact_email": settings.CONTACT_EMAIL}
+    )
 
 
 def sees_totals(account: Any) -> bool:

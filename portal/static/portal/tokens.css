@@ -1,6 +1,7 @@
 /* The design tokens for every surface: the one source (docs/design/four-surface-redesign.md).
    The Portal's Tailwind build imports this file; the core's call page holds a copy in voice/page.html,
-   kept equal by tests/test_design_tokens.py. Edit here first, then copy the declarations there. */
+   kept equal by tests/test_design_tokens.py, which also holds DESIGN.md's colours to these.
+   Edit here first, then copy the declarations there. */
 @theme static {
   /* Palette */
   --color-blue-hour: #1A2A44;

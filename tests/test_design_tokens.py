@@ -33,3 +33,24 @@ def test_the_texts_an_accent_carries_are_the_token_colours() -> None:
         source["--color-foam"].lower(),
         source["--color-deep-sea"].lower(),
     ), "set FOAM and DEEP_SEA in portal/accounts/theme.py to the colours in tokens.css"
+
+
+def test_design_md_names_the_same_colours_as_the_token_source() -> None:
+    source = declarations(SOURCE.read_text("utf-8"), "@theme static {")
+    colours = {
+        name.removeprefix("--color-"): value
+        for name, value in source.items()
+        if name.startswith("--color-")
+    }
+    front = (ROOT / "DESIGN.md").read_text("utf-8").split("---")[1]
+    design: dict[str, str] = {}
+    for line in front[front.index("colors:") :].splitlines()[1:]:
+        if not line.startswith("  "):
+            break
+        name, value = line.strip().split(":", 1)
+        design[name] = value.strip().strip('"')
+    assert len(colours) >= 5, "nothing was read from the token source"
+    assert design == colours, (
+        "DESIGN.md's colors differ from the tokens: edit portal/static/portal/tokens.css (the source), "
+        "then copy its colours into the colors frontmatter of DESIGN.md"
+    )
