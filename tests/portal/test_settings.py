@@ -61,3 +61,22 @@ def test_debug_is_refused_in_production_and_without_an_environment() -> None:
     assert not starts(ENVIRONMENT="staging", DEBUG="1")[
         0
     ]  # the environment is a closed set
+
+
+def test_the_time_zone_defaults_to_utc_and_a_name_that_is_not_one_stops_the_portal() -> (
+    None
+):
+    local = {"ENVIRONMENT": "local", "DEBUG": "1"}
+    for env, want in (
+        ({}, "UTC"),
+        ({"TIME_ZONE": "Europe/Stockholm"}, "Europe/Stockholm"),
+    ):
+        run = subprocess.run(
+            [sys.executable, "-c", "import portal.settings as s; print(s.TIME_ZONE)"],
+            env={**os.environ, **local, **env},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert run.stdout.strip() == want, run.stderr
+    assert not starts(**local, TIME_ZONE="Nowhere/Atlantis")[0]
