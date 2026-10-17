@@ -15,12 +15,13 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from portal.accounts import modules as module_rules
-from portal.accounts import probe
+from portal.accounts import probe, website
 from portal.accounts.models import LANGUAGES, Account, Business, Module, clean_email
 from portal.accounts.ticket import mint
 
@@ -198,13 +199,20 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     return redirect("modules")
 
 
-def to_core(business: Business) -> HttpResponse:
-    """Sends a browser to the core's call page with a ticket for this one Business: the only way a browser is let to call."""
+def core_url(business: Business) -> str | None:
+    """The core's call page with a ticket for this one Business: the only way a browser is let to call. None when calls are not set up."""
     # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
     if not settings.CORE_SECRET:
-        return HttpResponse("Calls are not set up: CORE_SECRET is empty.", status=503)
+        return None
     ticket = mint(settings.CORE_SECRET, business.pk)
-    return redirect(f"{settings.CORE_URL.rstrip('/')}/?ticket={ticket}")
+    return f"{settings.CORE_URL.rstrip('/')}/?ticket={ticket}"
+
+
+def to_core(business: Business) -> HttpResponse:
+    """Sends a browser to the core's call page with a ticket for this one Business."""
+    if (url := core_url(business)) is None:
+        return HttpResponse("Calls are not set up: CORE_SECRET is empty.", status=503)
+    return redirect(url)
 
 
 @login_required
@@ -219,6 +227,67 @@ def test_call(request: HttpRequest) -> HttpResponse:
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     """A Business's public call link. Open to anyone, so anyone can start a call for that Business (there is no limit yet, DECISIONS.md)."""
     return to_core(get_object_or_404(Business, call_slug=slug))
+
+
+@require_GET
+@never_cache
+def call_from_site(request: HttpRequest, slug: str) -> HttpResponse:
+    """The call button on a Business's website asks here for a ticket. Only a page whose address the Business listed gets one:
+    the browser tells us the page in `Origin` and enforces the answer (without Access-Control-Allow-Origin it hides it from the page).
+    A script outside a browser can write any Origin, but it could just as well open the call link, so this limits other websites, not callers."""
+    business = get_object_or_404(Business, call_slug=slug)
+    origin = request.headers.get("Origin", "")
+    if not origin or origin not in business.website_addresses:
+        return JsonResponse({"error": "this website is not listed"}, status=403)
+    if (url := core_url(business)) is None:
+        return JsonResponse({"error": "calls are not set up"}, status=503)
+    response = JsonResponse({"url": url})
+    response["Access-Control-Allow-Origin"] = origin
+    response["Vary"] = "Origin"
+    return response
+
+
+class WebsiteForm(forms.Form):
+    """The websites that may show the call button: one address per line, parsed once into the Origins the database stores."""
+
+    addresses = forms.CharField(
+        label="Your websites",
+        required=False,
+        widget=forms.Textarea(
+            attrs={"rows": 5, "placeholder": "https://www.example.se"}
+        ),
+        help_text=f"One address per line, at most {website.ADDRESSES_MAX}. The button works only on these.",
+    )
+
+    def clean_addresses(self) -> list[str]:
+        try:
+            return website.parse_addresses(self.cleaned_data["addresses"])
+        except ValueError as e:
+            raise forms.ValidationError(str(e)) from None
+
+
+@login_required
+def website_button(request: HttpRequest) -> HttpResponse:
+    """The Business's own websites and the snippet that puts the call button on them."""
+    business = get_object_or_404(Business, account=request.user)
+    form = WebsiteForm(
+        request.POST or None,
+        initial={"addresses": "\n".join(business.website_addresses)},
+    )
+    if request.method == "POST" and form.is_valid():
+        business.website_addresses = form.cleaned_data["addresses"]
+        business.save(update_fields=["website_addresses"])
+        return redirect(f"{reverse('website_button')}?saved=1")
+    script = settings.PORTAL_URL.rstrip("/") + static("portal/call-button.js")
+    return render(
+        request,
+        "accounts/website_button.html",
+        {
+            "form": form,
+            "saved": "saved" in request.GET,
+            "snippet": f'<script src="{script}" data-call="{business.call_slug}"></script>',
+        },
+    )
 
 
 @require_GET

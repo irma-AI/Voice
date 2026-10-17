@@ -1,0 +1,12 @@
+{% extends "registration/form_page.html" %}
+{% block title %}Call button · Voice Portal{% endblock %}
+{% block heading %}A call button for your website{% endblock %}
+{% block intro %}
+<p class="mt-2 text-stone-700">List the websites that may show the button, then paste the snippet below where the button should appear. A page on any other address cannot start a call.</p>
+{% if saved %}<p class="mt-4 rounded bg-green-100 px-3 py-2 text-green-900" role="status">Saved.</p>{% endif %}
+{% endblock %}
+{% block after %}
+<h2 class="mt-8 text-lg font-semibold">The snippet</h2>
+<p class="mt-2 text-sm text-stone-700">The button opens the call page in a new window, with the settings you saved.</p>
+<pre class="mt-2 overflow-x-auto rounded border border-stone-200 bg-white p-4 text-sm"><code>{{ snippet }}</code></pre>
+{% endblock %}

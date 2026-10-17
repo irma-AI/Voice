@@ -24,6 +24,10 @@ _Avoid_: tenant, customer, clinic, client, agency
 A Business's public address (`/call/<unguessable>/` on the Portal) where anyone can start a call with its settings.
 _Avoid_: public URL, widget
 
+**Call button**:
+A button a Business pastes into its own website with a snippet from the Portal. It opens the call page for that Business, and works only from the website addresses the Business lists.
+_Avoid_: widget, embed
+
 **Barge-in**:
 The Caller speaking while the agent talks, so the agent stops. A false barge-in is one where no words followed, usually noise.
 _Avoid_: interruption, cut-off
