@@ -249,10 +249,6 @@ A common Django split: models hold data and its rules, services hold the use cas
 
 Name the same three layers in `ARCHITECTURE.md`. Logging goes through one logger; the guard in `scripts/checks/README.md` § Example keeps `print()` out of app code.
 
-## Low-risk paths
-
-Add `uv.lock` to `low_risk` in `scripts/low-risk-paths.json`, so a lockfile-only dependency bump can auto-merge once CI is green. A change to `pyproject.toml` still needs the user's go-ahead.
-
 ## CI toolchain step
 
 In `.github/actions/setup/action.yml`, replace the `TOOLCHAIN` comment with:
