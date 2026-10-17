@@ -16,12 +16,7 @@ const ROOT = process.env.GUARD_ROOT || process.cwd();
 
 const FIX = 'run `sh scripts/git-identity.sh`, then re-author your branch: `git rebase -r origin/main --exec "git commit --amend --no-edit --reset-author"`, strip any Claude trailer from the messages, and force-push your own branch with --force-with-lease';
 const IDENTITY = /@anthropic\.com>?$|^claude\b/i; // "Name <email>" of an author or committer
-const MESSAGE = [
-  [/^co-authored-by:.*(claude|anthropic)/im, 'a Co-authored-by trailer naming Claude'],
-  [/^claude-session:/im, 'a Claude-Session trailer'],
-  [/generated (?:with|by) \[?claude code/i, 'a "Generated with/by Claude Code" footer'],
-  [/claude\.ai\/code\/session/i, 'a claude.ai session link'],
-];
+const MESSAGE = require(path.join(__dirname, '..', '..', 'claude-attribution.js')); // shared with the GitHub write hook
 
 // A fixture has `.guard-commits.json` (a list of {sha, author, committer, message}) in place of git.
 function commits() {

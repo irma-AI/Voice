@@ -65,6 +65,17 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "mcp__github__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/claude-attribution-gate.js\"; c=$?; [ $c -eq 0 ] || { [ $c -eq 2 ] || echo \"GitHub write denied: the attribution check crashed (exit $c).\" >&2; exit 2; }",
+            "timeout": 5,
+            "statusMessage": "Checking for Claude attribution"
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|NotebookEdit",
         "hooks": [
           {
