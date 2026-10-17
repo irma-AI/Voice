@@ -14,6 +14,7 @@ urlpatterns = [
     path("totals/", views.totals, name="totals"),
     path("test-call/", views.test_call, name="test_call"),
     path("call/<str:slug>/", views.call_link, name="call_link"),
+    path("call-button.js", views.call_button_js, name="call_button_js"),
     path(
         "api/settings/<int:business_id>/",
         views.settings_for_core,
