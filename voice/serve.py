@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.responses import HTMLResponse
 from loguru import logger
 from pipecat.frames.frames import (
@@ -27,9 +27,9 @@ from pipecat.transports.websocket.fastapi import (
 )
 
 from voice.agent import run_call
-from voice.auth import TicketGate
+from voice.auth import REFUSAL_PAGE, TicketGate
 from voice.settings import describe_source
-from voice.ticket import from_query, read_ticket
+from voice.ticket import frame_ancestors, from_query, read_ticket
 
 # What Gemini Live takes in and gives out; the page is served with these two numbers.
 IN_RATE = 16000
@@ -97,11 +97,21 @@ def create_app(ticket_secret: str) -> FastAPI:
     app.add_middleware(TicketGate, ticket_secret=ticket_secret)
 
     @app.get("/")
-    async def page() -> HTMLResponse:  # pyright: ignore[reportUnusedFunction]
+    async def page(request: Request) -> HTMLResponse:  # pyright: ignore[reportUnusedFunction]
+        # The gate has checked the ticket; the domain it names is re-checked as the header is written (fail closed).
+        ticket = read_ticket(from_query(request.scope["query_string"]), ticket_secret)
+        try:
+            if ticket is None:
+                raise ValueError("no valid ticket")
+            csp = frame_ancestors(ticket.domain)
+        except ValueError:
+            logger.warning("refused /: the call ticket has no usable domain")
+            return HTMLResponse(REFUSAL_PAGE, status_code=403)
         return HTMLResponse(
             PAGE.replace("__IN_RATE__", str(IN_RATE)).replace(
                 "__OUT_RATE__", str(OUT_RATE)
-            )
+            ),
+            headers={"Content-Security-Policy": csp},
         )
 
     @app.websocket("/ws")

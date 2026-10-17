@@ -50,7 +50,9 @@ def test_the_button_sends_a_business_to_the_core_with_a_ticket_for_itself() -> N
     assert response.status_code == 302
     ticket = ticket_in(response["Location"])
     drift = "portal/accounts/ticket.py and voice/ticket.py disagree: edit the one that changed"
-    assert read_ticket(ticket, SECRET) == Ticket(business.pk, "test"), drift
+    assert read_ticket(ticket, SECRET) == Ticket(business.pk, "test", ""), (
+        drift
+    )  # a test call carries no domain: its page cannot be framed
     assert business.pk != other.pk
     assert read_ticket(ticket, SECRET, time.time() + TTL_SECONDS + 5) is None, drift
     assert read_ticket(ticket, "another-secret") is None, drift

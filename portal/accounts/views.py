@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import json
+import logging
 import unicodedata
 from collections import defaultdict
 from decimal import Decimal
@@ -40,6 +41,8 @@ from portal.accounts.models import (
     clean_email,
 )
 from portal.accounts.ticket import mint
+
+log = logging.getLogger(__name__)
 
 LOGIN_TRIES = 10
 LOGIN_WINDOW = 15 * 60
@@ -321,12 +324,18 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     return redirect("modules")
 
 
-def to_core(business: Business, kind: str) -> HttpResponse:
-    """Sends a browser to the core's call page with a ticket for this one Business and the kind of call: the only way a browser is let to call."""
+# What a Caller reads when the Business has not saved its website (English; the exact words wait for Petter's okay, VOI-71).
+CALL_LINK_REFUSAL = (
+    "This call can't be opened from here. Start it from the company's own website."
+)
+
+
+def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
+    """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call."""
     # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
     if not settings.CORE_SECRET:
         return HttpResponse("Calls are not set up: CORE_SECRET is empty.", status=503)
-    ticket = mint(settings.CORE_SECRET, business.pk, kind)
+    ticket = mint(settings.CORE_SECRET, business.pk, kind, domain)
     return redirect(f"{settings.CORE_URL.rstrip('/')}/?ticket={ticket}")
 
 
@@ -340,8 +349,12 @@ def test_call(request: HttpRequest) -> HttpResponse:
 @require_GET
 @never_cache
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
-    """A Business's public call link. Open to anyone, so anyone can start a call for that Business (there is no limit yet, DECISIONS.md)."""
-    return to_core(get_object_or_404(Business, call_slug=slug), "call_link")
+    """A Business's public call link. Open to anyone, so anyone can start a call for that Business (there is no limit yet, DECISIONS.md), but only once it has saved its website (VOI-71): the core lets only that site frame the page."""
+    business = get_object_or_404(Business, call_slug=slug)
+    if not business.website_domain:
+        log.warning("call link refused: Business %s has no website domain", business.pk)
+        return HttpResponseForbidden(CALL_LINK_REFUSAL)
+    return to_core(business, "call_link", business.website_domain)
 
 
 def core_secret_sent(request: HttpRequest) -> bool:
