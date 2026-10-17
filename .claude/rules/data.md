@@ -20,3 +20,4 @@ The Portal's system of record is Postgres (`DATABASE_URL`), with no cache or que
 - `tests/portal/test_modules_page.py`: a Module with no address or two, an address holding a user, password, query or key, a blank or repeated name, too many arguments, or an eleventh per Business.
 - `tests/portal/test_call_records.py`: a Call record's update and delete, a Business with records, and a record that breaks a rule (no cost and no reason, an unknown kind, a call id that is words).
 - Catalog sweep tests: none yet.
+- `tests/portal/test_totals.py`: `Account.sees_totals` is set or cleared by the `totals_marker` command only; a save or insert that changes it any other way is refused by the database.
