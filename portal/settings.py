@@ -50,7 +50,7 @@ if not DEBUG and not CORE_URL.startswith(
 ALLOW_LOCAL_MODULES = os.environ.get("ALLOW_LOCAL_MODULES", "").strip() == "1"
 
 # The one Account (by email) that may open the totals page. Empty closes the page to everyone.
-TOTALS_EMAIL = os.environ.get("TOTALS_EMAIL", "").strip().lower()
+SUPER_ADMIN_EMAIL = os.environ.get("SUPER_ADMIN_EMAIL", "").strip().lower()
 
 INSTALLED_APPS = [
     "django.contrib.auth",

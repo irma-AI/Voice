@@ -21,10 +21,10 @@ EMAIL = "petter.testsson@example.com"  # synthetic
 def test_only_the_account_named_in_the_setting_sees_the_page(settings: Any) -> None:
     _, client = business_with_login(EMAIL, "Petter's Business")
     _, other = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    settings.TOTALS_EMAIL = ""  # unset: nobody, not even the right account
+    settings.SUPER_ADMIN_EMAIL = ""  # unset: nobody, not even the right account
     assert client.get("/totals/").status_code == 403
     assert "Totals for every Business" not in client.get("/dashboard/").content.decode()
-    settings.TOTALS_EMAIL = EMAIL
+    settings.SUPER_ADMIN_EMAIL = EMAIL
     assert client.get("/totals/").status_code == 200
     assert "Totals for every Business" in client.get("/dashboard/").content.decode()
     assert other.get("/totals/").status_code == 403
@@ -34,7 +34,7 @@ def test_only_the_account_named_in_the_setting_sees_the_page(settings: Any) -> N
 def test_each_month_is_by_call_start_on_the_portal_clock_and_kinds_stay_apart(
     settings: Any,
 ) -> None:
-    settings.TOTALS_EMAIL = EMAIL
+    settings.SUPER_ADMIN_EMAIL = EMAIL
     anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
     _, petter = business_with_login(EMAIL, "Petter's Business")
     settings.TIME_ZONE = "Europe/Stockholm"  # CET from 2026-10-25: one hour ahead
@@ -71,7 +71,7 @@ def test_each_month_is_by_call_start_on_the_portal_clock_and_kinds_stay_apart(
 
 
 def test_calls_without_a_cost_are_counted_and_add_no_dollars(settings: Any) -> None:
-    settings.TOTALS_EMAIL = EMAIL
+    settings.SUPER_ADMIN_EMAIL = EMAIL
     anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
     _, petter = business_with_login(EMAIL, "Petter's Business")
     when = datetime(2026, 10, 17, 5, 0, tzinfo=UTC)

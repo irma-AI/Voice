@@ -93,8 +93,10 @@ def home(request: HttpRequest) -> HttpResponse:
 
 
 def sees_totals(account: Any) -> bool:
-    """False when `TOTALS_EMAIL` is unset: nobody is let in."""
-    return bool(settings.TOTALS_EMAIL) and account.email == settings.TOTALS_EMAIL
+    """False when `SUPER_ADMIN_EMAIL` is unset: nobody is let in."""
+    return (
+        bool(settings.SUPER_ADMIN_EMAIL) and account.email == settings.SUPER_ADMIN_EMAIL
+    )
 
 
 @login_required
@@ -144,7 +146,7 @@ def calls(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def totals(request: HttpRequest) -> HttpResponse:
-    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls. Only the Account whose email is `TOTALS_EMAIL` may open it."""
+    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls. Only the Account whose email is `SUPER_ADMIN_EMAIL` may open it."""
     if not sees_totals(request.user):
         return HttpResponseForbidden("This page is not open to your account.")
     month = TruncMonth("started_at", tzinfo=ZoneInfo(settings.TIME_ZONE))
