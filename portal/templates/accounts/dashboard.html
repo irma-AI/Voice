@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Dashboard · Voice Portal{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold">{{ business.name|default:"Your account" }}</h1>
+<h1 class="text-4xl">{{ business.name|default:"Your account" }}</h1>
 <p class="mt-4"><a href="{% url 'business_settings' %}" class="underline">Edit your agent's settings</a></p>
 <p class="mt-2"><a href="{% url 'modules' %}" class="underline">Your agent's Modules</a></p>
 <p class="mt-2"><a href="{% url 'calls' %}" class="underline">Your recent calls</a></p>
@@ -11,14 +11,14 @@
 {% if business %}
 <form method="post" action="{% url 'test_call' %}" class="mt-6">
   {% csrf_token %}
-  <button type="submit" class="rounded bg-stone-900 px-4 py-2 text-white">Test call</button>
+  <button type="submit" class="pill">Test call</button>
   <p class="mt-2 text-sm">Talk to your agent with the settings you saved. It opens the call page in this tab.</p>
 </form>
 <p class="mt-6">Your website domain: {% if business.website_domain %}<strong>{{ business.website_domain }}</strong>{% else %}none set{% endif %}. <a href="{% url 'business_settings' %}" class="underline">Change it</a></p>
 <p class="mt-6">Your public call link: <a href="{{ call_url }}" class="underline break-all">{{ call_url }}</a></p>
 <p class="mt-2 text-sm">Anyone with this link can call your agent from a browser. There is no daily limit yet.</p>
-<h2 class="mt-6 text-lg font-semibold">A call button for your website</h2>
+<h2 class="mt-6 text-2xl">A call button for your website</h2>
 <p class="mt-2 text-sm">Paste this where the button should appear. It opens your call link in a new window.</p>
-<pre class="mt-2 overflow-x-auto rounded border border-stone-200 bg-white p-4 text-sm"><code>{{ button_html }}</code></pre>
+<pre class="mt-2 overflow-x-auto rounded border border-granite p-4 text-sm"><code>{{ button_html }}</code></pre>
 {% endif %}
 {% endblock %}

@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-2xl font-semibold">{% block heading %}{% endblock %}</h1>
+<div class="max-w-md">
+<h1 class="text-4xl sm:text-[3.5rem] sm:leading-none">{% block heading %}{% endblock %}</h1>
 {% block intro %}{% endblock %}
-<form method="post" class="mt-6 space-y-4">
+<form method="post" class="mt-8 space-y-5">
   {% csrf_token %}
   {{ form.as_div }}
-  <button class="rounded bg-stone-900 px-4 py-2 text-white">{% block button %}Save{% endblock %}</button>
+  <button class="pill mt-2">{% block button %}Save{% endblock %}</button>
 </form>
 {% block after %}{% endblock %}
+</div>
 {% endblock %}
