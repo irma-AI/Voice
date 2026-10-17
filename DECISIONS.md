@@ -284,3 +284,5 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-17] VOI-77: the Theme logo is PNG, WebP or JPEG up to about 256 KB in Postgres; no SVG (it can carry script), no object storage (a new vendor).
 [2026-10-17] VOI-77: "Request access" mails a new CONTACT_EMAIL setting, hidden while empty; renamed from Petter's DEFAULT_TO_EMAIL, which reads as a default recipient beside Django's DEFAULT_FROM_EMAIL.
 [2026-10-17] VOI-77: the landing page ships before the Portal redesign (Petter's order), without a Portal showcase; no screenshots (Petter: they feel outdated); the Portal ticket adds one from its components.
+[2026-10-17] VOI-75: CONTEXT.md is now GLOSSARY.md (and CONTEXT-MAP.md would be GLOSSARY-MAP.md), because the re-vendored mattpocock skills read and write that name; the alternative, pinning those skills at the old version, would stop them updating for good.
+[2026-10-17] VOI-75: no replacement for resolving-merge-conflicts, which upstream removed; next-step now says to resolve a merge or rebase by intent and never --abort, and the skill leaves the vendor list.

@@ -186,7 +186,7 @@ Never go from the map straight to implement unless the effort turned out small. 
 
 ### One-skill flows
 
-- Mid-merge or mid-rebase → `resolving-merge-conflicts`.
+- Mid-merge or mid-rebase → no skill (upstream dropped `resolving-merge-conflicts`): resolve each conflict by intent, never `--abort`, run `make check`, then finish the merge or rebase.
 - A question to answer from primary sources → `research`; where the file goes is in CLAUDE.md § Workflow.
 - Writing or editing a skill, `CLAUDE.md`, a `.claude/rules/` file or another agent doc → `writing-for-agents`, keeping each rule in one home (`CLAUDE.md` § Rules); vendored skills are never edited (CLAUDE.md § Where the skills come from).
 
@@ -203,11 +203,11 @@ Ponytail's one quirk: **before a `/clear`**, if the session's ponytail level isn
 
 ## All skills
 
-- **Planning**: `grill-with-docs` (interview that records terms in `CONTEXT.md` and ADRs in `docs/adr/`), `grilling` (the bare interview), `to-spec` (spec as a tracker issue), `to-tickets` (tracer-bullet tickets with blocking edges), `wayfinder` (map of decision tickets), `triage` (raw issues to agent-ready ones).
+- **Planning**: `grill-with-docs` (interview that records terms in `GLOSSARY.md` and ADRs in `docs/adr/`), `grilling` (the bare interview), `to-spec` (spec as a tracker issue), `to-tickets` (tracer-bullet tickets with blocking edges), `wayfinder` (map of decision tickets), `triage` (raw issues to agent-ready ones).
 - **Building**: `implement` (per ticket, test-first, closes with review), `tdd` (red-green at the agreed seams), `code-review` (Standards and Spec axes against a fixed point), `skeptic-pass` (independent agents try to refute a frozen head), `pr` (the PR body).
-- **Debugging**: `diagnosing-bugs` (feedback loop first, then a regression test), `guardrail-from-incident` (every sibling of a fixed bug, and a guard for the whole class), `resolving-merge-conflicts` (by intent; never `--abort`).
+- **Debugging**: `diagnosing-bugs` (feedback loop first, then a regression test), `guardrail-from-incident` (every sibling of a fixed bug, and a guard for the whole class).
 - **UI**: `impeccable` (the design workflow, briefed by `PRODUCT.md` from `impeccable init` and `DESIGN.md` from `impeccable document` or new-work; `live` is local-only), `playwright-cli` (open pages served by the preview command and screenshot them).
-- **Code health**: `improve-codebase-architecture` (deepening opportunities), `codebase-design` (deep-module vocabulary), `domain-modeling` (sharpen a `CONTEXT.md` term or record an ADR), `add-baseline` (adopt a strict rule with a baseline that only shrinks), `claim-sweep` (test agent docs' claims against the code), `ponytail-review` (over-engineering in a diff), `ponytail-audit` (in the whole repo), `ponytail-debt` (every `shortcut:` and older `ponytail:` comment), `ponytail`, `ponytail-help`, `ponytail-gain` (the always-on lazy mode, its command card, its benchmarks).
+- **Code health**: `improve-codebase-architecture` (deepening opportunities), `codebase-design` (deep-module vocabulary), `domain-modeling` (sharpen a `GLOSSARY.md` term or record an ADR), `add-baseline` (adopt a strict rule with a baseline that only shrinks), `claim-sweep` (test agent docs' claims against the code), `ponytail-review` (over-engineering in a diff), `ponytail-audit` (in the whole repo), `ponytail-debt` (every `shortcut:` and older `ponytail:` comment), `ponytail`, `ponytail-help`, `ponytail-gain` (the always-on lazy mode, its command card, its benchmarks).
 - **Research and writing**: `research` (cited Markdown from primary sources), `writing-for-agents` (skills, `CLAUDE.md`, agent docs).
 - **Session**: `wait-what` (re-explain the last message), `handoff` (a handoff document for another agent or directory).
 - **Setup**: `setup-matt-pocock-skills` (tracker, triage labels, doc layout into `docs/agents/`; run once when adopting this template).
