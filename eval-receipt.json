@@ -1,8 +1,8 @@
 {
   "files": {
-    "voice/agent.py": "0ed1456059e7571d5dd0d3749603df9202ba1b9d5001885cadefc681a874131b",
+    "voice/agent.py": "b12dd57f1d43657b296be0465cbdcfdd0c887963dd945186cf6ff08c80f0740c",
     "voice/bargein.py": "e069e4ae5fce8d70cdee5be5ad63e1fc9e2e1d4afb909c00aa7ec2a16e0e4ed5",
-    "voice/settings.py": "5d465b84c95d50ef7200bd1fc30b765998273c41b65acc818d53e8a4e0a0ec36",
+    "voice/settings.py": "359515f3f794a0bdf0cf5e1255e2b4ee4d95ebb18d98f840121646e80343408f",
     "voice/modules.py": "d31c8cceaa9d7498d5392f9022efb8bf0e161334d5c5e44e2abcc9d7726cfebe",
     "modules/example.py": "55e636c4e0e0ceb3872bf8867d27870917105ac4a476c8ab56f88a1420591f31",
     "tests/evals/business.json": "270e7b8dc7b18dda8772b76529cd5d0fdd8a44b931542442b98dd4596c09cb19",
