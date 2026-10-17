@@ -15,8 +15,10 @@ from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.test import Client
 
+from portal.accounts import domain as portal_domain
 from portal.accounts.models import Account, Business
 from tests.portal.helpers import business_with_login
+from voice import ticket as core_ticket
 from voice.ticket import Ticket, read_ticket
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
@@ -34,6 +36,7 @@ def core(settings: Any) -> None:
 def test_the_link_sends_anyone_to_the_core_with_a_ticket_for_that_business() -> None:
     anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
     bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
+    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
 
     response = Client().get(f"/call/{anna.call_slug}/")  # no login
 
@@ -45,9 +48,35 @@ def test_the_link_sends_anyone_to_the_core_with_a_ticket_for_that_business() -> 
         "/",
     )
     ticket = parse_qs(parts.query)["ticket"][0]
-    assert read_ticket(ticket, SECRET) == Ticket(anna.pk, "call_link")
+    # The ticket carries the Business's own saved domain, which the core turns into the frame-ancestors header.
+    assert read_ticket(ticket, SECRET) == Ticket(
+        anna.pk, "call_link", "anna.example.se"
+    )
     assert anna.pk != bo.pk
     assert read_ticket(ticket, SECRET, time.time() + 3600) is None
+
+
+def test_a_business_with_no_saved_website_gets_no_ticket(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    assert anna.website_domain == ""
+
+    response = Client().get(f"/call/{anna.call_slug}/")
+
+    assert response.status_code == 403 and "Location" not in response
+    assert (
+        response.content.decode()
+        == "This call can't be opened from here. Start it from the company's own website."
+    )
+    assert f"Business {anna.pk} has no website domain" in caplog.text
+
+
+def test_the_core_and_the_portal_hold_the_same_rule_for_a_plain_hostname() -> None:
+    assert core_ticket.DOMAIN_PATTERN == portal_domain.DOMAIN_PATTERN, (
+        "voice/ticket.py and portal/accounts/domain.py disagree on DOMAIN_PATTERN: edit the one that changed"
+    )
+    assert core_ticket.DOMAIN_MAX == portal_domain.DOMAIN_MAX
 
 
 def test_the_link_cannot_be_guessed_and_only_reads() -> None:
@@ -61,6 +90,7 @@ def test_the_link_cannot_be_guessed_and_only_reads() -> None:
 
 def test_a_portal_with_no_secret_sends_nobody_to_the_core(settings: Any) -> None:
     anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
     settings.CORE_SECRET = ""
     response = Client().get(f"/call/{anna.call_slug}/")
     assert response.status_code == 503 and "Location" not in response
