@@ -302,9 +302,9 @@ def test_a_secret_with_a_line_break_refuses_without_printing_it() -> None:
 
 def test_the_env_example_names_exactly_one_settings_source() -> None:
     values = {k: v or "" for k, v in dotenv_values(".env.example").items()}
-    load_settings(
-        values
-    )  # raises if it names none, or both (the Portal's own PORTAL_URL is a different setting)
+    # Both would refuse every call; none too. A local run uses the Portal (the file source is for evals only).
+    assert bool(values.get("SETTINGS_URL")) != bool(values.get("SETTINGS_FILE"))
+    assert values.get("SETTINGS_URL") and values.get("CORE_SECRET")
 
 
 def test_the_secret_never_reaches_the_refusal_text() -> None:
