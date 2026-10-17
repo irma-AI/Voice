@@ -24,6 +24,10 @@ _Avoid_: tenant, customer, clinic, client, agency
 A Business's public address (`/call/<unguessable>/` on the Portal) where anyone can start a call with its settings.
 _Avoid_: public URL, widget
 
+**Call button**:
+A link a Business pastes into its own website, from a snippet on its dashboard. It opens the Business's call link in a new window.
+_Avoid_: widget, embed
+
 **Test call**:
 A call a Business starts from its own Portal to try its agent. Every other call comes through its Call link.
 _Avoid_: demo call, trial call

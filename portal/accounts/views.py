@@ -79,14 +79,18 @@ def home(request: HttpRequest) -> HttpResponse:
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
     business = Business.objects.filter(account=request.user).first()
+    call_url = business and settings.PORTAL_URL.rstrip("/") + reverse(
+        "call_link", args=[business.call_slug]
+    )
     return render(
         request,
         "accounts/dashboard.html",
         {
             "business": business,
-            "call_url": business
-            and settings.PORTAL_URL.rstrip("/")
-            + reverse("call_link", args=[business.call_slug]),
+            "call_url": call_url,
+            # The Business pastes this into its own website; the text is what a caller reads on the button.
+            "button_html": call_url
+            and f'<a href="{call_url}" target="_blank" rel="noopener">Prata med vår AI-assistent</a>',
         },
     )
 
