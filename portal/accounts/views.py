@@ -110,8 +110,38 @@ class Login(auth.LoginView):
 def home(request: HttpRequest) -> HttpResponse:
     """The landing page, open to everyone; a logged-in Business sees a link to its dashboard where a visitor sees Log in."""
     return render(
-        request, "accounts/home.html", {"contact_email": settings.CONTACT_EMAIL}
+        request,
+        "accounts/home.html",
+        {"contact_email": settings.CONTACT_EMAIL, **showcase()},
     )
+
+
+def showcase() -> dict[str, Any]:
+    """The landing page's example Business: the Portal's own settings form and Module row, filled with made-up content and never saved."""
+    form = SettingsForm(
+        initial={
+            "name": "Example Salon",
+            "facts": "We are a hair salon. Open Monday to Friday 09:00 to 17:00 and Saturday 10:00 to 15:00. We cut, colour and style. Bookings are made through our booking system. For gift cards, ask for reception.",
+            "languages": ["sv", "en"],
+        }
+    )
+    # the page shows the three things an agent is set up with, not the website or the Theme
+    for name in ("website_domain", "logo", "remove_logo", "use_accent", "accent"):
+        del form.fields[name]
+    form.fields["facts"].widget.attrs["rows"] = 6
+    module = {
+        "name": "Bookings",
+        "url": "https://bookings.example.com/mcp",
+        "command": "",
+        "args": [],
+    }
+    offer = probe.Offer(
+        [
+            ("find_free_time", "Finds the next free times for a service."),
+            ("move_booking", "Moves a booking to a time that is free."),
+        ]
+    )
+    return {"example_form": form, "example_module": module, "example_offer": offer}
 
 
 def sees_totals(account: Any) -> bool:

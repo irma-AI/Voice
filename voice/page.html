@@ -125,6 +125,14 @@
   }
   .speaker { display: inline-flex; align-items: center; gap: 0.5em; min-height: 1.4em; }
 
+  /* The Live transcript: the previous line and the latest, shown only. The agent speaks in Cable light,
+     never the Business's accent: that is adjusted for AA only against the text it carries, not against Deep sea. */
+  .turn { width: 100%; min-height: 5.5rem; display: flex; flex-direction: column; justify-content: flex-end; gap: calc(var(--spacing) * 2); text-align: left; }
+  .turn p { margin: 0; font-size: var(--text-base); line-height: var(--text-base--line-height); color: var(--color-foam); overflow-wrap: anywhere; }
+  .turn p[data-who="agent"] { color: var(--color-cable-light); }
+  .turn p:not(:last-child) { opacity: 0.6; font-size: var(--text-sm); line-height: var(--text-sm--line-height); }
+  .turn .label { display: block; margin-bottom: 0.125rem; }
+
   /* State: a dot and a label, then a sentence that says what to do. */
   .state { display: flex; flex-direction: column; align-items: center; gap: calc(var(--spacing) * 2); min-height: 4.5rem; }
   .chip { display: inline-flex; align-items: center; gap: 0.5em; }
@@ -180,6 +188,7 @@
       <span class="speaker label" id="speaker" data-who=""><span class="dot"></span><span id="speaker-name">Listening</span></span>
     </div>
   </div>
+  <div class="turn" id="turn" aria-label="What is being said"></div>
   <div class="state" role="status" aria-live="polite">
     <span class="chip"><span class="dot"></span><span class="label" id="chip">Ready</span></span>
     <p class="message" id="message">Press Start call and allow your microphone when your browser asks.</p>
@@ -224,6 +233,24 @@ function speaking(who) {
   speakerName.textContent = who === "agent" ? "Agent" : who === "caller" ? "You" : "Listening";
 }
 
+// The Live transcript, kept in the page only and gone when it closes: the previous line and the latest.
+// A line is one speaker's words until the other speaks; the agent's come in pieces that carry their own spaces.
+const turn = document.getElementById("turn");
+let lines = [];
+function heard(who, text) {
+  const last = lines[lines.length - 1];
+  if (last && last.who === who) last.text += who === "caller" ? ` ${text}` : text;
+  else lines = [...lines.slice(-1), { who, text: text.trimStart() }];
+  turn.replaceChildren(...lines.map((l) => {
+    const p = document.createElement("p"), label = document.createElement("span");
+    p.dataset.who = l.who;
+    label.className = "label";
+    label.textContent = l.who === "agent" ? "Agent" : "You";
+    p.append(label, l.text.length > 160 ? `…${l.text.slice(-160)}` : l.text);
+    return p;
+  }));
+}
+
 // Runs in the audio thread: hands the microphone over in blocks of 2048 samples.
 const WORKLET = `class Tap extends AudioWorkletProcessor {
   constructor() { super(); this.buf = new Float32Array(2048); this.n = 0; }
@@ -265,6 +292,8 @@ async function start() {
   show("connecting");
   speaking("");
   tick(0);
+  lines = [];
+  turn.replaceChildren();
   let stream, ctx, ws;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
@@ -309,9 +338,13 @@ async function start() {
   };
   ctx.createMediaStreamSource(stream).connect(tap);
   ws.onmessage = (e) => {
-    if (typeof e.data === "string") {  // {"type": "interrupt"}: the Caller spoke over the agent
-      playing.forEach((s) => s.stop());
-      next = 0;
+    if (typeof e.data === "string") {
+      const msg = JSON.parse(e.data);
+      if (msg.type === "transcript") heard(msg.speaker, msg.text);
+      else if (msg.type === "interrupt") {  // the Caller spoke over the agent
+        playing.forEach((s) => s.stop());
+        next = 0;
+      }
       return;
     }
     const pcm = new Int16Array(e.data), buf = ctx.createBuffer(1, pcm.length, OUT_RATE);
