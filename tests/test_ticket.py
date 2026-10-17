@@ -78,6 +78,15 @@ def test_a_call_link_ticket_needs_a_plain_hostname_and_a_test_call_has_none() ->
     assert read_ticket(good(kind="test", domain="example.se"), SECRET, NOW) is None
 
 
+def test_a_hostname_may_be_253_characters_and_no_longer() -> None:
+    longest = "a" * 63 + (".") + "a" * 63 + "." + "a" * 63 + "." + "a" * 58 + ".se"
+    assert len(longest) == 253
+    assert read_ticket(good(kind="call_link", domain=longest), SECRET, NOW)
+    assert (
+        read_ticket(good(kind="call_link", domain="a" + longest), SECRET, NOW) is None
+    )
+
+
 def test_the_call_page_may_be_framed_only_by_the_businesss_own_site() -> None:
     assert (
         frame_ancestors("example.se")
