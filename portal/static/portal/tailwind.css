@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @source "../../templates";
+@source not "../../../.impeccable";
 
 @layer base {
   form div { @apply space-y-1; }

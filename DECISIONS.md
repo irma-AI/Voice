@@ -286,3 +286,6 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-17] VOI-77: the landing page ships before the Portal redesign (Petter's order), without a Portal showcase; no screenshots (Petter: they feel outdated); the Portal ticket adds one from its components.
 [2026-10-17] VOI-75: CONTEXT.md is now GLOSSARY.md (and CONTEXT-MAP.md would be GLOSSARY-MAP.md), because the re-vendored mattpocock skills read and write that name; the alternative, pinning those skills at the old version, would stop them updating for good.
 [2026-10-17] VOI-75: no replacement for resolving-merge-conflicts, which upstream removed; next-step now says to resolve a merge or rebase by intent and never --abort, and the skill leaves the vendor list.
+[2026-10-17] VOI-79: landing direction is Turn (a ring that is one call; a vertical rail on phones) over metaphor worlds, Petter's pick: it shows the call flow without explanation. The sea rounds kept only the palette and type.
+[2026-10-17] VOI-79: Impeccable buildPath is code-first (.impeccable/config.json), Petter's choice: Turn is motion and exact text that generated comps can't hold; the live prototype is the reference.
+[2026-10-17] VOI-79: committed only the surface brief, config and the Turn prototype from .impeccable/; the decision-round mockups (AI-generated, ~40 images) stay local.
