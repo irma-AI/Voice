@@ -27,4 +27,3 @@ Not computer steps; each has a thread waiting on you.
 
 - [ ] Should the opening AI-disclosure line be impossible to interrupt? One call had it cut after half a second. It changes what callers hear, so it is your call. Thread: "Assistant interrupts itself on speaker".
 - [ ] Rotate the Portal database password? A Dokploy deploy response printed it once in a session's tool result; the database has no outside port. Open as an `ESCALATED` line in `DECISIONS.md`.
-- [ ] Does the totals page's Test calls column show 6? Thread: "Ponytail audit for over-engineering".
