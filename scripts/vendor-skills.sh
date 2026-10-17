@@ -10,7 +10,7 @@ node -v
 
 POCOCK=(code-review codebase-design diagnosing-bugs domain-modeling
   grill-with-docs grilling handoff implement improve-codebase-architecture pr research
-  resolving-merge-conflicts setup-matt-pocock-skills tdd to-spec to-tickets triage wait-what
+  setup-matt-pocock-skills tdd to-spec to-tickets triage wait-what
   wayfinder writing-for-agents)
 PONYTAIL=(ponytail ponytail-audit ponytail-debt ponytail-gain ponytail-help ponytail-review)
 
@@ -71,7 +71,12 @@ const put = (manifest, from, to, prefix = {}) => {
   const hooks = JSON.parse(fs.readFileSync(manifest, 'utf8').replaceAll(from, to)).hooks;
   if (!hooks) throw new Error(`no hooks in ${manifest}`);
   for (const [ev, groups] of Object.entries(hooks)) for (const g of groups) {
-    for (const h of g.hooks) h.command = (prefix[ev] ?? '') + h.command;
+    for (const h of g.hooks) {
+      // ponytail >= 5.3 resolves its hook through CLAUDE_PLUGIN_ROOT inside `node -e`; point it at the vendored file.
+      h.command = h.command.replace(/^node -e "require\(.*'hooks\/([\w.-]+)'\)\)"$/, 'node "${CLAUDE_PROJECT_DIR}/.claude/hooks/$1"');
+      if (h.command.includes('CLAUDE_PLUGIN_ROOT')) throw new Error(`unresolved CLAUDE_PLUGIN_ROOT in ${ev}: ${h.command}`);
+      h.command = (prefix[ev] ?? '') + h.command;
+    }
     (S.hooks[ev] ??= []).push(g);
   }
 };
@@ -112,7 +117,8 @@ for (const [ev, groups] of Object.entries(S.hooks)) for (const g of groups) for 
     encoding: 'utf8', timeout: 30000,
   });
   const ms = Date.now() - t0;
-  const ok = r.status === 0 && (!expect[ev] || (r.stdout || '').includes(expect[ev])) && ms < (h.timeout ?? 60) * 1000;
+  const want = ev === 'SessionStart' && !/hooks\/ponytail-/.test(h.command) ? undefined : expect[ev];   // impeccable's own SessionStart hook prints no ponytail line
+  const ok = r.status === 0 && (!want || (r.stdout || '').includes(want)) && ms < (h.timeout ?? 60) * 1000;
   if (!ok) fail++;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${ev.padEnd(16)} ${String(ms).padStart(5)}ms (limit ${h.timeout ?? '-'}s)  ${(h.command.match(/(ponytail-[a-z-]+\.js|impeccable\S*)/) || [''])[0]}`);
   if (!ok) console.log('      exit=' + r.status + ' ' + (r.stderr || r.stdout || '').slice(0, 200));

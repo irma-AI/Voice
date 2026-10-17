@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Dashboard · Voice Portal{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold">{{ business.name|default:"Your account" }}</h1>
+<h1 class="text-4xl">{{ business.name|default:"Your account" }}</h1>
 <p class="mt-4"><a href="{% url 'business_settings' %}" class="underline">Edit your agent's settings</a></p>
 <p class="mt-2"><a href="{% url 'modules' %}" class="underline">Your agent's Modules</a></p>
 <p class="mt-2"><a href="{% url 'calls' %}" class="underline">Your recent calls</a></p>
@@ -11,14 +11,14 @@
 {% if business %}
 <form method="post" action="{% url 'test_call' %}" class="mt-6">
   {% csrf_token %}
-  <button type="submit" class="rounded bg-stone-900 px-4 py-2 text-white">Test call</button>
+  <button type="submit" class="pill">Test call</button>
   <p class="mt-2 text-sm">Talk to your agent with the settings you saved. It opens the call page in this tab.</p>
 </form>
 <p class="mt-6">Your website domain: {% if business.website_domain %}<strong>{{ business.website_domain }}</strong>{% else %}none set{% endif %}. <a href="{% url 'business_settings' %}" class="underline">Change it</a></p>
-<h2 class="mt-6 text-lg font-semibold">A call button for your website</h2>
+<h2 class="mt-6 text-2xl">A call button for your website</h2>
 {% if button_html %}
 <p class="mt-2 text-sm">Paste this on every page of {{ business.website_domain }} (or a subdomain) where the button should appear, just before the closing &lt;/body&gt; tag. A button appears in the corner; pressing it opens the call in a panel on the page. Browsers are told to let only your website domain show it.</p>
-<pre class="mt-2 overflow-x-auto rounded border border-stone-200 bg-white p-4 text-sm"><code>{{ button_html }}</code></pre>
+<pre class="mt-2 overflow-x-auto rounded border border-granite p-4 text-sm"><code>{{ button_html }}</code></pre>
 {% else %}
 <p class="mt-2 text-sm">Your call button is closed: save your website domain in <a href="{% url 'business_settings' %}" class="underline">your settings</a> first, and the snippet to paste shows here.</p>
 {% endif %}

@@ -1,9 +1,18 @@
 {
-  "attribution": { "commit": "", "pr": "", "sessionUrl": false },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
   "permissions": {
     "allow": [
       "Bash(linearis:*)"
     ]
+  },
+  "enabledPlugins": {
+    "ponytail@synced": false,
+    "impeccable@synced": false,
+    "mattpocock-skills@synced": false
   },
   "hooks": {
     "SessionStart": [
@@ -15,17 +24,6 @@
             "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/cloud-tools.sh\"",
             "timeout": 120,
             "statusMessage": "Cloud tools (skipped locally)"
-          }
-        ]
-      },
-      {
-        "matcher": "startup|resume|clear|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "mkdir -p \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\" && touch \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.ponytail-statusline-nudged\"; node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ponytail-activate.js\"",
-            "timeout": 5,
-            "statusMessage": "Loading ponytail mode..."
           }
         ]
       },
@@ -61,6 +59,27 @@
             "statusMessage": "Committing as Petter, not Claude"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" ] || \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook",
+            "timeout": 5,
+            "statusMessage": "Preparing build session"
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mkdir -p \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\" && touch \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.ponytail-statusline-nudged\"; node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ponytail-activate.js\"",
+            "timeout": 5,
+            "statusMessage": "Loading ponytail mode..."
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -89,6 +108,16 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/impeccable-scope.js\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write",
         "hooks": [
           {
@@ -98,14 +127,25 @@
             "statusMessage": "Checking UI changes"
           }
         ]
-      },
+      }
+    ],
+    "UserPromptSubmit": [
       {
-        "matcher": "Skill",
         "hooks": [
           {
             "type": "command",
             "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/impeccable-scope.js\"",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ponytail-mode-tracker.js\"",
+            "timeout": 5,
+            "statusMessage": "Tracking ponytail mode..."
           }
         ]
       }
@@ -130,27 +170,6 @@
             "command": "PONYTAIL_SUBAGENT_MATCHER='^(?!impeccable-)' node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ponytail-subagent.js\"",
             "timeout": 5,
             "statusMessage": "Loading ponytail mode..."
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ponytail-mode-tracker.js\"",
-            "timeout": 5,
-            "statusMessage": "Tracking ponytail mode..."
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/impeccable-scope.js\"",
-            "timeout": 5
           }
         ]
       }

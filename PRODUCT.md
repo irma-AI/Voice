@@ -2,7 +2,7 @@
 
 <!-- impeccable:product-schema 1 -->
 
-Terms (Business, Caller, Module, Action, Call link, Test call, Call record): `CONTEXT.md`.
+Terms (Business, Caller, Module, Action, Call link, Test call, Call record): `GLOSSARY.md`.
 
 ## Platform
 
@@ -13,7 +13,7 @@ web
 - **Primary: small Swedish businesses on the hosted service.** An owner or staff member, not technical, who wants the business's calls answered. They are invited, set the agent up once (name, free-text facts, languages, Modules), try it with a Test call, paste a Call button on their website, and come back now and then to see recent calls.
 - **Secondary: self-hosters.** Technical people who run their own copy with their own Google key and wire their own Modules (MCP servers).
 - Owners use the Portal **phone first**, between jobs; desktop is secondary.
-- **Callers** never see the Portal; they meet the product only on the call page, in Swedish by default.
+- **Callers** never see the Portal; they meet the product only on the call page, opened from the Call button on the Business's own website.
 
 ## Product Purpose
 
@@ -35,7 +35,7 @@ Voice answers a Business's callers with a live AI voice agent, in Swedish or Eng
 ## Capabilities and Constraints
 
 - Shipped: login, invite, password reset, settings (name, facts, languages), Modules, Test call, Call button script (the browser is told to limit it to the Business's website domain; not seen in a real browser yet), recent calls, an operator totals page.
-- A Business's settings stay a name, free-text facts and languages; anything more structured comes as a Module, never a fixed Portal field.
+- A Business's settings are a name, free-text facts, languages and a Theme (logo and one accent colour, shown only to its Callers); anything more structured comes as a Module, never a fixed Portal field. The Theme is decided, not built (`docs/design/four-surface-redesign.md`).
 - Call languages: Swedish and English only.
 - Portal UI language: English, because the code is open and language-agnostic. Translations, Swedish first, are planned (VOI-67).
 - Stack: Django, Tailwind, htmx, Postgres (ADR 0002).
@@ -44,8 +44,8 @@ Voice answers a Business's callers with a live AI voice agent, in Swedish or Eng
 ## Brand Commitments
 
 - Name: Voice; the web app is the Portal.
-- Caller-facing copy is Swedish and its legal wording (the AI disclosure "Du pratar med en AI-assistent.", caller notices) is fixed by Petter; never reword it in design work.
-- Use `CONTEXT.md`'s terms in UI copy and avoid the words it lists under _Avoid_.
+- Caller-facing legal wording is fixed by Petter; never reword it in design work. The spoken disclosure is "Du pratar med en AI-assistent."; the written one on the call page is "You are talking to an AI assistant." (approved 2026-10-17). Call page text is English for now, like the Portal (VOI-67).
+- Use `GLOSSARY.md`'s terms in UI copy and avoid the words it lists under _Avoid_.
 
 ## Evidence on Hand
 

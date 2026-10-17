@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Voice is the voice core: it connects a phone or browser call to a live AI voice model and runs the call. `portal/` is the Portal, the Django web app where a Business logs in (ADR 0002). Glossary: `CONTEXT.md`. Decisions: `docs/adr/` and `DECISIONS.md`.
+Voice is the voice core: it connects a phone or browser call to a live AI voice model and runs the call. `portal/` is the Portal, the Django web app where a Business logs in (ADR 0002). Glossary: `GLOSSARY.md`. Decisions: `docs/adr/` and `DECISIONS.md`.
 
 ## Hard rules
 
@@ -90,15 +90,15 @@ This file holds what every session needs; keep it under about 120 lines. A rule 
 - Tickets: an edit outside the `no_ticket` paths of `scripts/low-risk-paths.json` needs a ready Linear ticket (label `ready-for-agent`) that `/next-step` records; a hook is meant to deny the edit (not checked: not yet seen to deny in a real session), a pre-commit hook (`scripts/git-hooks`, installed at session start) refuses a commit of files written any other way, and the `ticket-required` guard fails a PR that closes no ready ticket (`scripts/ticket-check.js`).
 - Scheduled agents (loops) follow `.claude/loops.md`: they propose, and merge only under the rule above. When its registry has rows, run its § Checking loops at session start.
 - Guardrail work outranks ponytail: a test, check, rule update or `DECISIONS.md` line that the Definition of Done, a rule or a guard requires is part of the change. Ponytail decides how much product code to write.
-- Mark deliberate shortcuts with a `ponytail:` comment naming the limit and the upgrade path.
-- When a skill (e.g. `/tdd`'s seam check, the grilling skills) or the org's rules say to ask first, ask: that outranks ponytail's "never stall on an answer you can default".
-- Ponytail's "one runnable check" here is one test at one of the seams (§ Tests), run by the repo's test runner: no `demo()`, `__main__` or stray test files.
-- Output a loaded skill or `/next-step` flow asks for (a checklist, a ranked list, a command and its output) counts as explicitly requested, so ponytail's three-line limit doesn't apply to it.
+- Mark deliberate shortcuts with a `shortcut: <the limit>, <when to upgrade>` comment (ponytail's tag since 5.3); the older `ponytail:` comments stay, and `/ponytail-debt` reads both.
+- When a skill (e.g. `/tdd`'s seam check, the grilling skills) or the org's rules say to ask first, ask: that outranks ponytail's lean toward shipping the lazy version.
+- Ponytail's "one small test or an assert-based self-check" here is one test at one of the seams (§ Tests), run by the repo's test runner: no `demo()`, `__main__` or stray test files.
+- Output a loaded skill or `/next-step` flow asks for (a checklist, a ranked list, a command and its output) counts as explicitly requested, so ponytail's "end your reply with one or two lines" doesn't apply to it.
 - A design-it-twice brief (`codebase-design`) outranks ponytail for that subagent: its job is to explore a different shape.
 
 ## Where the skills come from
 
-Everything under `.claude/skills/`, `.claude/vendor-licenses/`, `.claude/agents/impeccable-*` and `.claude/hooks/ponytail-*` is vendored by `scripts/vendor-skills.sh` (see `skills-lock.json`); never edit those files, since a re-run replaces them. The hand-written skills are the folders `skills-lock.json` doesn't list, among them `next-step` (model-invoked on purpose so the agent can pick a flow itself); a re-vendor leaves them alone.
+Everything under `.claude/skills/`, `.claude/vendor-licenses/`, `.claude/agents/impeccable-*` and `.claude/hooks/ponytail-*` is vendored by `scripts/vendor-skills.sh` (see `skills-lock.json`); never edit those files, since a re-run replaces them. The hand-written skills are the folders `skills-lock.json` doesn't list, among them `next-step` (model-invoked on purpose so the agent can pick a flow itself); a re-vendor leaves them alone. A source that also exists as a claude.ai plugin is switched off in `.claude/settings.json` `enabledPlugins` (`<name>@synced`: false), so each skill and hook loads once and the repo copy wins; a repository can only do this per plugin, never `syncClaudeAiPlugins` or `syncClaudeAiSkills`.
 
 <!-- UI repos: "UI work follows DESIGN.md and PRODUCT.md", once Impeccable has written them. -->
 

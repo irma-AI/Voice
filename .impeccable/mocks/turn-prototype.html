@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice: Turn prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue-hour: #1A2A44; --deep-sea: #0B1322; --cable: #F5D9A8; --foam: #FFFFFF; --granite: #3A3F47;
+    --foam-70: rgba(255,255,255,.72); --foam-45: rgba(255,255,255,.5); --granite-line: #4A5260;
+    --serif: "Instrument Serif", Georgia, serif; --sans: "Geist", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { min-height: 100vh; background: radial-gradient(120% 90% at 70% 40%, var(--blue-hour) 0%, var(--deep-sea) 78%); color: var(--foam); font: 400 16px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  ::selection { background: var(--cable); color: var(--deep-sea); }
+  a, button { color: inherit; font: inherit; }
+  :focus-visible { outline: 2px solid var(--cable); outline-offset: 4px; border-radius: 999px; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 24px clamp(20px, 5vw, 64px); }
+  .wordmark { font: 400 28px/1 var(--serif); letter-spacing: -0.01em; text-decoration: none; }
+  .nav-links { display: flex; gap: 28px; align-items: center; font-size: 14px; }
+  .nav-links a:not(.pill) { text-decoration: none; color: var(--foam-70); }
+  .nav-links a:not(.pill):hover { color: var(--foam); }
+  .pill { display: inline-block; background: var(--foam); color: var(--deep-sea); text-decoration: none; padding: 11px 22px; border-radius: 999px; font-weight: 500; font-size: 15px; transition: background .2s; }
+  .pill:hover { background: var(--cable); }
+  main { position: relative; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: center; gap: 32px; padding: 2vh clamp(20px, 5vw, 64px) 48px; min-height: calc(100vh - 90px); }
+  h1 { font: 400 clamp(52px, 6.4vw, 92px)/0.98 var(--serif); letter-spacing: -0.02em; margin: 0 0 28px; text-wrap: balance; }
+  .sub { color: var(--foam-70); font-size: 18px; max-width: 34ch; margin: 0 0 36px; }
+  .actions { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+  .link { text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--foam-45); color: var(--foam-70); font-size: 15px; }
+  .link:hover { color: var(--foam); text-decoration-color: var(--cable); }
+  .stage { position: relative; width: 100%; max-width: 760px; justify-self: center; }
+  svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .tick { stroke: var(--granite-line); }
+  .tick.major { stroke: #6A7380; }
+  .track { stroke: var(--granite); }
+  .progress { stroke: var(--cable); transition: none; }
+  .step-dot { fill: var(--deep-sea); stroke: var(--cable); stroke-width: 2; }
+  .step-dot.planned { stroke: var(--foam-45); stroke-dasharray: 2 3; }
+  .step-name { font: 500 12px var(--sans); letter-spacing: .12em; text-transform: uppercase; fill: var(--foam-70); }
+  .step-note { font: 400 16px var(--serif); font-style: italic; fill: var(--cable); }
+  .step-note.muted { fill: var(--foam-45); }
+  .step { opacity: 0; transition: opacity 1.2s cubic-bezier(.16,1,.3,1); }
+  .step.on { opacity: 1; }
+  .who { font: 500 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; }
+  .say { font: 400 26px/1.15 var(--serif); }
+  .line-text { transition: opacity 1s cubic-bezier(.16,1,.3,1); }
+  .exit { stroke: var(--foam-45); stroke-dasharray: 3 5; opacity: 0; transition: opacity 1.4s; }
+  .exit.on { opacity: 1; }
+  .control { position: absolute; right: 0; bottom: -8px; background: none; border: 1px solid var(--granite-line); color: var(--foam-70); border-radius: 999px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+  .control:hover { color: var(--foam); border-color: var(--foam-45); }
+  .note { padding: 0 clamp(20px, 5vw, 64px) 16px; margin: 0; font-size: 12px; color: var(--foam-45); }
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; text-align: left; }
+    .nav-links a:not(.pill) { display: none; }
+    .stage { max-width: 520px; margin-inline: -12px; width: calc(100% + 24px); }
+  }
+  .phone-live, .rail { display: none; }
+  @media (max-width: 860px) {
+    .stage { display: none; }
+    main { padding-right: 64px; }
+    .rail { display: block; position: absolute; right: 18px; top: 2vh; width: 28px; height: calc(100% - 4vh); overflow: visible; }
+    .rail-track { stroke: var(--granite); stroke-width: 1.5; }
+    .rail-fill { stroke: var(--cable); stroke-width: 2.5; stroke-linecap: round; }
+    .rail-dot { fill: var(--deep-sea); stroke: var(--cable); stroke-width: 2; opacity: 0; transition: opacity 1s; }
+    .rail-dot.planned { stroke: var(--foam-45); stroke-dasharray: 2 3; }
+    .rail-dot.on { opacity: 1; }
+    .phone-live { display: block; margin-top: 44px; padding-top: 24px; border-top: 1px solid var(--granite); min-height: 190px; }
+    .pl-step { margin: 0 0 6px; font: 500 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--foam-70); }
+    .pl-step em { font: italic 400 15px var(--serif); letter-spacing: 0; text-transform: none; color: var(--cable); margin-left: 6px; }
+    .pl-wave { width: 100%; height: 44px; display: block; margin: 8px 0 14px; }
+    .pl-who { margin: 0 0 4px; font: 500 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--foam-70); }
+    .pl-say { margin: 0; font: 400 26px/1.15 var(--serif); }
+    .control { position: fixed; right: 12px; bottom: 12px; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <a class="wordmark" href="#">Voice</a>
+  <div class="nav-links"><a href="#">Use cases</a><a href="#">Self-host</a><a href="#">Log in</a><a class="pill" href="#">Request access</a></div>
+</nav>
+<main>
+  <section>
+    <h1>Voice for the agentic company.</h1>
+    <p class="sub">Voice answers your callers and gets things done through Modules. Connect any service that speaks MCP, and your agent can use it mid-call.</p>
+    <div class="actions"><a class="pill" href="#">Request access</a><a class="link" href="#">Open code · Self-host it</a></div>
+    <div class="phone-live" aria-hidden="true">
+      <p class="pl-step"><span id="plName"></span> <em id="plNote"></em></p>
+      <svg class="pl-wave" viewBox="-160 -30 320 60"><path id="plWave" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+      <p class="pl-who" id="plWho"></p>
+      <p class="pl-say" id="plSay"></p>
+    </div>
+  </section>
+  <svg class="rail" id="rail" viewBox="0 0 40 1000" preserveAspectRatio="none" aria-hidden="true">
+    <line x1="20" y1="0" x2="20" y2="1000" class="rail-track" vector-effect="non-scaling-stroke"/>
+    <line id="railFill" x1="20" y1="0" x2="20" y2="0" class="rail-fill" vector-effect="non-scaling-stroke"/>
+    <g id="railDots"></g>
+  </svg>
+  <section class="stage" aria-label="An example call, animated">
+    <svg id="dial" viewBox="-410 -330 820 660" role="img" aria-labelledby="dialTitle">
+      <title id="dialTitle">Example call: the caller moves a booking to Friday, then asks to speak to a person.</title>
+      <g id="ticks"></g>
+      <circle class="track" r="230" fill="none" stroke-width="1.5"/>
+      <circle id="progress" class="progress" r="230" fill="none" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90)"/>
+      <line id="exit" class="exit" x1="0" y1="0" x2="0" y2="0" stroke-width="1.5"/>
+      <g id="steps"></g>
+      <defs><clipPath id="inner"><circle r="200"/></clipPath></defs>
+      <g clip-path="url(#inner)">
+        <path id="wave" fill="none" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <g id="prev" class="line-text" opacity="0"><text class="who" x="-170" y="-92" fill="#FFFFFF99"></text><text class="say" x="-170" y="-62" fill="#FFFFFF70"></text></g>
+      <g id="cur" class="line-text" opacity="0"><text class="who" x="-170" y="52"></text><text class="say" x="-170" y="84"></text></g>
+    </svg>
+    <button class="control" id="toggle" type="button" aria-pressed="false">Pause</button>
+  </section>
+</main>
+<p class="note">Prototype · example call is illustrative · conversation copy to be written</p>
+<script>
+// Placeholder script; Petter will write the real conversation later.
+const LOOP = 46;
+const LINES = [
+  { t: 1,  end: 5.5,  who: "Caller", say: "Hi, I have a cut on Thursday at ten." },
+  { t: 6,  end: 9.5,  who: "Caller", say: "Could I move it to Friday?" },
+  { t: 12, end: 15.5, who: "Agent",  say: "Of course. Let me look at Friday." },
+  { t: 18.5, end: 22, who: "Agent",  say: "Friday at two is free. Shall I?" },
+  { t: 23, end: 25,   who: "Caller", say: "Yes, please." },
+  { t: 27, end: 29.5, who: "Agent",  say: "Done. Friday at two." },
+  { t: 31, end: 35,   who: "Caller", say: "Could I talk to someone about a gift card?" },
+  { t: 36.5, end: 40, who: "Agent",  say: "Of course. Putting you through now." },
+];
+const STEPS = [
+  { t: 0.5,  name: "Caller",       note: "Call answered" },
+  { t: 7.5,  name: "Instructions", note: "Opening hours read" },
+  { t: 12.5, name: "Agent",        note: "Moving a booking" },
+  { t: 16.5, name: "MCP · Bookings", note: "Friday 14:00 free" },
+  { t: 26,   name: "MCP · Bookings", note: "Booking moved" },
+  { t: 41,   name: "Human",        note: "Hand-off · Planned", planned: true, exit: true },
+];
+const R = 230, C = 2 * Math.PI * R;
+const $ = (id) => document.getElementById(id);
+const progress = $("progress"); progress.style.strokeDasharray = `0 ${C}`;
+const ticks = $("ticks");
+for (let i = 0; i < 120; i++) {
+  const a = i / 120 * 2 * Math.PI - Math.PI / 2, major = i % 10 === 0;
+  const r1 = major ? 244 : 248, r2 = 256;
+  const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  l.setAttribute("x1", Math.cos(a) * r1); l.setAttribute("y1", Math.sin(a) * r1);
+  l.setAttribute("x2", Math.cos(a) * r2); l.setAttribute("y2", Math.sin(a) * r2);
+  l.setAttribute("class", major ? "tick major" : "tick"); l.setAttribute("stroke-width", major ? 1.5 : 1);
+  ticks.appendChild(l);
+}
+const angleAt = (t) => t / LOOP * 2 * Math.PI - Math.PI / 2;
+const stepEls = STEPS.map((s) => {
+  const a = angleAt(s.t), x = Math.cos(a) * R, y = Math.sin(a) * R, right = Math.cos(a) >= -0.05;
+  const lx = Math.cos(a) * (R + 40), ly = Math.sin(a) * (R + 40);
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("class", "step");
+  g.innerHTML = `<circle class="step-dot${s.planned ? " planned" : ""}" cx="${x}" cy="${y}" r="6"/>
+    <text class="step-name" x="${lx}" y="${ly - 4}" text-anchor="${right ? "start" : "end"}">${s.name}</text>
+    <text class="step-note${s.planned ? " muted" : ""}" x="${lx}" y="${ly + 14}" text-anchor="${right ? "start" : "end"}">${s.note}</text>`;
+  $("steps").appendChild(g);
+  if (s.exit) { const e = $("exit"); e.setAttribute("x1", x); e.setAttribute("y1", y); e.setAttribute("x2", Math.cos(a) * 320); e.setAttribute("y2", Math.sin(a) * 320); }
+  return g;
+});
+const wave = $("wave"), cur = $("cur"), prev = $("prev");
+let shownIdx = -1;
+function setText(g, line, colour) {
+  const [who, say] = g.querySelectorAll("text");
+  who.textContent = line ? line.who : ""; say.textContent = line ? line.say : "";
+  if (colour) { who.setAttribute("fill", colour === "warm" ? "#F5D9A8" : "#FFFFFFB8"); say.setAttribute("fill", colour === "warm" ? "#F5D9A8" : "#FFFFFF"); }
+}
+function render(t) {
+  // ring: time passing
+  const frac = Math.min(t / (LOOP - 3), 1);
+  progress.style.strokeDasharray = `${frac * C} ${C}`;
+  // steps
+  STEPS.forEach((s, i) => stepEls[i].classList.toggle("on", t >= s.t));
+  $("exit").classList.toggle("on", t >= 41);
+  // who is speaking
+  const line = LINES.find((l) => t >= l.t && t <= l.end);
+  const lastIdx = LINES.reduce((acc, l, i) => (t >= l.t ? i : acc), -1);
+  if (lastIdx !== shownIdx) {
+    shownIdx = lastIdx;
+    setText(prev, LINES[lastIdx - 1], "cool"); prev.setAttribute("opacity", lastIdx > 0 ? 1 : 0);
+    const l = LINES[lastIdx]; setText(cur, l, l && l.who === "Agent" ? "warm" : "cool"); cur.setAttribute("opacity", l ? 1 : 0);
+  }
+  // speaker line: calm when silent, moving with the voice
+  const amp = line ? 26 * Math.min(1, (t - line.t) * 3, (line.end - t) * 3) : 0;
+  const warm = line && line.who === "Agent";
+  wave.setAttribute("stroke", line ? (warm ? "#F5D9A8" : "#FFFFFF") : "#6A7380");
+  let d = "";
+  for (let x = -210; x <= 210; x += 4) {
+    const env = Math.cos(x / 210 * Math.PI / 2) ** 2;
+    const y = env * amp * (Math.sin(x * 0.045 + t * 6) * 0.6 + Math.sin(x * 0.11 - t * 9) * 0.3 + Math.sin(x * 0.023 + t * 2.3) * 0.4);
+    d += (x === -210 ? "M" : "L") + x + " " + y.toFixed(2) + " ";
+  }
+  wave.setAttribute("d", d);
+  // fade out at the end of the loop
+  document.getElementById("dial").style.opacity = t > LOOP - 2 ? Math.max(0, (LOOP - t) / 2) : Math.min(1, t * 2 + 0.2);
+}
+
+const railDots = document.getElementById("railDots");
+const railEls = STEPS.map((s) => {
+  const c = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+  const y = s.t / LOOP * 1000; c.setAttribute("cx", 20); c.setAttribute("cy", y); c.setAttribute("rx", 6); c.setAttribute("ry", 6);
+  c.setAttribute("class", "rail-dot" + (s.planned ? " planned" : "")); c.setAttribute("vector-effect", "non-scaling-stroke");
+  railDots.appendChild(c); return c;
+});
+const plName = $("plName"), plNote = $("plNote"), plWho = $("plWho"), plSay = $("plSay"), plWave = $("plWave");
+function renderPhone(t) {
+  const rail = document.getElementById("rail");
+  const h = rail.getBoundingClientRect().height || 1000, k = 1000 / h;
+  railEls.forEach((c, i) => { c.classList.toggle("on", t >= STEPS[i].t); c.setAttribute("ry", 6 * k); });
+  document.getElementById("railFill").setAttribute("y2", Math.min(t / (LOOP - 3), 1) * 1000);
+  const step = [...STEPS].reverse().find((s) => t >= s.t);
+  plName.textContent = step ? step.name : ""; plNote.textContent = step ? step.note : "";
+  const lastIdx = LINES.reduce((acc, l, i) => (t >= l.t ? i : acc), -1), l = LINES[lastIdx];
+  plWho.textContent = l ? l.who : ""; plSay.textContent = l ? l.say : "";
+  plSay.style.color = l && l.who === "Agent" ? "#F5D9A8" : "#FFFFFF";
+  const line = LINES.find((x) => t >= x.t && t <= x.end);
+  const amp = line ? 18 * Math.min(1, (t - line.t) * 3, (line.end - t) * 3) : 0;
+  plWave.setAttribute("stroke", line ? (line.who === "Agent" ? "#F5D9A8" : "#FFFFFF") : "#6A7380");
+  let d = "";
+  for (let x = -160; x <= 160; x += 4) { const env = Math.cos(x / 160 * Math.PI / 2) ** 2; const y = env * amp * (Math.sin(x * 0.06 + t * 6) * 0.6 + Math.sin(x * 0.14 - t * 9) * 0.3); d += (x === -160 ? "M" : "L") + x + " " + y.toFixed(2) + " "; }
+  plWave.setAttribute("d", d);
+}
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let paused = reduce, start = performance.now(), held = reduce ? 28 : 0;
+const btn = $("toggle");
+btn.addEventListener("click", () => {
+  paused = !paused; btn.textContent = paused ? "Play" : "Pause"; btn.setAttribute("aria-pressed", String(paused));
+  if (!paused) start = performance.now() - held * 1000;
+});
+if (reduce) { btn.textContent = "Play"; btn.setAttribute("aria-pressed", "true"); }
+function frame(now) {
+  if (!paused) held = ((now - start) / 1000) % LOOP;
+  render(held); renderPhone(held);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

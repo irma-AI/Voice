@@ -39,7 +39,13 @@ The flows below name these:
 - **commit**: commit on the branch as often as the work needs, never on the default branch.
 - **pr**: walk `CLAUDE.md` § Definition of Done item by item; every item holds, or you name the one that doesn't and why. Then push and open the PR without asking, and `pr` writes the body, filling every section of `.github/pull_request_template.md`: the three first-principles answers and what is not live yet. The PR names every ticket it closes, with the tracker's closing keyword (`docs/agents/issue-tracker.md`).
 - **merge**: unless a `CLAUDE.md` § Stop and ask area applies, mark the PR ready and turn on auto-merge (`gh pr merge --auto --squash`, or the GitHub MCP `enable_pr_auto_merge`); GitHub merges once `ci-summary` passes, so end the turn instead of waiting on CI; if checks already passed, GitHub refuses auto-merge, so merge directly (squash). A PR in a Stop and ask area waits for the user's answer. Resolve open review threads first if the ruleset requires it.
-- **screenshot**: start `make up` in the background (`make seed` first if the page needs data; the URL is in `CLAUDE.md` § Commands), then `playwright-cli` at the widths the change can reach (390px phone, 1280px desktop; a change scoped to one breakpoint needs only that width). Save any login state only as `.playwright-cli/<name>.json`.
+- **screenshot**: the one home for when agents use `playwright-cli`, a design and verification tool; tests stay at the seams in `CLAUDE.md` § Tests (Petter decided against a browser test seam, 2026-10-17), so a `playwright-cli` run never becomes a test. Start `make up` (core call page) or `make portal-up` (Portal) in the background (`make seed` first if the page needs data; the URLs are in `CLAUDE.md` § Commands), then use it for:
+  - **before and after** screenshots while iterating on UI, at the widths the change can reach (390px phone, 1280px desktop; a change scoped to one breakpoint needs only that width)
+  - driving a Portal flow end to end (login, settings, Modules) to see it work
+  - checking widths and layout: no horizontal scroll at 390px, nothing clipped at 1280px
+  - reading console errors and failed network requests while developing
+
+  Save any login state only as `.playwright-cli/<name>.json`.
 
 ## Tickets and resuming
 
@@ -186,7 +192,7 @@ Never go from the map straight to implement unless the effort turned out small. 
 
 ### One-skill flows
 
-- Mid-merge or mid-rebase → `resolving-merge-conflicts`.
+- Mid-merge or mid-rebase → no skill (upstream dropped `resolving-merge-conflicts`): resolve each conflict by intent, never `--abort`, run `make check`, then finish the merge or rebase.
 - A question to answer from primary sources → `research`; where the file goes is in CLAUDE.md § Workflow.
 - Writing or editing a skill, `CLAUDE.md`, a `.claude/rules/` file or another agent doc → `writing-for-agents`, keeping each rule in one home (`CLAUDE.md` § Rules); vendored skills are never edited (CLAUDE.md § Where the skills come from).
 
@@ -199,18 +205,15 @@ Never go from the map straight to implement unless the effort turned out small. 
 
 ## Guide the user on ponytail
 
-Ponytail's hooks have two quirks; tell the user when they bite:
-
-- **After `/ponytail-review`**: it leaves the session in review mode, and subagents then get a one-line stub instead of ponytail's rules. Tell the user: "Type `/ponytail full` to leave review mode. `stop ponytail-review` isn't recognised, and `stop ponytail` switches ponytail off entirely."
-- **Before a `/clear` or `/compact`**, if the session's ponytail level isn't the default (the `PONYTAIL MODE ACTIVE — level:` line): the level resets to the default. Add to the instruction: "then `/ponytail <level>` again, or `/ponytail default <level>` to keep it for every session".
+Ponytail's one quirk: **before a `/clear`**, if the session's ponytail level isn't the default (the `PONYTAIL MODE ACTIVE — level:` line), the level resets to the default (`/compact` keeps it). Add to the instruction: "then `/ponytail <level>` again, or `/ponytail default <level>` to keep it for every session".
 
 ## All skills
 
-- **Planning**: `grill-with-docs` (interview that records terms in `CONTEXT.md` and ADRs in `docs/adr/`), `grilling` (the bare interview), `to-spec` (spec as a tracker issue), `to-tickets` (tracer-bullet tickets with blocking edges), `wayfinder` (map of decision tickets), `triage` (raw issues to agent-ready ones).
+- **Planning**: `grill-with-docs` (interview that records terms in `GLOSSARY.md` and ADRs in `docs/adr/`), `grilling` (the bare interview), `to-spec` (spec as a tracker issue), `to-tickets` (tracer-bullet tickets with blocking edges), `wayfinder` (map of decision tickets), `triage` (raw issues to agent-ready ones).
 - **Building**: `implement` (per ticket, test-first, closes with review), `tdd` (red-green at the agreed seams), `code-review` (Standards and Spec axes against a fixed point), `skeptic-pass` (independent agents try to refute a frozen head), `pr` (the PR body).
-- **Debugging**: `diagnosing-bugs` (feedback loop first, then a regression test), `guardrail-from-incident` (every sibling of a fixed bug, and a guard for the whole class), `resolving-merge-conflicts` (by intent; never `--abort`).
-- **UI**: `impeccable` (the design workflow, briefed by `PRODUCT.md` from `impeccable init` and `DESIGN.md` from `impeccable document` or new-work; `live` is local-only), `playwright-cli` (open pages served by the preview command and screenshot them).
-- **Code health**: `improve-codebase-architecture` (deepening opportunities), `codebase-design` (deep-module vocabulary), `domain-modeling` (sharpen a `CONTEXT.md` term or record an ADR), `add-baseline` (adopt a strict rule with a baseline that only shrinks), `claim-sweep` (test agent docs' claims against the code), `ponytail-review` (over-engineering in a diff), `ponytail-audit` (in the whole repo), `ponytail-debt` (every `ponytail:` comment), `ponytail`, `ponytail-help`, `ponytail-gain` (the always-on lazy mode, its command card, its benchmarks).
+- **Debugging**: `diagnosing-bugs` (feedback loop first, then a regression test), `guardrail-from-incident` (every sibling of a fixed bug, and a guard for the whole class).
+- **UI**: `impeccable` (the design workflow, briefed by `PRODUCT.md` from `impeccable init` and `DESIGN.md` from `impeccable document` or new-work; `live` is local-only), `playwright-cli` (when to use it: the screenshot step above; not a test seam).
+- **Code health**: `improve-codebase-architecture` (deepening opportunities), `codebase-design` (deep-module vocabulary), `domain-modeling` (sharpen a `GLOSSARY.md` term or record an ADR), `add-baseline` (adopt a strict rule with a baseline that only shrinks), `claim-sweep` (test agent docs' claims against the code), `ponytail-review` (over-engineering in a diff), `ponytail-audit` (in the whole repo), `ponytail-debt` (every `shortcut:` and older `ponytail:` comment), `ponytail`, `ponytail-help`, `ponytail-gain` (the always-on lazy mode, its command card, its benchmarks).
 - **Research and writing**: `research` (cited Markdown from primary sources), `writing-for-agents` (skills, `CLAUDE.md`, agent docs).
 - **Session**: `wait-what` (re-explain the last message), `handoff` (a handoff document for another agent or directory).
 - **Setup**: `setup-matt-pocock-skills` (tracker, triage labels, doc layout into `docs/agents/`; run once when adopting this template).
