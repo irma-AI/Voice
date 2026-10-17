@@ -25,7 +25,7 @@ A Business's public address (`/call/<unguessable>/` on the Portal) where anyone 
 _Avoid_: public URL, widget
 
 **Call button**:
-A button a Business pastes into its own website with a snippet from the Portal. It opens the call page for that Business, and works only from the website addresses the Business lists.
+A link a Business pastes into its own website, from a snippet on its dashboard. It opens the Business's call link in a new window.
 _Avoid_: widget, embed
 
 **Barge-in**:

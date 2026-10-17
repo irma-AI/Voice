@@ -13,7 +13,7 @@ paths:
 - The Portal stores a Module's name and address only, never a credential (the database refuses an address with a user, password, query or fragment); the address and the Module's answers stay out of its logs.
 - The Portal holds a Business's email and name: personal data. They stay out of logs and error messages (the audit log names an account id), and an invite or reset link is a credential: it only ever goes by email, and prints to the console only on a local run (`DEBUG=1`).
 - A Business's call link (`Business.call_slug`) is a credential for starting calls on Petter's Google key, with no limit yet: the dashboard shows it only to that Business, and it never goes in a log the core writes.
-- The call button (`call_from_site`) hands out a ticket only to a page whose `Origin` is in the Business's list, compared as exact text; it stops the button on other websites, not calls: the call link is open, so any page can open it and a script can write its own `Origin`. A refusal is logged by Django with its path, which holds the slug (as the call link's own requests do); whether production logs keep it is not checked. The list is Business-chosen and stored as https origins only (the database refuses anything else).
+- The call button snippet puts a Business's call link (and so its slug) in the HTML of that Business's own website: the link is public by design, so that is no new exposure.
 - Test fixtures use synthetic people only: generated names, +46 numbers we own or reserved test numbers, and personnummer that pass the checksum and are marked synthetic.
 - Any real recording sits outside the repo.
 

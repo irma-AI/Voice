@@ -12,7 +12,6 @@ from django.db import models
 from django.db.models.functions import Lower, Trim
 
 from portal.accounts import modules as module_rules
-from portal.accounts import website
 
 log = logging.getLogger(__name__)
 
@@ -78,10 +77,6 @@ class Business(models.Model):
     max_minutes_per_day = models.IntegerField(default=30)
     # The public call link is /call/<call_slug>/; unique in the database, so one link is one Business.
     call_slug = models.CharField(max_length=40, unique=True, default=new_call_slug)
-    # The websites whose call button may start a call (portal/accounts/website.py); the shape of each is a check in migration 0006.
-    website_addresses = ArrayField(
-        models.CharField(max_length=300), blank=True, default=list
-    )
 
     class Meta:
         constraints = [
@@ -93,10 +88,6 @@ class Business(models.Model):
                 condition=models.Q(languages__len__gte=1)
                 & models.Q(languages__contained_by=list(LANGUAGES)),
                 name="business_languages_must_be_one_or_more_known",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(website_addresses__len__lte=website.ADDRESSES_MAX),
-                name="business_must_list_at_most_5_websites",
             ),
             models.CheckConstraint(
                 condition=models.Q(max_calls_per_day__gte=0),

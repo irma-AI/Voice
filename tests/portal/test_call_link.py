@@ -6,6 +6,7 @@ The ticket is checked by the core's own code (voice/ticket.py), as in tests/port
 """
 
 import time
+from html import unescape
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -79,6 +80,17 @@ def test_the_dashboard_shows_a_business_its_own_link() -> None:
     bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
     page = client.get("/dashboard/").content.decode()
     assert f"https://portal.example.se/call/{anna.call_slug}/" in page
+    assert bo.call_slug not in page
+
+
+def test_the_dashboard_shows_the_button_snippet_for_its_own_link_only() -> None:
+    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
+    page = unescape(client.get("/dashboard/").content.decode())
+    assert (
+        f'<a href="https://portal.example.se/call/{anna.call_slug}/" target="_blank" rel="noopener">Prata med vår AI-assistent</a>'
+        in page
+    )
     assert bo.call_slug not in page
 
 
