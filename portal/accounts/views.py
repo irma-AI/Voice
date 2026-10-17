@@ -110,7 +110,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
 def calls(request: HttpRequest) -> HttpResponse:
     """The logged-in Business's recent calls: start, length, kind. No cost, no call id."""
     business = Business.objects.filter(account=request.user).first()
-    # shortcut: lists every record, no paging or cut-off (how many to show is Petter's call, DECISIONS.md ESCALATED); add paging before a Business has thousands.
+    # shortcut: lists every record, no paging (Petter chose "All calls", DECISIONS.md); add paging before a Business has thousands.
     records = (
         CallRecord.objects.filter(business=business).order_by("-started_at")
         if business

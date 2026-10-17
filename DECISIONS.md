@@ -232,3 +232,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-17] VOI-43: TIME_ZONE is read from the environment (default UTC) and a name that is not a time zone stops the Portal, so a typo cannot show wrong times; the hosted Portal's Stockholm is set on Dokploy, not in code (market-neutral).
 [2026-10-17] VOI-43: the calls page lists every record with no cut-off: how many to show is a product number no card from Petter settled, so none was built in.
 [2026-10-17] ESCALATED: how many past calls should a Business's calls page show (all of them today)? -> Petter
+[2026-10-17] RESOLVED 2026-10-17: Petter chose "All calls" on a card: the calls page lists every call; paging comes when a Business has enough calls to need it.
