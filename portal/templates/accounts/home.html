@@ -7,6 +7,7 @@
   <a href="{% url 'home' %}" class="land-wordmark">Voice</a>
   <nav aria-label="Main">
     <a href="#use-cases" class="land-navlink land-wide">Use cases</a>
+    <a href="#portal" class="land-navlink land-wide">The Portal</a>
     <a href="https://github.com/irma-AI/Voice#self-host" class="land-navlink land-wide">Self-host</a>
     {% if user.is_authenticated %}
       <a href="{% url 'dashboard' %}" class="land-navlink">Your dashboard</a>
@@ -94,6 +95,28 @@
       <li class="use"><h3>Hands the call to a person</h3><p>When the caller asks for someone, or the agent can't finish.</p><span class="mark mark-planned">Planned</span></li>
       <li class="use"><h3>Lets your own agents run Voice</h3><p>Everything you can do in the Portal, offered to your agents as an MCP tool.</p><span class="mark mark-planned">Planned</span></li>
     </ul>
+  </section>
+
+  <section id="portal" class="land-section" aria-labelledby="portal-title">
+    <h2 id="portal-title" class="land-h2">Set up your agent in the Portal.</h2>
+    <p class="land-lede">Name your agent, write what it should know, choose its languages, then connect the Modules it uses mid-call. This is the Portal's own settings form and Module list, filled in with an example.</p>
+    <p class="mb-6 text-xs text-foam-muted">Example Business · illustrative, not real data. Nothing here can be edited.</p>
+    <div class="grid gap-x-16 gap-y-14 border-t border-granite pt-10 lg:grid-cols-2">
+      <div class="max-w-md">
+        <h3 class="font-serif text-[1.75rem] leading-[1.15]">Your agent</h3>
+        <p class="mt-1 text-sm text-foam-muted">Name, facts and languages. A change applies from the next call.</p>
+        <form class="mt-6 space-y-5" aria-label="Example settings">
+          <fieldset disabled class="m-0 min-w-0 space-y-5 border-0 p-0">{{ example_form.as_div }}</fieldset>
+        </form>
+      </div>
+      <div>
+        <h3 class="font-serif text-[1.75rem] leading-[1.15]">Its Modules</h3>
+        <p class="mt-1 text-sm text-foam-muted">A Module gives your agent things to do during a call.</p>
+        <ul class="mt-6 border-t border-granite">
+          <li class="border-b border-granite py-5">{% include "accounts/_module_row.html" with module=example_module offered=example_offer example=True %}</li>
+        </ul>
+      </div>
+    </div>
   </section>
 
   <section class="land-section land-close" aria-labelledby="run-title">
