@@ -20,8 +20,8 @@ from loguru import logger
 
 from voice.settings import NoRedirect
 
-# The model the core's calls run on, as named in voice/agent.py (MODEL; tests/test_cost_catalogue.py fails when the two differ).
-PRICED_MODEL = "models/gemini-3.8-live"
+# The model the core's calls run on and the one the price lookup prices; voice/agent.py imports it, so there is one name.
+MODEL = "models/gemini-3.8-live"
 CATALOGUE_URL = "https://cloudbilling.googleapis.com/v1"
 # The Generative Language API's service in the catalogue. ponytail: not yet seen with the real key (VOI-42's live read); a wrong id reads as `catalogue_unreadable`.
 GEMINI_SERVICE = "AEFD-7695-64FA"
