@@ -5,6 +5,11 @@
       "Bash(linearis:*)"
     ]
   },
+  "enabledPlugins": {
+    "ponytail@synced": false,
+    "impeccable@synced": false,
+    "mattpocock-skills@synced": false
+  },
   "hooks": {
     "SessionStart": [
       {
