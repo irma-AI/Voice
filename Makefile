@@ -3,7 +3,7 @@
 # so CI never passes while checking nothing. A target that does not apply here becomes
 # `@echo "n/a: <reason>"`, which records the choice.
 .DEFAULT_GOAL := help
-.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio seed merge-check check lint typecheck test test-db guards generate generate-check build
+.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio seed check lint typecheck test test-db guards generate generate-check build
 
 unconfigured = @echo "make $(1): not configured yet. Fill in this target for your stack (docs/agents/recipes/)." >&2; exit 1
 
@@ -82,8 +82,5 @@ build: ## Build every configuration this repo ships
 	docker build -t voice .
 	docker build --target portal -t voice-portal-self-host .
 	docker build -f Dockerfile.portal -t voice-portal .
-
-merge-check: ## Is this branch low-risk enough for an agent to turn on auto-merge? (scripts/low-risk-paths.json)
-	node scripts/merge-check.js
 
 check: lint typecheck test test-db guards generate-check build ## Everything CI runs
