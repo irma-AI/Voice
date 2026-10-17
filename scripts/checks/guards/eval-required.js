@@ -4,7 +4,7 @@
 // that matches the files as they are now. CI never runs the paid evals; Petter does, locally.
 // Known limits: a hand-written receipt passes this check, so review checks that the receipt came from `make eval`;
 // and an edit to the list, to scripts/eval-receipt.js or to this guard does not trigger it, but those are
-// scripts/ files, which scripts/merge-check.js never calls low-risk, so Petter reads them before the merge.
+// scripts/ files, which a green PR now merges without Petter reading them (VOI-49).
 // Compares with $GUARD_BASE (CI sets origin/<base branch> on pull requests), else origin/main.
 'use strict';
 const fs = require('fs');
