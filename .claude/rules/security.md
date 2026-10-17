@@ -13,6 +13,7 @@ paths:
 - The Portal stores a Module's name and address only, never a credential (the database refuses an address with a user, password, query or fragment); the address and the Module's answers stay out of its logs.
 - The Portal holds a Business's email and name: personal data. They stay out of logs and error messages (the audit log names an account id), and an invite or reset link is a credential: it only ever goes by email, and prints to the console only on a local run (`DEBUG=1`).
 - A Business's call link (`Business.call_slug`) is a credential for starting calls on Petter's Google key, with no limit yet: the dashboard shows it only to that Business, and it never goes in a log the core writes.
+- The call button snippet puts a Business's call link (and so its slug) in the HTML of that Business's own website: the link is public by design, so that is no new exposure.
 - Test fixtures use synthetic people only: generated names, +46 numbers we own or reserved test numbers, and personnummer that pass the checksum and are marked synthetic.
 - Any real recording sits outside the repo.
 
