@@ -1,6 +1,120 @@
 {% extends "base.html" %}
-{% block content %}
-<h1 class="text-4xl">A voice agent for your business</h1>
-<p class="mt-4 text-foam-muted">Voice answers your callers in Swedish or English. Access is by invitation.</p>
-<p class="mt-8"><a href="{% url 'login' %}" class="pill">Log in</a></p>
+{% load static %}
+{% block title %}Voice for the agentic company{% endblock %}
+{% block head %}<script src="{% static 'portal/turn.js' %}" defer></script>{% endblock %}
+{% block body %}
+<header class="land-nav">
+  <a href="{% url 'home' %}" class="land-wordmark">Voice</a>
+  <nav aria-label="Main">
+    <a href="#use-cases" class="land-navlink land-wide">Use cases</a>
+    <a href="https://github.com/irma-AI/Voice#self-host" class="land-navlink land-wide">Self-host</a>
+    {% if user.is_authenticated %}
+      <a href="{% url 'dashboard' %}" class="land-navlink">Your dashboard</a>
+    {% else %}
+      <a href="{% url 'login' %}" class="land-navlink">Log in</a>
+    {% endif %}
+    {% if contact_email %}<a href="mailto:{{ contact_email }}?subject=Access%20to%20Voice" class="pill land-wide">Request access</a>{% endif %}
+  </nav>
+</header>
+
+<main>
+  <section class="land-hero" aria-labelledby="hero-title">
+    <div class="land-intro">
+      <h1 id="hero-title" class="land-title">Voice for the agentic company.</h1>
+      <p class="land-sub">Voice answers your callers and gets things done through Modules. Connect any service that speaks MCP, and your agent can use it <span class="whitespace-nowrap">mid-call.</span></p>
+      <p class="land-actions">
+        {% if contact_email %}<a href="mailto:{{ contact_email }}?subject=Access%20to%20Voice" class="pill">Request access</a>{% endif %}
+        <a href="https://github.com/irma-AI/Voice#self-host" class="land-link">Open code · Self-host it</a>
+      </p>
+
+      {# Phones: the current step and line, beside the rail. The words are in #turn-script for screen readers. #}
+      <div class="turn-live" aria-hidden="true">
+        <p class="turn-live-step"><span data-turn="step-name"></span> <em data-turn="step-note"></em></p>
+        <svg class="turn-live-wave" viewBox="-160 -30 320 60"><path data-turn="wave-small" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+        <p class="turn-who" data-turn="live-who"></p>
+        <p class="turn-live-say" data-turn="live-say"></p>
+      </div>
+      <p class="turn-caption turn-caption-phone"><span>Example call · illustrative</span> <button type="button" class="turn-toggle" hidden>Pause</button></p>
+    </div>
+
+    <svg class="turn-rail" viewBox="0 0 40 1000" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="20" y1="0" x2="20" y2="1000" class="turn-rail-track" vector-effect="non-scaling-stroke"/>
+      <line x1="20" y1="0" x2="20" y2="0" class="turn-rail-fill" data-turn="rail-fill" vector-effect="non-scaling-stroke"/>
+      <g data-turn="rail-dots"></g>
+    </svg>
+
+    <figure class="turn-stage">
+      <svg class="turn-ring" viewBox="-410 -330 820 660" aria-hidden="true" data-turn="ring">
+        <g data-turn="ticks"></g>
+        <circle class="turn-track" r="230" fill="none" stroke-width="1.5"/>
+        <circle class="turn-progress" r="230" fill="none" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90)" data-turn="progress"/>
+        <line class="turn-exit" x1="0" y1="0" x2="0" y2="0" stroke-width="1.5" data-turn="exit"/>
+        <g data-turn="steps"></g>
+        <defs><clipPath id="turn-inner"><circle r="200"/></clipPath></defs>
+        <g clip-path="url(#turn-inner)"><path data-turn="wave" fill="none" stroke-width="2" stroke-linecap="round"/></g>
+        <g class="turn-line turn-line-prev" data-turn="prev"><text class="turn-who" x="-170" y="-104"></text><text class="turn-say" x="-170" y="-74"></text></g>
+        <g class="turn-line" data-turn="cur"><text class="turn-who" x="-170" y="40"></text><text class="turn-say" x="-170" y="72"></text></g>
+      </svg>
+      <figcaption class="turn-caption"><span>Example call · illustrative</span> <button type="button" class="turn-toggle" hidden>Pause</button></figcaption>
+    </figure>
+
+    {# The one copy of the example call: turn.js reads its timings from here, and screen readers read its words. Placeholder until Petter writes the script. #}
+    <div class="sr-only">
+      <h2>The example call, in words</h2>
+      <p>An animated ring shows one example call as it happens. Time fills the ring, the words run inside it, and each step the agent takes appears on it as a dot.</p>
+      <ol id="turn-script" data-loop="46">
+        <li data-step data-t="0.5" data-name="Caller" data-note="Call answered">Step: Caller. Call answered.</li>
+        <li data-line data-t="1" data-end="5.5" data-who="Caller">Caller: Hi, I have a cut on Thursday at ten.</li>
+        <li data-line data-t="6" data-end="9.5" data-who="Caller">Caller: Could I move it to Friday?</li>
+        <li data-step data-t="7.5" data-name="Instructions" data-note="Opening hours read">Step: Instructions. Opening hours read.</li>
+        <li data-line data-t="12" data-end="15.5" data-who="Agent">Agent: Of course. Let me look at Friday.</li>
+        <li data-step data-t="12.5" data-name="Agent" data-note="Moving a booking">Step: Agent. Moving a booking.</li>
+        <li data-step data-t="16.5" data-name="MCP · Bookings" data-note="Friday 14:00 free">Step: MCP · Bookings. Friday 14:00 free.</li>
+        <li data-line data-t="18.5" data-end="22" data-who="Agent">Agent: Friday at two is free. Shall I?</li>
+        <li data-line data-t="23" data-end="25" data-who="Caller">Caller: Yes, please.</li>
+        <li data-step data-t="26" data-name="MCP · Bookings" data-note="Booking moved">Step: MCP · Bookings. Booking moved.</li>
+        <li data-line data-t="27" data-end="29.5" data-who="Agent">Agent: Done. Friday at two.</li>
+        <li data-line data-t="31" data-end="35" data-who="Caller">Caller: Could I talk to someone about a gift card?</li>
+        <li data-line data-t="36.5" data-end="40" data-who="Agent">Agent: Of course. Putting you through now.</li>
+        <li data-step data-t="41" data-name="Human" data-note="Hand-off · Planned" data-planned>Step: Human. Hand-off to a person, which is planned and not built yet.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="use-cases" class="land-section" aria-labelledby="use-cases-title">
+    <h2 id="use-cases-title" class="land-h2">What it does today, and what needs a Module.</h2>
+    <p class="land-lede">Voice builds no integrations. What your agent can do in a call comes from the Modules you connect. Each use says whether it works today, needs a Module, or is planned.</p>
+    <ul class="uses">
+      <li class="use"><h3>Answers callers on your website</h3><p>A Call button on your site opens a call with your agent, right in the browser.</p><span class="mark mark-today">Works today</span></li>
+      <li class="use"><h3>Speaks Swedish or English</h3><p>It answers in the languages you choose for your Business.</p><span class="mark mark-today">Works today</span></li>
+      <li class="use"><h3>Answers from your facts</h3><p>Write your opening hours, services and prices as plain text. The agent answers from them.</p><span class="mark mark-today">Works today</span></li>
+      <li class="use"><h3>Shows your recent calls</h3><p>When each call started and how long it ran, in the Portal.</p><span class="mark mark-today">Works today</span></li>
+      <li class="use"><h3>Moves and books appointments</h3><p>Connect your booking system's MCP server, and the agent uses it mid-call.</p><span class="mark mark-module">With a Module</span></li>
+      <li class="use"><h3>Looks things up for the caller</h3><p>An order's status, a free table, a delivery date: whatever a Module you add can answer.</p><span class="mark mark-module">With a Module</span></li>
+      <li class="use"><h3>Hands the call to a person</h3><p>When the caller asks for someone, or the agent can't finish.</p><span class="mark mark-planned">Planned</span></li>
+      <li class="use"><h3>Lets your own agents run Voice</h3><p>Everything you can do in the Portal, offered to your agents as an MCP tool.</p><span class="mark mark-planned">Planned</span></li>
+    </ul>
+  </section>
+
+  <section class="land-section land-close" aria-labelledby="run-title">
+    <h2 id="run-title" class="land-h2">We run it, or you do.</h2>
+    <div class="land-ways">
+      <div>
+        <h3>Hosted</h3>
+        <p>We run Voice for you, and you don't need a Google key of your own. Access is by invitation.</p>
+        {% if contact_email %}<p class="land-way-action"><a href="mailto:{{ contact_email }}?subject=Access%20to%20Voice" class="pill">Request access</a></p>{% endif %}
+      </div>
+      <div>
+        <h3>Self-hosted</h3>
+        <p>The core and the Portal are open code. Run them on your own machine, with your own Google key.</p>
+        <p class="land-way-action"><a href="https://github.com/irma-AI/Voice#self-host" class="land-link">Open code · Self-host it</a></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="land-foot">
+  <span class="land-wordmark">Voice</span>
+  {% if user.is_authenticated %}<a href="{% url 'dashboard' %}" class="land-navlink">Your dashboard</a>{% else %}<a href="{% url 'login' %}" class="land-navlink">Log in</a>{% endif %}
+</footer>
 {% endblock %}
