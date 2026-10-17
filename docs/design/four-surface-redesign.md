@@ -2,7 +2,7 @@
 
 Written 2026-10-17 from a grilling session with Petter (`/next-step` → Feature flow → `grill-with-docs`). It holds what each surface must do and what Petter decided. The look is not decided here: it comes next from `/impeccable` new-work (§1–5, decision page) and lands in `DESIGN.md`. Then `to-spec` and `to-tickets` work from this file.
 
-Context it builds on: `PRODUCT.md`, `CONTEXT.md` (Theme and Live transcript were added in this session), ADR 0001 and 0002, the embedded Call button spec VOI-69 and `docs/research/embedded-call-button.md`.
+Context it builds on: `PRODUCT.md`, `GLOSSARY.md` (Theme and Live transcript were added in this session), ADR 0001 and 0002, the embedded Call button spec VOI-69 and `docs/research/embedded-call-button.md`.
 
 ## The ask
 
@@ -42,7 +42,7 @@ Petter, verbatim: "The current design is just placeholder for testing but i want
 ## 3. Call page
 
 - **Where it lives now:** the core serves it, and since VOI-71 it opens only inside a frame on the Business's own website (the saved Website domain, `frame-ancestors`). VOI-73 (in progress in another session) builds the loader script, the launcher and the panel. This redesign **styles what VOI-73 ships**, and its ticket waits on VOI-73.
-- **Identity:** per-Business Theme (Petter chose this over the Business name set in Voice's style). The Business's logo and accent colour show on the page. This changes the rule in `CONTEXT.md` and `PRODUCT.md`: a Business's settings are now a name, free-text facts, languages and a Theme.
+- **Identity:** per-Business Theme (Petter chose this over the Business name set in Voice's style). The Business's logo and accent colour show on the page. This changes the rule in `GLOSSARY.md` and `PRODUCT.md`: a Business's settings are now a name, free-text facts, languages and a Theme.
 - **Language:** English page text for now (Petter: "English for now as it's open source and agnostic but we should probably add translations"). The agent still speaks the Business's languages.
 - **Disclosure in writing:** shown before the Caller presses start and for the whole call. Petter approved the English line on 2026-10-17, verbatim: "You are talking to an AI assistant." The agent keeps saying the Swedish line ("Du pratar med en AI-assistent.") aloud on Swedish calls. Design places these lines and never rewords them.
 - **During a call:** who is speaking (agent or Caller) and a **Live transcript** of both sides. Shown only, never kept, and not part of the Call record.

@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Voice is the voice core: it connects a phone or browser call to a live AI voice model and runs the call. `portal/` is the Portal, the Django web app where a Business logs in (ADR 0002). Glossary: `CONTEXT.md`. Decisions: `docs/adr/` and `DECISIONS.md`.
+Voice is the voice core: it connects a phone or browser call to a live AI voice model and runs the call. `portal/` is the Portal, the Django web app where a Business logs in (ADR 0002). Glossary: `GLOSSARY.md`. Decisions: `docs/adr/` and `DECISIONS.md`.
 
 ## Hard rules
 
