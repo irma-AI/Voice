@@ -9,6 +9,7 @@ import re
 from urllib.parse import urlsplit
 
 ADDRESSES_MAX = 5
+ORIGIN_MAX = 300  # the column Business.website_addresses holds
 # Lower case, no trailing dot, no wildcard, no path: what a browser writes in `Origin` for a https page.
 ORIGIN_PATTERN = r"^https://[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:[0-9]{1,5})?$"
 
@@ -33,10 +34,17 @@ def parse_origin(line: str) -> str:
     try:
         host = parts.hostname.encode("idna").decode()  # åäö domains: browsers send xn--
         port = parts.port
+        # Python's codec is IDNA 2003: it silently rewrites ß, ς and invisible characters, where a browser sends another
+        # name. A typed name that does not survive the round trip is refused, so the stored name is always the typed one.
+        if (
+            not parts.hostname.isascii()
+            and host.encode().decode("idna") != parts.hostname
+        ):
+            raise bad
     except (UnicodeError, ValueError):
         raise bad from None
     origin = f"https://{host}" + (f":{port}" if port not in (None, 443) else "")
-    if not re.fullmatch(ORIGIN_PATTERN, origin):
+    if len(origin) > ORIGIN_MAX or not re.fullmatch(ORIGIN_PATTERN, origin):
         raise bad
     return origin
 

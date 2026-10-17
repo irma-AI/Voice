@@ -18,6 +18,7 @@
       })
       .then(function (answer) {
         if (win) win.location.href = answer.url;
+        else window.location.href = answer.url; // the browser blocked the new window: use this one
       })
       .catch(function (e) {
         if (win) win.close();

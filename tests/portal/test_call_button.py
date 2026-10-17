@@ -174,6 +174,29 @@ def test_a_swedish_letter_in_the_address_is_written_the_way_the_browser_sends_it
     assert parse_addresses("https://räksmörgås.se") == ["https://xn--rksmrgs-5wao1o.se"]
 
 
+def test_a_name_python_would_rewrite_differently_from_a_browser_is_refused() -> None:
+    # IDNA 2003 turns ß into ss and drops invisible characters; a browser sends the xn-- name, so storing the rewrite
+    # would fail the owner's real site and authorise another domain.
+    for typed in [
+        "https://Straße.de",
+        "https://faß.de",
+        "https://ex\u200bample.com",
+        "https://ex\u00adample.com",
+    ]:
+        with pytest.raises(ValueError):
+            parse_addresses(typed)
+    assert parse_addresses("https://xn--stra-yna.de") == ["https://xn--stra-yna.de"]
+
+
+def test_a_host_too_long_for_the_column_is_a_form_error_not_a_crash() -> None:
+    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    host = ".".join(["a" * 60] * 5) + ".com"
+    response = client.post("/website-button/", {"addresses": f"https://{host}"})
+    assert response.status_code == 200 and "errorlist" in response.content.decode()
+    anna.refresh_from_db()
+    assert anna.website_addresses == []
+
+
 def test_a_bad_list_is_refused_and_changes_nothing() -> None:
     anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     listing(anna, SITE)
