@@ -4,6 +4,7 @@
 <h1 class="text-2xl font-semibold">{{ business.name|default:"Your account" }}</h1>
 <p class="mt-4"><a href="{% url 'business_settings' %}" class="underline">Edit your agent's settings</a></p>
 <p class="mt-2"><a href="{% url 'modules' %}" class="underline">Your agent's Modules</a></p>
+<p class="mt-2"><a href="{% url 'calls' %}" class="underline">Your recent calls</a></p>
 {% if business %}
 <form method="post" action="{% url 'test_call' %}" class="mt-6">
   {% csrf_token %}
