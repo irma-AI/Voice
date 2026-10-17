@@ -17,7 +17,7 @@ Passing a call to a person, or taking a message, when the agent cannot finish it
 _Avoid_: transfer, escalation
 
 **Business**:
-The business whose calls the agent answers, with its own facts and Modules. One Business is one Portal account. Its settings are a name, free-text facts and languages; anything more structured for the agent comes as a Module, never as a fixed Portal field.
+The business whose calls the agent answers, with its own facts and Modules. One Business is one Portal account. Its settings are a name, free-text facts, languages and a Theme; anything more structured for the agent comes as a Module, never as a fixed Portal field.
 _Avoid_: tenant, customer, clinic, client, agency
 
 **Call link**:
@@ -31,6 +31,14 @@ _Avoid_: widget, embed
 **Website domain**:
 The registrable domain of a Business's own website (`example.se` for `www.shop.example.se`), saved in its Portal settings. The Portal holds it and puts it on a Call link's ticket, so the call page can be framed only by that site; the agent's settings do not carry it.
 _Avoid_: site, URL, host
+
+**Theme**:
+A Business's logo and one accent colour, shown to its Callers on the call page and the Call button. The Portal and Voice's own pages keep Voice's look.
+_Avoid_: branding, skin, white-label
+
+**Live transcript**:
+The words of a call shown to the Caller on the call page while it runs, for both sides. Shown only, never kept: it is not part of the Call record.
+_Avoid_: transcript log, captions
 
 **Test call**:
 A call a Business starts from its own Portal to try its agent. Every other call comes through its Call link.
