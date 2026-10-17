@@ -1865,6 +1865,15 @@ wheels = [
 ]
 
 [[package]]
+name = "publicsuffixlist"
+version = "1.1.0.20261017"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/b5/a921b5b669241f5a0b55b097f9adc646b6e56eac522926b99d8421b83527/publicsuffixlist-1.1.0.20261017.tar.gz", hash = "sha256:eb1e5896671b10d57b3c14cf4e48be5a9c920879b5e91c234a8e158c0730504b", size = 106617, upload-time = "2026-10-17T07:41:59.224Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/76/8364493b415c9a18b4c4e11f61e6492d275ae0c1ed03b8605dd866b0c34c/publicsuffixlist-1.1.0.20261017-py3-none-any.whl", hash = "sha256:416a455ca61a3c0795924bc8319f58795759adc2d02154bc3248f3a27bf3a209", size = 109376, upload-time = "2026-10-17T07:41:57.949Z" },
+]
+
+[[package]]
 name = "pyasn1"
 version = "0.6.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2664,8 +2673,10 @@ portal = [
     { name = "dj-database-url" },
     { name = "django" },
     { name = "gunicorn" },
+    { name = "idna" },
     { name = "mcp" },
     { name = "psycopg", extra = ["binary"] },
+    { name = "publicsuffixlist" },
     { name = "whitenoise" },
 ]
 
@@ -2691,8 +2702,10 @@ portal = [
     { name = "dj-database-url" },
     { name = "django" },
     { name = "gunicorn", specifier = ">=26.2.0" },
+    { name = "idna", specifier = ">=3.20" },
     { name = "mcp" },
     { name = "psycopg", extras = ["binary"] },
+    { name = "publicsuffixlist", specifier = ">=1.1.0.20261017" },
     { name = "whitenoise", specifier = ">=6.12.0" },
 ]
 

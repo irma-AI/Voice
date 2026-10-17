@@ -28,6 +28,10 @@ _Avoid_: public URL, widget
 A link a Business pastes into its own website, from a snippet on its dashboard. It opens the Business's call link in a new window.
 _Avoid_: widget, embed
 
+**Website domain**:
+The registrable domain of a Business's own website (`example.se` for `www.shop.example.se`), saved in its Portal settings. Only the Portal holds it; the agent's settings and the call ticket do not carry it.
+_Avoid_: site, URL, host
+
 **Test call**:
 A call a Business starts from its own Portal to try its agent. Every other call comes through its Call link.
 _Avoid_: demo call, trial call
