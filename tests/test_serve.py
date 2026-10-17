@@ -1,18 +1,32 @@
 """Seam 2: the web Channel's pure rules, free. The audio converter, the same-site check, and the call page.
 
 The call page's Theme comes from a real local server standing in for the Portal (tests/test_settings_port.py).
+The Live transcript runs through a real Pipecat pipeline and socket, with a stand-in for the model.
 """
 
 import asyncio
+import json
 import time
 
 import pytest
+from fastapi import FastAPI, WebSocket
+from loguru import logger
 from pipecat.frames.frames import (
+    Frame,
     InputAudioRawFrame,
     InterruptionFrame,
+    LLMTextFrame,
     OutputAudioRawFrame,
     TextFrame,
+    TranscriptionFrame,
+    TTSTextFrame,
 )
+from pipecat.pipeline.pipeline import Pipeline
+from pipecat.pipeline.worker import PipelineWorker
+from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
+from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams
+from pipecat.utils.text.base_text_aggregator import AggregationType
+from pipecat.workers.runner import WorkerRunner
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
@@ -215,3 +229,99 @@ def test_the_typefaces_are_open_and_nothing_else_under_them() -> None:
     assert font.content[:4] == b"wOF2"
     for path in ("/fonts/Geist-OFL.txt", "/fonts/nope.woff2", "/fonts/../page.html"):
         assert client.get(path).status_code in (403, 404), path
+
+
+class StandInModel(FrameProcessor):
+    """Stands in for Gemini Live: on the Caller's first audio it sends what Pipecat's service sends for a turn."""
+
+    def __init__(self) -> None:
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]  # untyped kwargs upstream
+        self.spoke = False
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
+        await super().process_frame(frame, direction)
+        await self.push_frame(frame, direction)
+        if isinstance(frame, InputAudioRawFrame) and not self.spoke:
+            self.spoke = True
+            await self.push_frame(
+                TranscriptionFrame(CALLER_SAID, "", "now"), FrameDirection.UPSTREAM
+            )
+            await self.push_frame(LLMTextFrame(AGENT_SAID))  # the same words twice
+            await self.push_frame(TTSTextFrame(AGENT_SAID, AggregationType.SENTENCE))
+
+
+class TakesTheCallersWords(FrameProcessor):
+    """Stands in for the context aggregator, which takes the Caller's transcript before it reaches the input."""
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
+        await super().process_frame(frame, direction)
+        if not isinstance(frame, TranscriptionFrame):
+            await self.push_frame(frame, direction)
+
+
+CALLER_SAID = "Hej, har ni öppet på lördag?"  # synthetic
+AGENT_SAID = "Ja, mellan tio och tre."
+
+
+def test_the_live_transcript_reaches_the_page_with_its_speaker_and_no_log() -> None:
+    logged: list[str] = []
+    sink = logger.add(lambda m: logged.append(str(m)), level="DEBUG")
+    app = FastAPI()
+
+    @app.websocket("/ws")
+    async def call(websocket: WebSocket) -> None:  # pyright: ignore[reportUnusedFunction]
+        await websocket.accept()
+        transport = serve.CallTransport(
+            websocket,
+            FastAPIWebsocketParams(
+                audio_in_enabled=True,
+                audio_out_enabled=True,
+                audio_in_sample_rate=serve.IN_RATE,
+                audio_out_sample_rate=serve.OUT_RATE,
+                serializer=RawPcmSerializer(),
+            ),
+        )
+        steps = [
+            transport.input(),
+            TakesTheCallersWords(),
+            StandInModel(),
+            transport.output(),
+        ]
+        runner = WorkerRunner(handle_sigint=False)
+        await runner.add_workers(PipelineWorker(Pipeline(steps)))
+
+        @transport.event_handler("on_client_disconnected")
+        async def _gone(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
+            await runner.cancel()
+
+        await runner.run()
+
+    try:
+        with TestClient(app).websocket_connect("/ws") as ws:
+            ws.send_bytes(b"\x00\x00" * 320)
+            got = [json.loads(ws.receive_text()) for _ in range(2)]
+    finally:
+        logger.remove(sink)
+    assert sorted(got, key=lambda m: m["speaker"]) == [
+        {"type": "transcript", "speaker": "agent", "text": AGENT_SAID},
+        {"type": "transcript", "speaker": "caller", "text": CALLER_SAID},
+    ]
+    assert logged, "nothing was logged, so the check below proves nothing"
+    assert not [line for line in logged if CALLER_SAID in line or AGENT_SAID in line]
+
+
+def test_transcript_messages_name_the_speaker() -> None:
+    caller = TranscriptionFrame("Hej", "", "now")
+    agent = TTSTextFrame("Hej hej", AggregationType.SENTENCE)
+    assert json.loads(asyncio.run(RawPcmSerializer().serialize(caller)) or "") == {
+        "type": "transcript",
+        "speaker": "caller",
+        "text": "Hej",
+    }
+    assert json.loads(asyncio.run(RawPcmSerializer().serialize(agent)) or "") == {
+        "type": "transcript",
+        "speaker": "agent",
+        "text": "Hej hej",
+    }
+    # The agent's words also come as an LLMTextFrame; the page gets them once.
+    assert asyncio.run(RawPcmSerializer().serialize(LLMTextFrame("Hej hej"))) is None

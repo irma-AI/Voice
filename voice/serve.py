@@ -21,9 +21,14 @@ from pipecat.frames.frames import (
     InputAudioRawFrame,
     InterruptionFrame,
     OutputAudioRawFrame,
+    TranscriptionFrame,
+    TTSTextFrame,
 )
+from pipecat.observers.base_observer import BaseObserver, FramePushed
+from pipecat.processors.frame_processor import FrameProcessorSetup
 from pipecat.serializers.base_serializer import FrameSerializer
 from pipecat.transports.websocket.fastapi import (
+    FastAPIWebsocketOutputTransport,
     FastAPIWebsocketParams,
     FastAPIWebsocketTransport,
 )
@@ -78,7 +83,11 @@ def render_page(settings: Settings | None) -> str:
 
 
 class RawPcmSerializer(FrameSerializer):
-    """Mono 16-bit PCM both ways: bytes in are the Caller's microphone, bytes out are the agent."""
+    """Mono 16-bit PCM both ways: bytes in are the Caller's microphone, bytes out are the agent.
+
+    Text out is JSON: the interrupt, and the Live transcript (GLOSSARY.md), which is shown on the page only:
+    nothing here keeps or logs it.
+    """
 
     async def serialize(self, frame: Frame) -> str | bytes | None:
         if isinstance(frame, OutputAudioRawFrame):
@@ -91,12 +100,64 @@ class RawPcmSerializer(FrameSerializer):
             frame, InterruptionFrame
         ):  # the Caller spoke over the agent: drop queued audio
             return json.dumps({"type": "interrupt"})
+        # Gemini Live's transcription: a sentence the Caller said, or a piece of what the agent says
+        # (its text also comes as an LLMTextFrame, which is left out so the page gets it once).
+        if isinstance(frame, TranscriptionFrame):
+            return json.dumps(
+                {"type": "transcript", "speaker": "caller", "text": frame.text}
+            )
+        if isinstance(frame, TTSTextFrame):
+            return json.dumps(
+                {"type": "transcript", "speaker": "agent", "text": frame.text}
+            )
         return None
 
     async def deserialize(self, data: str | bytes) -> Frame | None:
         if isinstance(data, bytes):
             return InputAudioRawFrame(audio=data, sample_rate=IN_RATE, num_channels=1)
         return None
+
+
+class _TranscriptOutput(FastAPIWebsocketOutputTransport):
+    """The socket's output, which also sends the Live transcript to the page through the serializer.
+
+    The agent's words come downstream and wait in the output's queue behind the audio before them, so they show as
+    they are heard and are dropped with it on an interruption. The Caller's words go upstream from the model and are
+    taken by the context aggregator before they reach the input, so an observer of the pipeline (Pipecat's own way
+    to watch frames) picks them up; the pipeline itself is the agent's (voice/agent.py) and is left as it is.
+    """
+
+    async def setup(self, setup: FrameProcessorSetup) -> None:
+        await super().setup(setup)
+        setup.pipeline_worker.add_observer(_CallerWords(self))
+
+    async def write_transport_frame(self, frame: Frame) -> None:
+        if isinstance(frame, TTSTextFrame):
+            # ponytail: Pipecat's private sender (pinned 1.12.0); move to a public one if it gets one.
+            await self._write_frame(frame)  # pyright: ignore[reportPrivateUsage]
+
+
+class _CallerWords(BaseObserver):
+    """Hands each sentence the Caller said to the socket's output, once (its first push)."""
+
+    def __init__(self, output: _TranscriptOutput) -> None:
+        super().__init__(observe_every_push=False)  # pyright: ignore[reportUnknownMemberType]  # untyped kwargs upstream
+        self._output = output
+
+    async def on_push_frame(self, data: FramePushed) -> None:
+        if isinstance(data.frame, TranscriptionFrame):
+            await self._output._write_frame(data.frame)  # pyright: ignore[reportPrivateUsage]
+
+
+class CallTransport(FastAPIWebsocketTransport):
+    """Pipecat's FastAPI WebSocket transport, with an output that also sends the Live transcript."""
+
+    def __init__(self, websocket: WebSocket, params: FastAPIWebsocketParams) -> None:
+        super().__init__(websocket, params)
+        # ponytail: replaces Pipecat's output after it is built (pinned 1.12.0); it takes no output class to use instead.
+        self._output = _TranscriptOutput(
+            self, self._client, self._params, name=self._output_name
+        )
 
 
 def same_site(origin: str | None, host: str | None) -> bool:
@@ -188,7 +249,7 @@ def create_app(ticket_secret: str) -> FastAPI:
             return await websocket.close(code=1008)
         try:
             await websocket.accept()
-            transport = FastAPIWebsocketTransport(
+            transport = CallTransport(
                 websocket,
                 FastAPIWebsocketParams(
                     audio_in_enabled=True,
