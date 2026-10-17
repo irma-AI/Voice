@@ -256,7 +256,8 @@ class ModuleForm(forms.Form):
 def modules(request: HttpRequest) -> HttpResponse:
     """The Business's Modules, the Actions each offers right now, and the form to add one."""
     business = get_object_or_404(Business, account=request.user)
-    form = ModuleForm(request.POST or None, business=business)
+    checking = request.method == "POST" and "check" in request.POST
+    form = ModuleForm(None if checking else request.POST or None, business=business)
     if request.method == "POST" and form.is_valid():
         try:
             with transaction.atomic():
@@ -271,8 +272,14 @@ def modules(request: HttpRequest) -> HttpResponse:
         else:
             return redirect("modules")
     mine = list(business.modules.order_by("id"))  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
-    offers = probe.what_they_offer(
-        [(m.url, m.command, m.args) for m in mine], settings.ALLOW_LOCAL_MODULES
+    # The Modules are asked only when the Business presses Check: a slow one would otherwise hold a request thread on every page view, and
+    # those threads also answer the core's settings request at each call start.
+    offers = (
+        probe.what_they_offer(
+            [(m.url, m.command, m.args) for m in mine], settings.ALLOW_LOCAL_MODULES
+        )
+        if checking
+        else [None] * len(mine)
     )
     return render(
         request,
