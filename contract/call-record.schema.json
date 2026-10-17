@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "call-record",
+  "title": "What the core tells the Portal about one finished call",
+  "description": "The one definition of the Call record shape. The core sends it to POST /api/calls/ (VOI-41) and the Portal stores it (portal/accounts/models.py CallRecord); tests/portal/test_call_records.py fails when the Portal drifts from it. Numbers, codes and times only: no field can hold words or audio. Every time is UTC. The cost is a decimal string in US dollars (Google's own currency), so no float rounds it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "call_id",
+    "business",
+    "kind",
+    "started_at",
+    "length_seconds",
+    "prompt_tokens",
+    "completion_tokens",
+    "input_audio_tokens",
+    "output_audio_tokens",
+    "thinking_tokens",
+    "cached_tokens",
+    "cost_usd",
+    "price_date",
+    "cost_reason"
+  ],
+  "properties": {
+    "call_id": { "type": "string", "pattern": "^[A-Za-z0-9-]{8,64}$" },
+    "business": { "type": "integer", "minimum": 1 },
+    "kind": { "enum": ["test", "call_link"] },
+    "started_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"
+    },
+    "length_seconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
+    "prompt_tokens": { "$ref": "#/$defs/tokens" },
+    "completion_tokens": { "$ref": "#/$defs/tokens" },
+    "input_audio_tokens": { "$ref": "#/$defs/tokens" },
+    "output_audio_tokens": { "$ref": "#/$defs/tokens" },
+    "thinking_tokens": { "$ref": "#/$defs/tokens" },
+    "cached_tokens": { "$ref": "#/$defs/tokens" },
+    "cost_usd": {
+      "description": "Dollars at the time of the call, or null when it could not be worked out (then cost_reason says why).",
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{1,4}(\\.[0-9]{1,8})?$"
+    },
+    "price_date": {
+      "description": "The date of the price list the cost used, or null when none was read.",
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "cost_reason": {
+      "description": "A short code (lower case and underscores, never a sentence) saying why cost_usd is empty; null when the cost is there.",
+      "type": ["string", "null"],
+      "pattern": "^[a-z_]{1,60}$"
+    }
+  },
+  "$defs": {
+    "tokens": { "type": "integer", "minimum": 0, "maximum": 2000000000 }
+  }
+}

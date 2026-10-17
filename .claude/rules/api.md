@@ -20,3 +20,4 @@ Every Portal page is a Django view that shows its own state (`portal/accounts/vi
 - The Modules page (`modules`, `remove_module`) shows and removes only `request.user`'s Business's Modules; `tests/portal/test_modules_page.py` fails if another Business's Module can be seen, served or removed.
 - The public call link (`call_link`) is open in `OPEN` on purpose: `tests/portal/test_call_link.py` shows it takes no Business from the request but its own unguessable slug, and only reads.
 - The test call (`test_call`, a POST behind the login) takes no Business from the request: it mints a ticket for `request.user`'s Business, and `tests/portal/test_test_call.py` fails if the request can name another.
+- The Call record address (`record_call`, a POST) is open in `OPEN` for the same reason as `settings_for_core`: the shared secret gates it, and `tests/portal/test_call_records.py` refuses a missing, wrong or unset secret before any lookup.

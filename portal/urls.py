@@ -17,6 +17,7 @@ urlpatterns = [
         views.settings_for_core,
         name="settings_for_core",
     ),
+    path("api/calls/", views.record_call, name="record_call"),
     path("login/", views.Login.as_view(), name="login"),
     path("logout/", auth.LogoutView.as_view(), name="logout"),
     path(
