@@ -199,10 +199,7 @@ Never go from the map straight to implement unless the effort turned out small. 
 
 ## Guide the user on ponytail
 
-Ponytail's hooks have two quirks; tell the user when they bite:
-
-- **After `/ponytail-review`**: it leaves the session in review mode, and subagents then get a one-line stub instead of ponytail's rules. Tell the user: "Type `/ponytail full` to leave review mode. `stop ponytail-review` isn't recognised, and `stop ponytail` switches ponytail off entirely."
-- **Before a `/clear` or `/compact`**, if the session's ponytail level isn't the default (the `PONYTAIL MODE ACTIVE — level:` line): the level resets to the default. Add to the instruction: "then `/ponytail <level>` again, or `/ponytail default <level>` to keep it for every session".
+Ponytail's one quirk: **before a `/clear`**, if the session's ponytail level isn't the default (the `PONYTAIL MODE ACTIVE — level:` line), the level resets to the default (`/compact` keeps it). Add to the instruction: "then `/ponytail <level>` again, or `/ponytail default <level>` to keep it for every session".
 
 ## All skills
 
@@ -210,7 +207,7 @@ Ponytail's hooks have two quirks; tell the user when they bite:
 - **Building**: `implement` (per ticket, test-first, closes with review), `tdd` (red-green at the agreed seams), `code-review` (Standards and Spec axes against a fixed point), `skeptic-pass` (independent agents try to refute a frozen head), `pr` (the PR body).
 - **Debugging**: `diagnosing-bugs` (feedback loop first, then a regression test), `guardrail-from-incident` (every sibling of a fixed bug, and a guard for the whole class), `resolving-merge-conflicts` (by intent; never `--abort`).
 - **UI**: `impeccable` (the design workflow, briefed by `PRODUCT.md` from `impeccable init` and `DESIGN.md` from `impeccable document` or new-work; `live` is local-only), `playwright-cli` (open pages served by the preview command and screenshot them).
-- **Code health**: `improve-codebase-architecture` (deepening opportunities), `codebase-design` (deep-module vocabulary), `domain-modeling` (sharpen a `CONTEXT.md` term or record an ADR), `add-baseline` (adopt a strict rule with a baseline that only shrinks), `claim-sweep` (test agent docs' claims against the code), `ponytail-review` (over-engineering in a diff), `ponytail-audit` (in the whole repo), `ponytail-debt` (every `ponytail:` comment), `ponytail`, `ponytail-help`, `ponytail-gain` (the always-on lazy mode, its command card, its benchmarks).
+- **Code health**: `improve-codebase-architecture` (deepening opportunities), `codebase-design` (deep-module vocabulary), `domain-modeling` (sharpen a `CONTEXT.md` term or record an ADR), `add-baseline` (adopt a strict rule with a baseline that only shrinks), `claim-sweep` (test agent docs' claims against the code), `ponytail-review` (over-engineering in a diff), `ponytail-audit` (in the whole repo), `ponytail-debt` (every `shortcut:` and older `ponytail:` comment), `ponytail`, `ponytail-help`, `ponytail-gain` (the always-on lazy mode, its command card, its benchmarks).
 - **Research and writing**: `research` (cited Markdown from primary sources), `writing-for-agents` (skills, `CLAUDE.md`, agent docs).
 - **Session**: `wait-what` (re-explain the last message), `handoff` (a handoff document for another agent or directory).
 - **Setup**: `setup-matt-pocock-skills` (tracker, triage labels, doc layout into `docs/agents/`; run once when adopting this template).
