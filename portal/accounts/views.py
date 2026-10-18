@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import unicodedata
 from collections import defaultdict
 from datetime import datetime, time
@@ -30,6 +31,7 @@ from django.http import (
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
@@ -210,7 +212,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             # The Business pastes this into its own website (VOI-73); only a saved domain makes it work, so only then is it shown.
             "button_html": business
             and business.website_domain
-            and f'<script async src="{settings.PORTAL_URL.rstrip("/")}{reverse("call_button_js")}?business={business.call_slug}"></script>',
+            and call_button_tag(business),
         },
     )
 
@@ -686,24 +688,50 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     return to_core(business, "call_link", business.website_domain)
 
 
+# The Call button script a Business's website loads, and the hash of its bytes that the pasted tag names (VOI-135):
+# `make generate` writes the hash, and `make generate-check` fails when the file changed without it.
+CALL_BUTTON_FILE = settings.BASE_DIR / "static" / "portal" / "call-button.v1.js"
+CALL_BUTTON_INTEGRITY = (
+    (settings.BASE_DIR / "call-button.v1.integrity").read_text().strip()
+)
+# A tag with a malformed hash (a `make generate` with no openssl writes a bare "sha384-") would be run unchecked by browsers, so the Portal refuses to start on one.
+assert re.fullmatch(r"sha384-[A-Za-z0-9+/]{64}", CALL_BUTTON_INTEGRITY), (
+    "portal/call-button.v1.integrity is not a sha384 hash: run make generate (it needs openssl)"
+)
+
+
+def tag_attributes(business: Business | None) -> dict[str, str]:
+    """What the tag tells the script (its data- attributes): the core's origin, and the launcher's fill and the ring and label on it (the Theme's pair reaches AA, theme.on_accent; Voice's own for no accent or no Business)."""
+    theme = business.theme() if business else {}
+    return {
+        "core": origin(settings.CORE_URL),
+        "fill": theme.get("accent", DEEP_SEA),
+        "ink": theme.get("accent_text", FOAM),
+    }
+
+
+def call_button_tag(business: Business) -> str:
+    """The script tag the Business pastes: the versioned file with its hash, so a browser runs only that exact file (and asks for it with CORS, which WhiteNoise's `Access-Control-Allow-Origin: *` answers), and the attributes the file reads."""
+    data = " ".join(f'data-{k}="{v}"' for k, v in tag_attributes(business).items())
+    return (
+        f'<script async src="{settings.PORTAL_URL.rstrip("/")}{static("portal/call-button.v1.js")}?business={business.call_slug}"'
+        f' {data} integrity="{CALL_BUTTON_INTEGRITY}" crossorigin="anonymous"></script>'
+    )
+
+
 @require_GET
 def call_button_js(request: HttpRequest) -> HttpResponse:
-    """The script a Business's website loads for its call button. Its address names the Business (`?business=<call slug>`),
-    so the launcher carries that Business's adjusted accent; an unknown slug, or a tag pasted before VOI-89 that names it
-    in `data-business` instead, gets Voice's own look (the call link itself still decides whether a call opens)."""
+    """The script for a tag pasted before VOI-135, which carries no data attributes: the Portal writes them onto the tag in
+    front of the versioned file. Its address names the Business (`?business=<call slug>`), so the launcher carries that
+    Business's adjusted accent; an unknown slug, or a tag pasted before VOI-89 that names it in `data-business` instead,
+    gets Voice's own look (the call link itself still decides whether a call opens)."""
     business = Business.objects.filter(
         call_slug=request.GET.get("business", "")
     ).first()
-    theme = business.theme() if business else {}
-    return render(
-        request,
-        "call_button.js",
-        {
-            "core_origin": origin(settings.CORE_URL),
-            # The launcher's fill and the ring and label on it: the Theme's pair reaches AA (theme.on_accent), and so does Voice's.
-            "fill": theme.get("accent", DEEP_SEA),
-            "ink": theme.get("accent_text", FOAM),
-        },
+    # `?? {}`: no current script (not a classic script tag) draws nothing, as the file itself then returns.
+    prelude = f"Object.assign(document.currentScript?.dataset ?? {{}}, {json.dumps(tag_attributes(business))});\n"
+    return HttpResponse(
+        prelude.encode() + CALL_BUTTON_FILE.read_bytes(),
         content_type="text/javascript; charset=utf-8",  # without it the page's own encoding decides how "å" reads
     )
 
