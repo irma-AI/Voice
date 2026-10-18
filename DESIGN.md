@@ -218,8 +218,8 @@ A label with a small dot before it. Works today: Cable light text and filled dot
 ### Use list
 Grouped by status into three columns (Works today, With a Module, Planned), one under the other on phones. A hairline runs across the top of each group, dashed in Foam faint for Planned; the group's status dot sits on it like a step on the ring, with its label just below. Each use is a serif head over a Foam muted line; its mark is kept for screen readers (VOI-106).
 
-### Portal showcase
-On the landing page the Portal's own form and Module row sit in a Granite hairline frame with the Portal's header (wordmark, page names, the illustrative note), the two panes split by a hairline. No fill: it is framed, not raised.
+### Setup steps
+On the landing page the Portal's own controls sit unframed in three steps (describe your business, choose its languages, connect its Modules) down a Granite rail with a hollow Foam muted dot per step, like Turn's phone rail. Each step's serif head and line sit left of its controls on wide screens, above them on phones (VOI-106).
 
 ### Saved notice and call preview
 The saved notice is Foam text after a filled Cable light dot (it marks a live change). The settings page's call preview is the one bounded panel in the Portal: a Foam panel with Deep sea text holding the Business's logo, a ring mark and the button in the adjusted accent, because it stands in for a panel on the Business's own website. It shows the Theme as saved.

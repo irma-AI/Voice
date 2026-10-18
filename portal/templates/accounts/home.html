@@ -128,30 +128,26 @@
       <h2 id="portal-title" class="land-h2">Set up your agent in the Portal.</h2>
       <p class="land-lede">Name your agent, write what it should know, choose its languages, then connect the Modules it uses mid-call. This is the Portal's own settings form and Module list, filled in with an example.</p>
     </div>
-    {# The Portal itself, framed by a hairline and its own header, so it reads as the product rather than more page. #}
-    <div class="showcase">
-      <div class="showcase-bar">
-        <span class="showcase-mark"><span class="font-serif text-2xl leading-none">Voice</span> <span class="text-xs font-medium tracking-label text-foam-muted uppercase">Portal</span></span>
-        <span class="showcase-pages" aria-hidden="true"><span class="text-foam">Settings</span><span>Modules</span><span>Calls</span></span>
-        <span class="showcase-note">Example Business · illustrative, not real data. Nothing here can be edited.</span>
-      </div>
-      <div class="showcase-panes">
-      <div class="max-w-md">
-        <h3 class="font-serif text-[1.75rem] leading-[1.15]">Your agent</h3>
-        <p class="mt-1 text-sm text-foam-muted">Name, facts and languages. A change applies from the next call.</p>
-        <form class="mt-6 space-y-5" aria-label="Example settings">
-          <fieldset disabled class="m-0 min-w-0 space-y-5 border-0 p-0">{{ example_form.as_div }}</fieldset>
-        </form>
-      </div>
-      <div>
-        <h3 class="font-serif text-[1.75rem] leading-[1.15]">Its Modules</h3>
-        <p class="mt-1 text-sm text-foam-muted">A Module gives your agent things to do during a call.</p>
-        <ul class="mt-6 border-t border-granite">
-          <li class="border-b border-granite py-5">{% include "accounts/_module_row.html" with module=example_module offered=example_offer example=True %}</li>
-        </ul>
-      </div>
-      </div>
-    </div>
+    {# The setup as the sequence it is: a rail with a dot per step, like Turn's phone rail, each step's words beside the Portal's own controls. No frame: the controls sit on the page. #}
+    <p class="land-note">Example Business · illustrative, not real data. Nothing here can be edited.</p>
+    <form class="setup" aria-label="Example settings">
+      <fieldset disabled class="m-0 min-w-0 border-0 p-0">
+        <ol class="setup-steps">
+          <li class="setup-step">
+            <div class="setup-text"><h3>Describe your business</h3><p>Its name, and what it should know in plain text: hours, services, prices. A change applies from the next call.</p></div>
+            <div class="setup-body"><div>{{ example_form.name.as_field_group }}</div><div>{{ example_form.facts.as_field_group }}</div></div>
+          </li>
+          <li class="setup-step">
+            <div class="setup-text"><h3>Choose its languages</h3><p>It answers callers in the ones you tick.</p></div>
+            <div class="setup-body"><div>{{ example_form.languages.as_field_group }}</div></div>
+          </li>
+          <li class="setup-step">
+            <div class="setup-text"><h3>Connect its Modules</h3><p>A Module gives your agent things to do during a call.</p></div>
+            <div class="setup-body"><ul class="border-y border-granite py-5"><li>{% include "accounts/_module_row.html" with module=example_module offered=example_offer example=True %}</li></ul></div>
+          </li>
+        </ol>
+      </fieldset>
+    </form>
   </section>
 
   <section class="land-section land-close" aria-labelledby="run-title">
