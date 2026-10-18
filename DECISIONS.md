@@ -428,3 +428,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-18] An Access token is marked operator at creation (is_operator), not looked up from SUPER_ADMIN_EMAIL on each use: a token's reach should not change because a setting did.
 [2026-10-18] No limit on how many Access tokens a Business holds: a number is a product rule for Petter's own card (VOI-110), and revoked tokens stay listed so a Business can see what was used.
 [2026-10-18] VOI-111: declined a trigger against deleting a token row and a guard for the one code path (review findings): the ticket asks for neither, and ARCHITECTURE.md says they are not enforced; VOI-112 decides if a Business's deletion must keep token history.
+[2026-10-18] RESOLVED 2026-10-18: a deploy waits for calls in progress (Petter chose "Finish first" on the card); a Business may run two calls at once for up to 10 minutes while the old and new copy overlap.
