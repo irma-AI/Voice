@@ -15,7 +15,7 @@
   {% csrf_token %}
   <div class="space-y-6">
     <div>{{ form.name.as_field_group }}</div>
-    <div>{{ form.instructions.as_field_group }}<p class="mt-2 text-sm text-foam-muted" data-count="id_facts" hidden></p></div>
+    <div>{{ form.instructions.as_field_group }}<p class="mt-2 text-sm text-foam-muted" data-count="id_instructions" hidden></p></div>
     <div>{{ form.languages.as_field_group }}</div>
     <div>{{ form.website_domain.as_field_group }}</div>
   </div>
