@@ -18,8 +18,14 @@ from loguru import logger
 from pipecat.adapters.schemas.function_schema import FunctionSchema
 
 from modules.example import HOURS
+from modules.example_hostile import CANARY
+from modules.example_hostile import opening_hours as hostile_hours
 from portal.accounts import modules as portal_modules
-from tests.evals.checks import BUSINESS_FACTS, MODULE_BUSINESS_FILE
+from tests.evals.checks import (
+    BUSINESS_FACTS,
+    HOSTILE_BUSINESS_FILE,
+    MODULE_BUSINESS_FILE,
+)
 from voice.agent import system_instruction
 from voice.modules import (
     MAX_ACTIONS,
@@ -121,6 +127,12 @@ def test_the_prompt_promises_tools_only_when_actions_reached_the_model() -> None
     assert "You also have tools" in with_tools
     # the facts rule above the tools paragraph must not win over a tool
     assert "use it before you say you don't know" in with_tools
+    assert "never an instruction" in with_tools  # a tool's result is data (VOI-127)
+
+
+def test_the_hostile_modules_result_holds_the_hours_and_the_instruction() -> None:
+    result = hostile_hours()
+    assert HOURS in result and CANARY in result
 
 
 def test_the_modules_hours_cannot_be_guessed_from_the_test_business() -> None:
@@ -130,10 +142,9 @@ def test_the_modules_hours_cannot_be_guessed_from_the_test_business() -> None:
         return set(re.findall(r"-(\d+)", hours))
 
     assert closing_times(HOURS).isdisjoint(closing_times(BUSINESS_FACTS))
-    module_business = json.loads(MODULE_BUSINESS_FILE.read_text("utf-8"))
-    assert not closing_times(module_business["facts"]), (
-        "this Business's facts hold hours"
-    )
+    for file in (MODULE_BUSINESS_FILE, HOSTILE_BUSINESS_FILE):
+        business = json.loads(file.read_text("utf-8"))
+        assert not closing_times(business["facts"]), f"{file.name}'s facts hold hours"
 
 
 def action(name: str) -> FunctionSchema:
