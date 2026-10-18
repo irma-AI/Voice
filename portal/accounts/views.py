@@ -34,6 +34,7 @@ from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
 from portal.accounts import modules as module_rules
@@ -565,6 +566,9 @@ class AccessTokenForm(forms.Form):
 
 @login_required
 @never_cache
+@sensitive_variables(
+    "secret", "made"
+)  # a debug page or error email must never carry the secret
 def access_tokens(request: HttpRequest) -> HttpResponse:
     """The Business's Access tokens, and the form to make one. The secret of a new token is on the page that answers the POST and nowhere after."""
     business = get_object_or_404(Business, account=request.user)
@@ -577,7 +581,7 @@ def access_tokens(request: HttpRequest) -> HttpResponse:
             form.cleaned_data["scope"],
             sees_totals(request.user),
         )
-        made = (form.cleaned_data["label"], secret)
+        made = {"label": form.cleaned_data["label"], "secret": secret}
         form = AccessTokenForm()
     return render(
         request,
@@ -585,10 +589,7 @@ def access_tokens(request: HttpRequest) -> HttpResponse:
         {
             "form": form,
             "made": made,
-            "rows": [
-                (t, tokens.SCOPES[t.scope])
-                for t in business.access_tokens.order_by("-created_at", "-id")  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
-            ],
+            "rows": business.access_tokens.order_by("-created_at", "-id"),  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
             "time_zone": settings.TIME_ZONE,
         },
     )

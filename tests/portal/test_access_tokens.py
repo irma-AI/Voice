@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from django.db import IntegrityError, connection, transaction
 from django.test import Client
+from django.utils import timezone
 
 from portal.accounts import tokens
 from portal.accounts.models import AccessToken, Business
@@ -35,8 +36,11 @@ def stored(business: Business, label: str = "Claude Code") -> AccessToken:
 
 def test_the_secret_shows_once_and_the_database_holds_only_its_hash() -> None:
     business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    page = make(client).content.decode()
-    secret = secret_in(page)
+    answer = make(client)
+    assert (
+        "no-store" in answer["Cache-Control"]
+    )  # the browser keeps no copy of the secret
+    secret = secret_in(answer.content.decode())
     assert stored(business).token_hash == tokens.hash_of(secret)
     assert secret not in client.get("/tokens/").content.decode()
     with connection.cursor() as cursor:  # the secret is in no column of any row
@@ -177,8 +181,6 @@ def test_the_database_refuses_a_blank_label() -> None:
 
 
 def test_a_made_token_changes_only_in_its_last_use_and_its_first_revoke() -> None:
-    from django.utils import timezone
-
     business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
     token, _ = AccessToken.make(business, "x", "read", False)
     for change in (
