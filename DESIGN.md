@@ -222,7 +222,7 @@ A borderless list ruled by Granite hairlines: serif row head, Foam muted descrip
 The saved notice is Foam text after a filled Cable light dot (it marks a live change). The settings page's call preview is the one bounded panel in the Portal: a Foam panel with Deep sea text holding the Business's logo, a ring mark and the button in the adjusted accent, because it stands in for a panel on the Business's own website. It shows the Theme as saved.
 
 ### Turn (signature)
-The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light progress arc filling clockwise over the loop, a hollow dot per step with a sans label and an italic serif note; a Planned step leaves by a dashed exit. Inside: a speaker line that is flat in silence, Foam for the Caller and Cable light for the Agent, with the current line and the previous one's words at 55% opacity (its speaker label stays Foam muted). Words spoken in a Planned step are Foam faint, never warm, and that step's dot shows before them. Ring labels are sized so they hold about 12px on screen at 1280px wide; at the loop's end only what the loop drew fades, while ticks and track stay. Phones: the rail described under Layout. It plays on load, phones included, and always has a Pause control; under reduced motion it still plays in turn (steps, lines and words appear as they come) but nothing sweeps or moves: the arc and rail step to each new line, and the speaker line holds one still shape. Steps and lines fade in over 1 to 1.2s on a soft ease-out.
+The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light progress arc filling clockwise over the loop, a hollow dot per step with a sans label and an italic serif note; a Planned step leaves by a dashed exit. Inside: a speaker line that is flat in silence, Foam for the Caller and Cable light for the Agent, with the current line and the previous one's words at 55% opacity (its speaker label stays Foam muted). Words spoken in a Planned step are Foam faint, never warm, and that step's dot shows before them. Ring labels are sized so they hold about 12px on screen at 1280px wide; at the loop's end only what the loop drew fades, while ticks and track stay. Phones: the rail described under Layout. It plays on load, phones included, and always has a Pause control; under reduced motion it still plays in turn (steps, lines and words appear as they come) and the arc and rail still fill at their slow, steady pace, but the speaker line holds one still shape (VOI-105). A new line rolls the transcript up: the line just spoken slides up and dims into the previous line (on phones, one smaller row), and the new one rises in below. Steps and lines fade in over 1 to 1.2s on a soft ease-out.
 
 ## Do's and Don'ts
 
@@ -231,7 +231,7 @@ The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light pro
 - **Do** separate with 1px Granite hairlines and keep surfaces flat on the Deep sea ground.
 - **Do** bound controls with Foam faint, not Granite.
 - **Do** mark unbuilt capability with the dashed Planned treatment.
-- **Do** give any moving element a visible Pause control, and under reduced motion keep its content changing in turn with no movement.
+- **Do** give any moving element a visible Pause control, and under reduced motion keep its content changing in turn with no oscillating or travelling movement; a slow, steady fill may stay.
 
 ### Don't:
 - **Don't** add shadows, glows, cards or photos.
