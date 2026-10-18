@@ -20,8 +20,8 @@ const WINDOWS = { five_hour: 'five-hour', seven_day: 'weekly' };
 const PAUSE_DOC = 'docs/agents/usage-pause.md';
 const RECORD = 'node scripts/usage-gate.js record <five_hour.utilization> <five_hour.resetsAt> <seven_day.utilization> <seven_day.resetsAt>';
 
-// Tools a thread may always use, so it can say why it stopped (Hard rule 3).
-const ALWAYS = new Set(['mcp__hearthbot__reply', 'mcp__hearthbot__update_status', 'ToolSearch']);
+// Tools a thread may always use, so it can say why it stopped (Hard rule 3) and end a turn quietly (VOI-109).
+const ALWAYS = new Set(['mcp__hearthbot__reply', 'mcp__hearthbot__update_status', 'mcp__hearthbot__no_reply_needed', 'ReadNotifications', 'ToolSearch']);
 const REFRESH = new Set(['mcp__claude-code-remote__list_events', 'mcp__claude-code-remote__get_session']);
 const HANDOFF = new Set([
   'mcp__github__create_pull_request', 'mcp__github__update_pull_request', 'mcp__github__pull_request_read',
