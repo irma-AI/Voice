@@ -341,3 +341,10 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-18] VOI-93: declined a show-password toggle: it needs script on a page with none, and password managers cover typos for this audience.
 [2026-10-18] VOI-93: declined added copy (invite-only hint, check spam): wording that informs visitors is Petter's call; flagged for him.
 [2026-10-18] VOI-93: detector's six design-system-color findings (rgb(0,0,0), line 0) are false positives from rendering templates without the stylesheet.
+[2026-10-18] VOI-96: the call page is one column as tall as the panel (32rem on a Business's site), and the Live transcript takes the slack and is cut at the top: the content was 633 to 683px in a 512px panel, so Start call and Hang up were never in view.
+[2026-10-18] VOI-96: the ring is lit only while live (Foam faint after the call, hidden before it) and a finished agent line goes Foam muted, by colour not opacity: the Live Light Rule, and the dimmed label failed AA at 3.9 to 4.2:1.
+[2026-10-18] VOI-96: declined the critique's Theme-accent finding (the accent on the ring and speaker dot is 2.95:1 on Deep sea for #2F6B4F): the Theme is settled and the state is also in text; parked for Petter.
+[2026-10-18] ESCALATED: should a Business's accent drive the call page's live ring and dots (fails 3:1 for dark accents), or only the button, with Cable light kept for live? -> Petter
+[2026-10-18] VOI-96: declined copy changes (name the Business in "Thank you for calling.", padlock wording for a blocked microphone), "Call again" as a ghost, and a lang per transcript line: copy stays as settled, and the page doesn't know the call's language.
+[2026-10-18] VOI-96: declined the launcher findings (white iframe flash, focus into the panel on open, Escape in the host page only): they live in call_button.js, the launcher restyle's scope (VOI-89); the page itself now hangs up on Escape.
+[2026-10-18] VOI-96: declined the detector's overused-font findings on Instrument Serif and Geist: the type is settled in DESIGN.md.
