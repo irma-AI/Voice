@@ -17,6 +17,7 @@ from django.db.migrations.executor import MigrationExecutor
 from django.test import Client
 
 from portal.accounts import domain as portal_domain
+from portal.accounts import theme
 from portal.accounts.models import Account, Business
 from tests.portal.helpers import business_with_login
 from voice import ticket as core_ticket
@@ -162,7 +163,7 @@ def test_the_dashboard_shows_the_script_snippet_only_with_a_saved_website() -> N
     page = client.get("/dashboard/").content.decode()
     assert "closed" not in page
     assert snippet(page) == (
-        f'<script async src="https://portal.example.se/call-button.js" data-business="{anna.call_slug}"></script>'
+        f'<script async src="https://portal.example.se/call-button.js?business={anna.call_slug}"></script>'
     )
     assert bo.call_slug not in page
     assert f"/call/{anna.call_slug}/" not in page
@@ -187,12 +188,51 @@ def test_the_snippet_and_the_script_agree_on_the_tag_and_the_route() -> None:
     tag = snippet(client.get("/dashboard/").content.decode())
     script = Client().get("/call-button.js").content.decode()
 
-    # The loader finds its Business in the attribute the snippet writes, and opens the route the Portal serves.
-    assert re.search(r' data-business="[^"]+"', tag) and "dataset.business" in script
-    assert "{portal}/call/${encodeURIComponent(tag.dataset.business)}/" in script
+    # The loader finds its Business in the query its own address carries, and opens the route the Portal serves.
+    assert re.search(r'src="[^"]+\?business=[^"]+"', tag)
+    assert 'searchParams.get("business")' in script
+    assert "{portal}/call/${encodeURIComponent(business)}/" in script
     assert (
         Client().get(f"/call/{anna.call_slug}/", headers=IN_A_FRAME).status_code == 302
     )
+
+
+def launcher_colours(script: str) -> tuple[str, str]:
+    """The fill and the ink the Portal wrote into the script."""
+    fill = re.search(r'const fill = "([^"]*)";', script)
+    ink = re.search(r'const ink = "([^"]*)";', script)
+    assert fill and ink, (
+        "the script no longer names its fill and ink: edit launcher_colours"
+    )
+    return fill[1], ink[1]
+
+
+def test_the_launcher_carries_its_business_s_adjusted_accent_or_voice_s_own_look() -> (
+    None
+):
+    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
+    # #2f6b4f passes AA under Foam and stays; #ffd60a is lightened toward Deep sea text only as far as it must.
+    Business.objects.filter(pk=anna.pk).update(accent="#2f6b4f")
+    Business.objects.filter(pk=bo.pk).update(accent="#ffd60a")
+
+    def served(query: str) -> tuple[str, str]:
+        return launcher_colours(
+            Client().get(f"/call-button.js{query}").content.decode()
+        )
+
+    assert served(f"?business={anna.call_slug}") == theme.on_accent("#2f6b4f")
+    assert served(f"?business={bo.call_slug}") == theme.on_accent("#ffd60a")
+    # The ring and the words on the fill reach 3:1 and 4.5:1 for every Business.
+    for fill, ink in (
+        served(f"?business={anna.call_slug}"),
+        served(f"?business={bo.call_slug}"),
+    ):
+        assert theme.contrast(fill, ink) >= theme.AA_CONTRAST
+    # No accent, an unknown slug, or an old tag with no query: Voice's own Deep sea and Foam.
+    Business.objects.filter(pk=anna.pk).update(accent="")
+    for query in (f"?business={anna.call_slug}", "?business=not-a-link", ""):
+        assert served(query) == (theme.DEEP_SEA, theme.FOAM)
 
 
 def test_the_script_sends_no_message_to_every_site() -> None:
