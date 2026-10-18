@@ -19,6 +19,12 @@
 {% if button_html %}
 <p class="mt-2 text-sm">Paste this on every page of {{ business.website_domain }} (or a subdomain) where the button should appear, just before the closing &lt;/body&gt; tag. A button appears in the corner; pressing it opens the call in a panel on the page. Browsers are told to let only your website domain show it.</p>
 <pre class="mt-2 overflow-x-auto rounded border border-granite p-4 text-sm"><code>{{ button_html }}</code></pre>
+<p class="mt-4 text-sm">Only if your website sets a security policy (a <code>Content-Security-Policy</code> or <code>Permissions-Policy</code> header), the button can fail to show, with no message. The policy must allow:</p>
+<ul class="mt-2 list-disc pl-6 text-sm">
+  <li>scripts from <code>{{ portal_origin }}</code> (<code>script-src</code>)</li>
+  <li>frames from both <code>{{ portal_origin }}</code> and <code>{{ core_origin }}</code> (<code>frame-src</code>); the call panel moves from the first to the second, so naming only one blocks it</li>
+  <li>the microphone for your own site (<code>Permissions-Policy: microphone=(self)</code>, not <code>microphone=()</code>); otherwise the call starts and the microphone is then refused</li>
+</ul>
 {% else %}
 <p class="mt-2 text-sm">Your call button is closed: save your website domain in <a href="{% url 'business_settings' %}" class="underline">your settings</a> first, and the snippet to paste shows here.</p>
 {% endif %}
