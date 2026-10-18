@@ -4,8 +4,30 @@
 <h1 class="text-4xl sm:text-[3.5rem] sm:leading-none">Totals</h1>
 <p class="mt-4 max-w-prose text-foam-muted">Every Business per month, newest first. Months follow {{ time_zone }}. Minutes are rounded to one decimal; dollars are the sum of the calls that have a cost, and "no cost" counts the calls that have none.</p>
 
-<p class="mt-6 text-sm text-foam-muted sm:hidden">Scroll the table sideways to see Call links.</p>
-<div class="mt-4 overflow-x-auto sm:mt-10" role="region" aria-label="Totals per month and Business" tabindex="0">
+{# Phones and narrow windows: one block per month and Business, a figure per row and a call kind per column, so nothing scrolls sideways. #}
+<ul class="mt-8 border-b border-granite md:hidden" aria-label="Totals per month and Business">
+  {% for month, name, cells in rows %}
+  <li class="border-t border-granite py-5">
+    <table class="w-full border-collapse text-left text-sm tabular-nums">
+      <caption class="pb-2 text-left text-lg font-medium"><span class="tabular-nums">{{ month }}</span> <span class="text-foam-muted" aria-hidden="true">·</span> {{ name }}</caption>
+      <thead class="text-xs font-medium tracking-label text-foam-muted uppercase">
+        <tr><td class="py-2"></td>{% for kind in kinds %}<th scope="col" class="py-2 pl-3 text-right">{{ kind }}s</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        <tr class="border-t border-granite"><th scope="row" class="py-2 font-normal text-foam-muted">calls</th>{% for c in cells %}<td class="py-2 pl-3 text-right">{{ c.0 }}</td>{% endfor %}</tr>
+        <tr class="border-t border-granite"><th scope="row" class="py-2 font-normal text-foam-muted">minutes</th>{% for c in cells %}<td class="py-2 pl-3 text-right">{{ c.1 }}</td>{% endfor %}</tr>
+        <tr class="border-t border-granite"><th scope="row" class="py-2 font-normal text-foam-muted">dollars</th>{% for c in cells %}<td class="py-2 pl-3 text-right">${{ c.2 }}</td>{% endfor %}</tr>
+        <tr class="border-t border-granite"><th scope="row" class="py-2 font-normal text-foam-muted">no cost</th>{% for c in cells %}<td class="py-2 pl-3 text-right">{{ c.3 }}</td>{% endfor %}</tr>
+      </tbody>
+    </table>
+  </li>
+  {% empty %}
+  <li class="border-t border-granite py-4 text-foam-muted">No calls yet.</li>
+  {% endfor %}
+</ul>
+
+{# Wider screens: the one table, every Business and month a row. #}
+<div class="mt-10 hidden overflow-x-auto md:block" role="region" aria-label="Totals per month and Business" tabindex="0">
   <table class="w-full border-collapse text-left text-sm tabular-nums">
     <thead class="text-xs font-medium tracking-label text-foam-muted uppercase">
       <tr class="border-b border-granite">
