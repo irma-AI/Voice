@@ -18,7 +18,7 @@ A supervised trial of the usage gate (`scripts/usage-gate.js`, VOI-102) in a rea
 | 17:36 | Stop line (trial 7%, weekly 50%) | Denied `Write` with the pause instructions. Allowed the handoff: `git add`, `git commit` and `git push` chained with `&&`, draft PR create, `send_later`, reply, status and the ticket comment. |
 | 17:37 | Handoff complete | Draft PR #112 opened with the Paused block, ticket VOI-103 commented, restart scheduled for 17:41, one-line reply posted. |
 | 17:38 | Resume | Simulated reset (below). Ownership checked (Paused block present, draft, ticket open), block removed, head equal to the snapshot, main unmoved. |
-| 17:41 | Restart reminder | Scheduled at 17:37 with `send_later`; firing not yet seen when this note was written. |
+| 17:41 | Restart reminder | Fired at 17:41:42. Resume step 1 found no Paused block, because this thread had already resumed at 17:38, so the reminder stood down. |
 
 **Simulated reset.** The real windows were days away from resetting, so the reset was simulated: the thread recorded the real utilization with both reset times set in the past. `record` is always allowed, so a thread can always do this. It is also how a thread could lie its way out of a pause. That is the self-reported reading risk the spec names, now seen to be easy.
 
