@@ -12,7 +12,7 @@
   {% endfor %}
 </ul>
 {% if rows %}
-<form method="post" class="mt-6">{% csrf_token %}<button name="check" value="1" class="rounded-pill border border-foam-faint px-5 py-2.5 text-[0.9375rem] transition-colors hover:border-cable-light">Check what they offer</button></form>
+<form method="post" class="mt-6">{% csrf_token %}<button name="check" value="1" data-busy="Checking…" class="rounded-pill border border-foam-faint px-5 py-2.5 text-[0.9375rem] transition-colors hover:border-cable-light">Check what they offer</button></form>
 {% endif %}
 
 <div class="mt-12 max-w-md">
@@ -23,7 +23,8 @@
 <form method="post" class="space-y-5">
   {% csrf_token %}
   <h2 class="text-2xl">Add a Module</h2>
-  {{ form.as_div }}
+  {% for error in form.non_field_errors %}<p class="rounded-md border border-red-300 px-3 py-2 text-red-300" role="alert">{{ error }}</p>{% endfor %}
+  {% for field in form %}<div>{{ field.as_field_group }}</div>{% endfor %}
   <button class="pill">Add</button>
 </form>
 {% endif %}

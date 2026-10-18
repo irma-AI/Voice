@@ -38,7 +38,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from portal.accounts import modules as module_rules
 from portal.accounts import probe
-from portal.accounts.domain import parse_domain
+from portal.accounts.domain import parse_domain, shown_domain
 from portal.accounts.models import (
     CALL_KINDS,
     LANGUAGES,
@@ -65,7 +65,27 @@ LOGIN_TRIES = 10
 LOGIN_WINDOW = 15 * 60
 
 
+def back_to(page: str) -> HttpResponse:
+    """A GET of an address that only acts on a POST: it does nothing and goes back to the page with the button. It is where the login sends a Business whose session ended as it pressed that button."""
+    return redirect(page)
+
+
+def csrf_failure(request: HttpRequest, reason: str = "") -> HttpResponse:
+    """A form refused by the CSRF check, usually one left open while the session ended or another tab logged in or out."""
+    log.warning("csrf refused: %s", reason)
+    # Back to the form's page; logout's address has no page of its own.
+    url_name = request.resolver_match and request.resolver_match.url_name
+    again = reverse("home") if url_name == "logout" else request.path
+    return render(request, "csrf_failure.html", {"again": again}, status=403)
+
+
 class LoginForm(AuthenticationForm):
+    error_messages = {  # noqa: RUF012 (Django reads it as a plain attribute)
+        **AuthenticationForm.error_messages,
+        # Django's own says both fields may be case-sensitive; the email is not.
+        "invalid_login": "That email and password do not match. Check both and try again.",
+    }
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.label_suffix = ""
@@ -181,6 +201,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         {
             "business": business,
             "sees_totals": sees_totals(request.user),
+            "website": business and shown_domain(business.website_domain),
             # The Business pastes this into its own website (VOI-73); only a saved domain makes it work, so only then is it shown.
             "button_html": business
             and business.website_domain
@@ -262,10 +283,28 @@ def totals(request: HttpRequest) -> HttpResponse:
     )
 
 
+class Text(forms.CharField):
+    """A many-line text: a browser sends each line break as two characters, so they are made one before the length is counted, as the browser counted them."""
+
+    def to_python(self, value: Any) -> str:
+        return str(super().to_python(value)).replace("\r\n", "\n").replace("\r", "\n")
+
+
+FACTS_MAX: int = Business._meta.get_field("facts").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
+
+
 class SettingsForm(forms.ModelForm):
     # The editable settings, one for one with contract/business-settings.schema.json. The AI notice is not among them.
     languages = forms.MultipleChoiceField(
-        choices=list(LANGUAGES.items()), widget=forms.CheckboxSelectMultiple
+        choices=list(LANGUAGES.items()),
+        widget=forms.CheckboxSelectMultiple,
+        error_messages={"required": "Pick at least one language."},
+    )
+    facts = Text(
+        required=False,
+        max_length=FACTS_MAX,
+        widget=forms.Textarea(attrs={"rows": 12}),
+        help_text=f"Everything the agent should know about your business, in your own words: what you do, where, when you are open, what things cost. Up to {FACTS_MAX:,} characters.",
     )
 
     # Portal-only: the contract the core reads does not carry it. What was typed is reduced once here to the domain the database stores.
@@ -274,6 +313,14 @@ class SettingsForm(forms.ModelForm):
         required=False,
         max_length=2000,  # room for a pasted address; what is stored is at most DOMAIN_MAX
         help_text="The address of your website, for example www.example.se. Only the main domain (example.se) is kept. Leave it empty for none.",
+        widget=forms.TextInput(
+            attrs={
+                "inputmode": "url",
+                "autocomplete": "url",
+                "autocapitalize": "none",
+                "spellcheck": "false",
+            }
+        ),
     )
 
     def clean_website_domain(self) -> str:
@@ -288,6 +335,9 @@ class SettingsForm(forms.ModelForm):
         required=False,
         widget=forms.FileInput(attrs={"accept": ",".join(LOGO_SIGNATURES)}),
         help_text=f"PNG, WebP or JPEG, at most {LOGO_MAX_BYTES // 1024} KB. Your Callers see it on the call page.",
+        error_messages={
+            "empty": "That file is empty. Choose your logo file and upload it again."
+        },
     )
     remove_logo = forms.BooleanField(label="Remove my logo", required=False)
     use_accent = forms.BooleanField(label="Use an accent colour", required=False)
@@ -302,6 +352,10 @@ class SettingsForm(forms.ModelForm):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.label_suffix = ""  # no colons, like the login and reset forms
+        self.fields["name"].error_messages["required"] = "Give your business a name."
+        self.fields["name"].widget.attrs["autocomplete"] = "organization"
+        # The domain as its owner writes it (räksmörgås.se), not the punycode stored.
+        self.initial["website_domain"] = shown_domain(self.instance.website_domain)
         self.initial["use_accent"] = bool(self.instance.accent)
         self.initial["accent"] = self.instance.accent or DEEP_SEA
 
@@ -342,12 +396,6 @@ class SettingsForm(forms.ModelForm):
     class Meta:
         model = Business
         fields = ("name", "facts", "languages", "website_domain")
-        widgets = {  # noqa: RUF012 (Django reads Meta as plain attributes)
-            "facts": forms.Textarea(attrs={"rows": 12})
-        }
-        help_texts = {  # noqa: RUF012
-            "facts": "Everything the agent should know about your business, in your own words: what you do, where, when you are open, what things cost."
-        }
 
 
 @login_required
@@ -389,8 +437,24 @@ def logo(request: HttpRequest, key: str) -> HttpResponse:
 class ModuleForm(forms.Form):
     """Adding a Module: a name and an address. The address is parsed once here into what the database stores."""
 
-    name = forms.CharField(max_length=module_rules.NAME_MAX)
-    address = forms.CharField(max_length=module_rules.URL_MAX)
+    name = forms.CharField(
+        max_length=module_rules.NAME_MAX,
+        error_messages={"required": "Give the Module a name."},
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+    )
+    address = forms.CharField(
+        max_length=module_rules.URL_MAX,
+        error_messages={"required": "Give the Module's address."},
+        # Not type=url: a self-hosted Portal also takes a command line here.
+        widget=forms.TextInput(
+            attrs={
+                "inputmode": "url",
+                "autocomplete": "off",
+                "autocapitalize": "none",
+                "spellcheck": "false",
+            }
+        ),
+    )
 
     def __init__(self, *args: Any, business: Business, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -463,9 +527,10 @@ def modules(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
-@require_POST
 def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     """The one way a Module goes: only one of the logged-in Business's own."""
+    if request.method != "POST":
+        return back_to("modules")
     get_object_or_404(Module, pk=module_id, business__account=request.user).delete()
     return redirect("modules")
 
@@ -486,9 +551,10 @@ def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
 
 
 @login_required
-@require_POST
 def test_call(request: HttpRequest) -> HttpResponse:
     """A logged-in Business's own test call; it takes no Business from the request."""
+    if request.method != "POST":
+        return back_to("dashboard")
     return to_core(get_object_or_404(Business, account=request.user), "test")
 
 

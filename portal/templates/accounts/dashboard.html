@@ -1,7 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
 {% block title %}Dashboard · Voice Portal{% endblock %}
-{% block head %}{% if button_html %}<script src="{% static 'portal/portal.js' %}" defer></script>{% endif %}{% endblock %}
 {% block content %}
 <div class="max-w-2xl">
 <h1 class="text-3xl break-words sm:text-4xl">{{ business.name|default:"Your account" }}</h1>
@@ -25,7 +23,7 @@
 <section class="mt-12 space-y-3" aria-labelledby="button-title">
   <h2 id="button-title" class="text-2xl">A call button for your website</h2>
   {% if button_html %}
-  <p class="max-w-prose text-sm text-foam-muted">For <strong class="font-medium text-foam">{{ business.website_domain }}</strong> and its subdomains. <a href="{% url 'business_settings' %}" class="link-inline">Change your website</a></p>
+  <p class="max-w-prose text-sm text-foam-muted">For <strong class="font-medium text-foam">{{ website }}</strong> and its subdomains. <a href="{% url 'business_settings' %}" class="link-inline">Change your website</a></p>
   <p class="max-w-prose text-sm text-foam-muted">Paste this code on every page where the button should appear, at the end of the page. A button shows in the corner; pressing it opens the call in a panel on the page. Browsers are told to let only your website show it.</p>
   <div class="snippet mt-4">
     <pre id="call-button-code" tabindex="0"><code>{{ button_html }}</code></pre>

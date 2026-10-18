@@ -155,7 +155,7 @@ def test_the_dashboard_shows_the_script_snippet_only_with_a_saved_website() -> N
     bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
 
     closed = client.get("/dashboard/").content.decode()
-    assert "<script" not in closed and "Your call button is closed" in closed
+    assert "<code>" not in closed and "Your call button is closed" in closed
     assert anna.call_slug not in closed  # no bare call link either
 
     Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
