@@ -459,3 +459,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-18] VOI-125: the privacy link opens in a new tab (target=_blank, rel=noopener): the call page is usually framed in the Business's website, and a link in the same frame would end the call.
 [2026-10-18] ESCALATED: the words of the privacy link on the call page beside the AI disclosure (proposed: "Privacy notice"): Caller-facing wording -> Petter
 [2026-10-18] RESOLVED 2026-10-18: the privacy link on the call page reads "Privacy notice" (Petter's card); voice/serve.py PRIVACY_LINK.
+[2026-10-18] RESOLVED 2026-10-18: the Google project behind GOOGLE_API_KEY is on the paid tier: Petter has put prepaid credit on the Google Cloud billing account of the account that holds the key, so the Paid Services terms and Google's processor DPA apply; seen in his words, not in the console.

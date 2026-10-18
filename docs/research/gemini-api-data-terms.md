@@ -75,7 +75,7 @@ Source: the installed pipecat-ai 1.12.0 (`uv sync`), `pipecat/services/google/`;
 
 ## What this means for Voice
 
-- Today's path (AI Studio API, API key) is a Paid Service only if the Cloud project behind the key has an active Cloud Billing account (not seen from the repo: Petter confirms). As a Paid Service: no training on prompts or outputs, and the processor DPA at business.safety.google/processorterms covers "Gemini API Paid Services".
+- Today's path (AI Studio API, API key) is a Paid Service only if the Cloud project behind the key has an active Cloud Billing account (Petter confirmed it has, 2026-10-18: `DECISIONS.md`). As a Paid Service: no training on prompts or outputs, and the processor DPA at business.safety.google/processorterms covers "Gemini API Paid Services".
 - On that path every call's audio, the Business's facts and the model's replies are kept 55 days for abuse monitoring, readable by authorised Google staff, with no opt-out and no region: "any country in which Google or its agents maintain facilities".
 - An EEA account gets the paid data terms even on free quota, but the 55-day log still applies.
 - Vertex AI puts the same model under the Google Cloud Platform Terms and the Cloud Data Processing Addendum, with the Google Cloud subprocessor list, a chosen region (the `eu` multi-region and ten European regions list `gemini-3.8-live`) and at-rest residency in that region.
