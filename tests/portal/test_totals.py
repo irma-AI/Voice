@@ -90,3 +90,10 @@ def test_calls_without_a_cost_are_counted_and_add_no_dollars(settings: Any) -> N
     assert test_cells == (0, "0.0", "0.0000", 0)
     assert link_cells == (2, "6.1", "0.2500", 1)  # two 184 s calls, one with no cost
     assert Decimal(link_cells[2]) == Decimal("0.25")
+
+
+def test_the_table_scrolls_by_keyboard_and_says_what_it_is(settings: Any) -> None:
+    settings.SUPER_ADMIN_EMAIL = EMAIL
+    _, client = business_with_login(EMAIL, "Petter's Business")
+    page = client.get("/totals/").content.decode()
+    assert 'role="region"' in page and 'tabindex="0"' in page

@@ -4,11 +4,12 @@
 <h1 class="text-4xl sm:text-[3.5rem] sm:leading-none">Totals</h1>
 <p class="mt-4 max-w-prose text-foam-muted">Every Business per month, newest first. Months follow {{ time_zone }}. Minutes are rounded to one decimal; dollars are the sum of the calls that have a cost, and "no cost" counts the calls that have none.</p>
 
-<div class="mt-10 overflow-x-auto">
+<p class="mt-6 text-sm text-foam-muted sm:hidden">Scroll the table sideways to see Call links.</p>
+<div class="mt-4 overflow-x-auto sm:mt-10" role="region" aria-label="Totals per month and Business" tabindex="0">
   <table class="w-full border-collapse text-left text-sm tabular-nums">
     <thead class="text-xs font-medium tracking-label text-foam-muted uppercase">
       <tr class="border-b border-granite">
-        <th scope="col" class="p-2" rowspan="2">Month</th>
+        <th scope="col" class="sticky left-0 bg-deep-sea p-2" rowspan="2">Month</th>
         <th scope="col" class="p-2" rowspan="2">Business</th>
         {% for kind in kinds %}<th scope="colgroup" class="p-2 text-center" colspan="4">{{ kind }}s</th>{% endfor %}
       </tr>
@@ -21,7 +22,7 @@
     <tbody>
       {% for month, name, cells in rows %}
       <tr class="border-b border-granite">
-        <td class="p-2 whitespace-nowrap">{{ month }}</td>
+        <td class="sticky left-0 bg-deep-sea p-2 whitespace-nowrap">{{ month }}</td>
         <td class="p-2">{{ name }}</td>
         {% for calls, minutes, dollars, unpriced in cells %}
         <td class="p-2 text-right">{{ calls }}</td><td class="p-2 text-right">{{ minutes }}</td><td class="p-2 text-right">${{ dollars }}</td><td class="p-2 text-right">{{ unpriced }}</td>

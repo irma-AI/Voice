@@ -66,6 +66,18 @@ LOGIN_WINDOW = 15 * 60
 
 
 class LoginForm(AuthenticationForm):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.label_suffix = ""
+        # The username is an email address: a phone shows the email keyboard and leaves the text as typed.
+        widget = self.fields["username"].widget
+        widget.input_type = (
+            "email"  # not attrs["type"]: that would render a second type attribute
+        )
+        widget.attrs.update(
+            inputmode="email", autocapitalize="none", spellcheck="false"
+        )
+
     def clean_username(self) -> str:
         return clean_email(self.cleaned_data["username"])
 
@@ -99,6 +111,13 @@ class LoginForm(AuthenticationForm):
 
 
 class ResetForm(PasswordResetForm):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.label_suffix = ""
+        self.fields["email"].widget.attrs.update(
+            inputmode="email", autocapitalize="none", spellcheck="false"
+        )
+
     def get_users(self, email):
         # Django's form skips an account with no password yet, which would leave an invitee with an expired link stuck.
         return Account.objects.filter(email=clean_email(email), is_active=True)
@@ -282,6 +301,7 @@ class SettingsForm(forms.ModelForm):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.label_suffix = ""  # no colons, like the login and reset forms
         self.initial["use_accent"] = bool(self.instance.accent)
         self.initial["accent"] = self.instance.accent or DEEP_SEA
 
@@ -374,6 +394,7 @@ class ModuleForm(forms.Form):
 
     def __init__(self, *args: Any, business: Business, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.label_suffix = ""
         self.business = business
 
     def clean_name(self) -> str:
