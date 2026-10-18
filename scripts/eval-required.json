@@ -1,5 +1,5 @@
 {
   "receipt": "eval-receipt.json",
-  "paths": ["voice/agent.py", "voice/bargein.py", "voice/settings.py", "voice/modules.py", "modules/example.py", "tests/evals/business.json", "tests/evals/business_module.json"],
+  "paths": ["voice/agent.py", "voice/bargein.py", "voice/settings.py", "voice/modules.py", "modules/example.py", "modules/example_hostile.py", "tests/evals/business.json", "tests/evals/business_module.json", "tests/evals/business_hostile.json"],
   "lines": { "pyproject.toml": "pipecat-ai[" }
 }
