@@ -54,6 +54,23 @@ def test_the_example_call_is_text_a_screen_reader_can_read(settings: Any) -> Non
     assert "Example call · illustrative" in page
 
 
+def test_the_example_calls_planned_hand_off_is_marked_planned_before_its_words(
+    settings: Any,
+) -> None:
+    """The Hand-off is Planned, so its step shows before the Agent's words and those words are marked planned (never warm)."""
+    settings.CONTACT_EMAIL = ""
+    page = landing()
+    script = page.split('id="turn-script"')[1].split("</ol>")[0]
+    step = next(li for li in script.split("<li ")[1:] if 'data-name="Human"' in li)
+    line = next(li for li in script.split("<li ")[1:] if "Putting you through" in li)
+    assert "data-planned" in step and "data-planned" in line
+
+    def at(li: str) -> float:
+        return float(li.split('data-t="')[1].split('"')[0])
+
+    assert at(step) < at(line)
+
+
 def test_the_portal_showcase_is_the_portals_own_form_and_module_row_labelled_as_an_example(
     settings: Any,
 ) -> None:
@@ -83,6 +100,8 @@ def test_request_access_mails_contact_email_when_it_is_set(settings: Any) -> Non
     page = landing()
     assert "Request access" in page
     assert 'href="mailto:hello@example.com?subject=Access%20to%20Voice"' in page
+    # The address is also written out (in the footer), for a browser that opens no mail app.
+    assert ">hello@example.com</a>" in page
 
 
 @pytest.mark.db

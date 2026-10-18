@@ -9,7 +9,7 @@
   const STILL = 30; // the booking moved and confirmed: what works today with a Module, never the planned Hand-off as live speech
   const num = (v) => Number(v);
   const LINES = [...script.querySelectorAll("[data-line]")].map((li) => ({
-    t: num(li.dataset.t), end: num(li.dataset.end), who: li.dataset.who,
+    t: num(li.dataset.t), end: num(li.dataset.end), who: li.dataset.who, planned: li.hasAttribute("data-planned"),
     say: li.textContent.slice(li.dataset.who.length + 2),
   }));
   const STEPS = [...script.querySelectorAll("[data-step]")].map((li) => ({
@@ -68,7 +68,9 @@
     const [who, say] = g.querySelectorAll("text");
     who.textContent = line ? line.who : "";
     say.textContent = "";
-    g.classList.toggle("agent", g === cur && !!line && line.who === "Agent"); // the previous line is never warm: only what is live is
+    // Only what is live is warm: never the previous line, and never words from a Planned step, which nothing does yet.
+    g.classList.toggle("agent", g === cur && !!line && line.who === "Agent" && !line.planned);
+    g.classList.toggle("planned", !!line && line.planned);
     g.classList.toggle("on", !!line);
     if (!line) return;
     const rows = [""];
@@ -93,13 +95,14 @@
       d += (x === -half ? "M" : "L") + x + " " + y.toFixed(2) + " ";
     }
     path.setAttribute("d", d);
-    path.setAttribute("class", "turn-wave " + (amp ? (speaking(t).who === "Agent" ? "agent" : "caller") : "quiet"));
+    const line = amp && speaking(t);
+    path.setAttribute("class", "turn-wave " + (!line ? "quiet" : line.planned ? "planned" : line.who === "Agent" ? "agent" : "caller"));
   }
   const speaking = (t) => LINES.find((l) => t >= l.t && t <= l.end);
   const lastIndex = (t) => LINES.reduce((acc, l, i) => (t >= l.t ? i : acc), -1);
   const envelope = (t, line, size) => (line ? size * Math.min(1, (t - line.t) * 3, (line.end - t) * 3) : 0);
 
-  const ring = el("ring"), cur = el("cur"), prev = el("prev"), exit = el("exit");
+  const ringLive = el("live"), cur = el("cur"), prev = el("prev"), exit = el("exit");
   const rail = document.querySelector(".turn-rail"), railFill = el("rail-fill");
   const live = {
     name: el("step-name"), note: el("step-note"), who: el("live-who"), say: el("live-say"), wave: el("wave-small"),
@@ -120,10 +123,11 @@
       const l = LINES[idx];
       live.who.textContent = l ? l.who : "";
       live.say.textContent = l ? l.say : "";
-      live.say.classList.toggle("agent", !!l && l.who === "Agent");
+      live.say.classList.toggle("agent", !!l && l.who === "Agent" && !l.planned);
+      live.say.classList.toggle("planned", !!l && l.planned);
     }
     wavePath(el("wave"), t, 210, envelope(t, line, 26), 1);
-    ring.style.opacity = t > LOOP - 2 ? Math.max(0, (LOOP - t) / 2) : Math.min(1, t * 2 + 0.2);
+    ringLive.style.opacity = t > LOOP - 2 ? Math.max(0, (LOOP - t) / 2) : Math.min(1, t * 2 + 0.2);
     // Rail
     // The rail stretches to the hero's height, so each dot is drawn back to a 5px circle on screen.
     const box = rail.getBoundingClientRect(), kx = 40 / (box.width || 40), ky = 1000 / (box.height || 1000);
