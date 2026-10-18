@@ -1,0 +1,161 @@
+{
+  "_note": "Synthetic: the shape of Google's documented public Cloud Billing Catalog replies (v2beta skus list, v1beta sku price) with prices from docs/research/gemini-live-pricing.md. Not a real reply; the real entry names are read on the first live call (VOI-42).",
+  "prices": {
+    "AAAA-0001": {
+      "name": "skus/AAAA-0001/price",
+      "currencyCode": "USD",
+      "valueType": "rate",
+      "rate": {
+        "tiers": [
+          {
+            "startAmount": {
+              "value": "0"
+            },
+            "listPrice": {
+              "currencyCode": "USD",
+              "units": "9",
+              "nanos": 0
+            }
+          }
+        ],
+        "unitInfo": {
+          "unit": "count",
+          "unitDescription": "tokens",
+          "unitQuantity": {
+            "value": "1000000"
+          }
+        }
+      }
+    },
+    "AAAA-0002": {
+      "name": "skus/AAAA-0002/price",
+      "currencyCode": "USD",
+      "valueType": "rate",
+      "rate": {
+        "tiers": [
+          {
+            "startAmount": {
+              "value": "0"
+            },
+            "listPrice": {
+              "currencyCode": "USD",
+              "units": "3",
+              "nanos": 0
+            }
+          }
+        ],
+        "unitInfo": {
+          "unit": "count",
+          "unitDescription": "tokens",
+          "unitQuantity": {
+            "value": "1000000"
+          }
+        }
+      }
+    },
+    "AAAA-0003": {
+      "name": "skus/AAAA-0003/price",
+      "currencyCode": "USD",
+      "valueType": "rate",
+      "rate": {
+        "tiers": [
+          {
+            "startAmount": {
+              "value": "0"
+            },
+            "listPrice": {
+              "currencyCode": "USD",
+              "units": "0",
+              "nanos": 750
+            }
+          }
+        ],
+        "unitInfo": {
+          "unit": "count",
+          "unitDescription": "tokens",
+          "unitQuantity": {
+            "value": "1"
+          }
+        }
+      }
+    },
+    "AAAA-0004": {
+      "name": "skus/AAAA-0004/price",
+      "currencyCode": "USD",
+      "valueType": "rate",
+      "rate": {
+        "tiers": [
+          {
+            "startAmount": {
+              "value": "0"
+            },
+            "listPrice": {
+              "currencyCode": "USD",
+              "units": "1",
+              "nanos": 0
+            }
+          }
+        ],
+        "unitInfo": {
+          "unit": "count",
+          "unitDescription": "tokens",
+          "unitQuantity": {
+            "value": "1000000"
+          }
+        }
+      }
+    },
+    "AAAA-0005": {
+      "name": "skus/AAAA-0005/price",
+      "currencyCode": "USD",
+      "valueType": "rate",
+      "rate": {
+        "tiers": [
+          {
+            "startAmount": {
+              "value": "0"
+            },
+            "listPrice": {
+              "currencyCode": "USD",
+              "units": "12",
+              "nanos": 0
+            }
+          }
+        ],
+        "unitInfo": {
+          "unit": "count",
+          "unitDescription": "tokens",
+          "unitQuantity": {
+            "value": "1000000"
+          }
+        }
+      }
+    },
+    "AAAA-0006": {
+      "name": "skus/AAAA-0006/price",
+      "currencyCode": "USD",
+      "valueType": "rate",
+      "rate": {
+        "tiers": [
+          {
+            "startAmount": {
+              "value": "0"
+            },
+            "listPrice": {
+              "currencyCode": "USD",
+              "units": "0",
+              "nanos": 4500
+            }
+          }
+        ],
+        "unitInfo": {
+          "unit": "count",
+          "unitDescription": "tokens",
+          "unitQuantity": {
+            "value": "1"
+          }
+        }
+      }
+    }
+  }
+}
