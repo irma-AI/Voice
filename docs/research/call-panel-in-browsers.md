@@ -1,6 +1,6 @@
 # The call panel, seen in a real browser
 
-Written 2026-10-17 (VOI-72). It settles what [embedded-call-button.md](embedded-call-button.md) and [call-link-domain-limit.md](call-link-domain-limit.md) left "not checked". Desktop Chromium only so far: **no phone has been tried yet**, and neither Firefox nor Safari (the container has only Chromium).
+Written 2026-10-17 (VOI-72). It settles what [embedded-call-button.md](embedded-call-button.md) and [call-link-domain-limit.md](call-link-domain-limit.md) left "not checked". Desktop Chromium in the container, plus **one iPhone call** by Petter on 2026-10-18 (see [Phone check](#phone-check)). No Android phone, no Firefox, no desktop Safari.
 
 ## What was run
 
@@ -40,8 +40,26 @@ Other console lines seen on every page, working or not: `Potential permissions p
 
 - **Settled** (and corrected in the two older notes): the apex plus subdomain pair; the whole-chain check; a redirect inside the frame and the microphone; the `X-Frame-Options` question; the WebSocket from inside the frame; a customer's `Permissions-Policy` and CSP; the `Sec-Fetch-*` and `Referer` values; a plain tab; `frame-ancestors` not stopping a tab.
 - **Found, not hidden:** a Business whose own site sets a strict Content-Security-Policy or `Permissions-Policy` gets a button that is missing (F) or a panel that is blocked (G, H, E), and its dashboard says nothing about it. To work, its policy must allow the Portal's origin as a script source and **both** the Portal's and the core's origins as frame sources, and must not block the microphone. This is ticket VOI-91, not part of this check.
-- **Still not seen:** a real microphone prompt and whose name it shows; any phone; iOS audio start inside a frame; an iPhone before iOS 16.4; Firefox and Safari; the live Portal and core.
+- **Seen on an iPhone** (below): the microphone prompt and its name, audio after the Start tap, the whole path on the live Portal and core.
+- **Still not seen:** an Android phone; an iPhone before iOS 16.4; Firefox; desktop Safari; a test page on a different registrable domain from the Portal and core.
 
 ## Phone check
 
-Not done yet. Needs this panel live (PR #76 merged and deployed) and Petter's website domain saved; then a test page on a site he controls, an iPhone and an Android phone. The questions: does the microphone prompt appear and whose name does it show; does audio start after the Start tap; what does an iPhone before iOS 16.4 do (it should be refused). The result goes into this note, with the cases not tried on a phone named.
+Done 2026-10-18 (about 08:19 Stockholm time) by Petter, on **one iPhone**. The iOS version and the browser were not recorded. The page was a throwaway test page at `paneltest.petterannerwall.se` with the dashboard's script tag, for the Business with `website_domain = petterannerwall.se`; the live Portal and live call app served the panel. The page was removed afterwards.
+
+| Question | Seen on the iPhone |
+|---|---|
+| Does the microphone prompt appear, and whose name does it show? | It appeared and showed the **test page's name** (the framing site's), not the Portal's or the call app's. Matches the spec text quoted in [embedded-call-button.md](embedded-call-button.md) § 4. |
+| Does audio start after the Start tap? | Yes: Petter heard the assistant clearly. |
+| Did the call reach the model and the Portal? | The call app's log (kept in `/mnt/project-files/notes/voi-72-call-log-2026-10-18.txt`, ticket redacted, no personal data) shows one call through the Portal's call link for the Business, 17 s, the assistant spoke, one barge-in, and the record delivered to the Portal. The Portal's own log was not read. |
+| Was the iPhone let through the in-frame check? | Yes, so it sent `Sec-Fetch-Dest: iframe`, which only iOS 16.4 and later do (MDN browser-compat-data, in [embedded-call-button.md](embedded-call-button.md)). |
+
+**Not tried on a phone:**
+
+- An **Android phone** (Chrome Android): Petter chose to skip it.
+- An **iPhone before iOS 16.4**, which sends no `Sec-Fetch-*` and should be refused by the Portal (the same refusal as a plain tab, seen on the desktop with `curl`).
+- A phone **refused** case: another site or a site with no saved domain.
+- A **strict Content-Security-Policy** or `Permissions-Policy` on the page (desktop cases E to I only).
+- Speakerphone, a second call at the same time, and the 10-minute cut.
+
+**Caveat:** the test page shares the registrable domain `petterannerwall.se` with the Portal and the call app, so the browser may treat the frames as same-site. The prompt name and the audio start are what a customer's site on its own domain should see, but that was not tried.

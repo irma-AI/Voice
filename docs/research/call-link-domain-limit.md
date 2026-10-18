@@ -69,7 +69,7 @@ Stripe, YouTube and Vimeo domain restrictions: **not checked** (not read; Vimeo'
 
 ## What to do / what would settle it
 
-- A real check in a browser: a throwaway page on a second domain with the snippet, once with `Referrer-Policy: no-referrer` on the page, once with the default, once from a typed address, in Chrome, Safari and Firefox on a phone. Read what `Referer` and `Sec-Fetch-*` arrive at `call_link` (log them, no personal data). This is the "seen to hold" step; nothing above has been seen.
+- A real check in a browser: a throwaway page on a second domain with the snippet, once with `Referrer-Policy: no-referrer` on the page, once with the default, once from a typed address, in Chrome, Safari and Firefox on a phone. Read what `Referer` and `Sec-Fetch-*` arrive at `call_link` (log them, no personal data). This is the "seen to hold" step; the panel design that replaced it was seen on desktop Chromium and one iPhone (VOI-72, [call-panel-in-browsers.md](call-panel-in-browsers.md)); the plain-link `Referer` design itself was not tried.
 
 ## Verdict
 

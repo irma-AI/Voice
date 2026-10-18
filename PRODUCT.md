@@ -34,7 +34,7 @@ Voice answers a Business's callers with a live AI voice agent, in Swedish or Eng
 
 ## Capabilities and Constraints
 
-- Shipped: login, invite, password reset, settings (name, facts, languages), Modules, Test call, Call button script (the browser is told to limit it to the Business's website domain; seen in desktop Chromium, not yet on a phone), recent calls, an operator totals page.
+- Shipped: login, invite, password reset, settings (name, facts, languages), Modules, Test call, Call button script (the browser is told to limit it to the Business's website domain; seen in desktop Chromium and on one iPhone, not on Android), recent calls, an operator totals page.
 - A Business's settings are a name, free-text facts, languages and a Theme (logo and one accent colour, shown only to its Callers); anything more structured comes as a Module, never a fixed Portal field. The Theme is decided, not built (`docs/design/four-surface-redesign.md`).
 - Call languages: Swedish and English only.
 - Portal UI language: English, because the code is open and language-agnostic. Translations, Swedish first, are planned (VOI-67).
