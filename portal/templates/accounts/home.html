@@ -6,8 +6,8 @@
 <header class="land-nav">
   <a href="{% url 'home' %}" class="land-wordmark">Voice</a>
   <nav aria-label="Main">
-    <a href="#use-cases" class="land-navlink land-wide">Use cases</a>
-    <a href="#portal" class="land-navlink land-wide">The Portal</a>
+    <a href="#use-cases" class="land-navlink land-wide">What it can do</a>
+    <a href="#portal" class="land-navlink land-wide">Setup</a>
     <a href="https://github.com/irma-AI/Voice#self-host" class="land-navlink land-wide">Self-host</a>
     {% if user.is_authenticated %}
       <a href="{% url 'dashboard' %}" class="land-navlink">Your dashboard</a>
@@ -92,32 +92,32 @@
 
   <section id="use-cases" class="land-section" aria-labelledby="use-cases-title">
     <div class="land-head">
-      <h2 id="use-cases-title" class="land-h2">What it does today, and what needs a Module.</h2>
-      <p class="land-lede">Voice builds no integrations. What your agent can do in a call comes from the Modules you connect. Each use says whether it works today, needs a Module, or is planned.</p>
+      <h2 id="use-cases-title" class="land-h2">What it can do.</h2>
+      <p class="land-lede">It answers from what you tell it, right on your website. Add Modules and it acts while the caller is on the line. Here is what works today, what a Module adds, and what comes next.</p>
     </div>
     {# Grouped by what it takes: the status is each group's head, drawn as a dot on a hairline like a step on the ring. Each use still carries its mark for screen readers. #}
     <div class="use-groups">
       <div class="use-group use-group-today">
         <h3 id="uses-today" class="use-group-head mark mark-today">Works today</h3>
         <ul class="uses" aria-labelledby="uses-today">
-          <li class="use"><h4>Answers callers on your website</h4><p>A Call button on your site opens a call with your agent, right in the browser.</p><span class="sr-only">Works today</span></li>
-          <li class="use"><h4>Speaks Swedish or English</h4><p>It answers in the languages you choose for your Business.</p><span class="sr-only">Works today</span></li>
-          <li class="use"><h4>Answers from your facts</h4><p>Write your opening hours, services and prices as plain text. The agent answers from them.</p><span class="sr-only">Works today</span></li>
-          <li class="use"><h4>Shows your recent calls</h4><p>When each call started and how long it ran, in the Portal.</p><span class="sr-only">Works today</span></li>
+          <li class="use"><h4>Picks up on your website</h4><p>Visitors press your Call button and talk to your agent in the browser. Nothing to install.</p><span class="sr-only">Works today</span></li>
+          <li class="use"><h4>Speaks Swedish and English</h4><p>Your callers are answered in Swedish, English or both, as you choose.</p><span class="sr-only">Works today</span></li>
+          <li class="use"><h4>Knows your business</h4><p>Write down your hours, services and prices once. Your agent answers from them.</p><span class="sr-only">Works today</span></li>
+          <li class="use"><h4>Keeps track of your calls</h4><p>See when each call came in and how long it lasted.</p><span class="sr-only">Works today</span></li>
         </ul>
       </div>
       <div class="use-group use-group-module">
         <h3 id="uses-module" class="use-group-head mark mark-module">With a Module</h3>
         <ul class="uses" aria-labelledby="uses-module">
-          <li class="use"><h4>Moves and books appointments</h4><p>Connect your booking system's MCP server, and the agent uses it mid-call.</p><span class="sr-only">With a Module</span></li>
-          <li class="use"><h4>Looks things up for the caller</h4><p>An order's status, a free table, a delivery date: whatever a Module you add can answer.</p><span class="sr-only">With a Module</span></li>
+          <li class="use"><h4>Books and moves appointments</h4><p>Connect your booking system, and your agent finds a time and books it while the caller waits.</p><span class="sr-only">With a Module</span></li>
+          <li class="use"><h4>Looks things up</h4><p>An order's status, a free table, a delivery date. Your agent checks and answers on the spot.</p><span class="sr-only">With a Module</span></li>
         </ul>
       </div>
       <div class="use-group use-group-planned">
         <h3 id="uses-planned" class="use-group-head mark mark-planned">Planned</h3>
         <ul class="uses" aria-labelledby="uses-planned">
-          <li class="use"><h4>Hands the call to a person</h4><p>When the caller asks for someone, or the agent can't finish.</p><span class="sr-only">Planned</span></li>
-          <li class="use"><h4>Lets your own agents run Voice</h4><p>Everything you can do in the Portal, offered to your agents as an MCP tool.</p><span class="sr-only">Planned</span></li>
+          <li class="use"><h4>Puts callers through to your team</h4><p>When a caller asks for a person, or needs more than the agent can do.</p><span class="sr-only">Planned</span></li>
+          <li class="use"><h4>Works with your own agents</h4><p>Everything you do in the Portal, your own AI agents can do too.</p><span class="sr-only">Planned</span></li>
         </ul>
       </div>
     </div>
@@ -125,24 +125,24 @@
 
   <section id="portal" class="land-section" aria-labelledby="portal-title">
     <div class="land-head">
-      <h2 id="portal-title" class="land-h2">Set up your agent in the Portal.</h2>
-      <p class="land-lede">Name your agent, write what it should know, choose its languages, then connect the Modules it uses mid-call. This is the Portal's own settings form and Module list, filled in with an example.</p>
+      <h2 id="portal-title" class="land-h2">Set up your Voice.</h2>
+      <p class="land-lede">Tell it about your business, pick its languages, and connect what it should be able to do. This is the real Portal, filled in for an example salon.</p>
     </div>
     {# The setup as the sequence it is: a rail with a dot per step, like Turn's phone rail, each step's words beside the Portal's own controls. No frame: the controls sit on the page. #}
-    <p class="land-note">Example Business · illustrative, not real data. Nothing here can be edited.</p>
+    <p class="land-note">Example only, not real data. Nothing here can be edited.</p>
     <form class="setup" aria-label="Example settings">
       <fieldset disabled class="m-0 min-w-0 border-0 p-0">
         <ol class="setup-steps">
           <li class="setup-step">
-            <div class="setup-text"><h3>Describe your business</h3><p>Its name, and what it should know in plain text: hours, services, prices. A change applies from the next call.</p></div>
+            <div class="setup-text"><h3>Describe your business</h3><p>Write it the way you would brief a new colleague: hours, services, prices. Changes apply from the next call.</p></div>
             <div class="setup-body"><div>{{ example_form.name.as_field_group }}</div><div>{{ example_form.facts.as_field_group }}</div></div>
           </li>
           <li class="setup-step">
-            <div class="setup-text"><h3>Choose its languages</h3><p>It answers callers in the ones you tick.</p></div>
+            <div class="setup-text"><h3>Choose its languages</h3><p>Swedish, English or both.</p></div>
             <div class="setup-body"><div>{{ example_form.languages.as_field_group }}</div></div>
           </li>
           <li class="setup-step">
-            <div class="setup-text"><h3>Connect its Modules</h3><p>A Module gives your agent things to do during a call.</p></div>
+            <div class="setup-text"><h3>Connect its Modules</h3><p>Each Module gives your agent something to do during a call, like booking a time.</p></div>
             <div class="setup-body"><ul class="border-y border-granite py-5"><li>{% include "accounts/_module_row.html" with module=example_module offered=example_offer example=True %}</li></ul></div>
           </li>
         </ol>
@@ -155,12 +155,12 @@
     <div class="land-ways">
       <div>
         <h3>Hosted</h3>
-        <p>We run Voice for you, and you don't need a Google key of your own. Access is by invitation.</p>
+        <p>We run Voice for you, Google key included. Access is by invitation.</p>
         {% if contact_email %}<p class="land-way-action"><a href="mailto:{{ contact_email }}?subject=Access%20to%20Voice" class="pill">Request access</a></p>{% endif %}
       </div>
       <div>
         <h3>Self-hosted</h3>
-        <p>The core and the Portal are open code. Run them on your own machine, with your own Google key.</p>
+        <p>Run the core and the Portal on your own server, with your own Google key. The code is open.</p>
         <p class="land-way-action"><a href="https://github.com/irma-AI/Voice#self-host" class="land-link">Open code · Self-host it</a></p>
       </div>
     </div>

@@ -76,7 +76,7 @@ def test_the_portal_showcase_is_the_portals_own_form_and_module_row_labelled_as_
 ) -> None:
     settings.CONTACT_EMAIL = ""
     page = landing()
-    assert "Example Business · illustrative, not real data" in page
+    assert "Example only, not real data" in page
     # The Portal's own settings form fields, disabled so nothing can be sent.
     for field in ('name="name"', 'name="facts"', 'name="languages"'):
         assert field in page, field
