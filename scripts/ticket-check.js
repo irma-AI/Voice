@@ -5,8 +5,8 @@
 // Known limit: Linear can't say who added the label, so an agent that labels its own ticket passes; this
 // catches skipped flows and invented ticket numbers, not a deliberate forgery.
 'use strict';
-const fs = require('fs');
 const path = require('path');
+const { readBaseJson } = require('./base-config');
 const READY = 'ready-for-agent';
 // Keep equal to the team in docs/agents/issue-tracker.md; ticket ids are <TEAM>-<n>.
 const TEAM = 'VOI';
@@ -18,8 +18,9 @@ const idIn = (text) => String(text || '').match(new RegExp(`\\b${ID}\\b`, 'i'))?
 
 const FIX = `Run /next-step ${TEAM}-<n> for a ready ticket, and put "Closes ${TEAM}-<n>" in the PR body.`;
 
-// Whether an edit to this repo-relative path needs a ticket: everything outside "no_ticket" in scripts/low-risk-paths.json.
-const needsTicket = (root, rel) => !JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'low-risk-paths.json'), 'utf8')).no_ticket.some((g) => path.matchesGlob(rel, g));
+// Whether an edit to this repo-relative path needs a ticket: everything outside "no_ticket" in scripts/low-risk-paths.json,
+// read from the base branch (scripts/base-config.js).
+const needsTicket = (root, rel, opts) => !readBaseJson(root, 'scripts/low-risk-paths.json', opts).no_ticket.some((g) => path.matchesGlob(rel, g));
 
 async function fetchIssue(id, token = process.env.LINEAR_API_TOKEN) {
   if (!token) throw new Error('LINEAR_API_TOKEN is not set');

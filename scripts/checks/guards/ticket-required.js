@@ -3,7 +3,8 @@
 // name a ready Linear ticket in its title or body (scripts/ticket-check.js holds the rule). CI sets GUARD_BASE and
 // GUARD_PR_TEXT (title, a newline, body) on pull requests, plus LINEAR_API_TOKEN. Fails closed: with GUARD_BASE set
 // and no token, or no answer from Linear, it refuses. Outside a pull-request run (a local make guards) nothing is
-// compared, and a note says so. Known limit: see scripts/ticket-check.js.
+// compared, and a note says so. The no_ticket list is read from the base branch (scripts/base-config.js), so this PR
+// cannot exempt itself. Known limit: see scripts/ticket-check.js.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -37,7 +38,13 @@ function changedFiles() {
   const changed = changedFiles();
   console.log(`#scanned ${changed.length + 1}`); // +1: the change set itself, which may be empty
   if (teamDrift) { console.log(`team\t${teamDrift}`); process.exitCode = 1; }
-  if (!changed.some((f) => needsTicket(ROOT, f))) return;
+  let needed;
+  try { needed = changed.some((f) => needsTicket(ROOT, f)); } catch (e) {
+    console.log(`config\tcannot read scripts/low-risk-paths.json from ${process.env.GUARD_BASE || 'the working tree'} (${e.message.split('\n')[0]}): fetch the base branch (CI checks out with fetch-depth 0)`);
+    process.exitCode = 1;
+    return;
+  }
+  if (!needed) return;
   const ids = ticketIds(fixture ? read('.guard-pr-text') : process.env.GUARD_PR_TEXT);
   if (!ids.length) {
     console.log(`no-ticket\tthis PR changes files that need a ticket and closes none. ${FIX}`);

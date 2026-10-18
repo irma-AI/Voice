@@ -1,0 +1,5 @@
+{
+  "receipt": "eval-receipt.json",
+  "paths": ["voice/agent.py", "voice/business.txt"],
+  "lines": { "pyproject.toml": "pipecat-ai[" }
+}
