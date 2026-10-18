@@ -1,49 +1,31 @@
 {% extends "base.html" %}
 {% block title %}Modules · Voice Portal{% endblock %}
 {% block content %}
-<h1 class="text-4xl">Your agent's Modules</h1>
-<p class="mt-2 text-foam-muted">A Module gives your agent things to do during a call. Each one keeps its own passwords, so never put one in the address. A change applies from the next call. To swap a Module, remove it and add the new one.</p>
+<h1 class="text-4xl sm:text-[3.5rem] sm:leading-none">Your agent's Modules</h1>
+<p class="mt-4 max-w-prose text-foam-muted">A Module gives your agent things to do during a call. Each one keeps its own passwords, so never put one in the address. A change applies from the next call. To swap a Module, remove it and add the new one.</p>
 
-<ul class="mt-6 space-y-4">
+<ul class="mt-10 border-t border-granite">
   {% for module, offered in rows %}
-  <li class="rounded border border-granite p-4">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <p class="font-semibold">{{ module.name }}</p>
-        <p class="break-all text-sm text-foam-muted">{% if module.command %}{{ module.command }} {{ module.args|join:" " }}{% else %}{{ module.url }}{% endif %}</p>
-      </div>
-      <form method="post" action="{% url 'remove_module' module.pk %}">{% csrf_token %}<button class="text-sm text-foam-muted underline">Remove</button></form>
-    </div>
-    {% if offered is None %}
-    <p class="mt-3 text-sm text-foam-muted">Not checked yet. Press Check to see what it offers.</p>
-    {% elif offered.problem %}
-    <p class="mt-3 rounded bg-red-100 px-3 py-2 text-sm text-red-900" role="alert">This Module cannot be used on a call right now. {{ offered.problem }}</p>
-    {% elif offered.actions %}
-    <p class="mt-3 text-sm font-medium">What it offers</p>
-    <ul class="mt-1 space-y-1 text-sm">
-      {% for name, description in offered.actions %}<li><span class="font-mono">{{ name }}</span>{% if description %}: {{ description|truncatechars:200 }}{% endif %}</li>{% endfor %}
-    </ul>
-    {% else %}
-    <p class="mt-3 text-sm text-foam-muted">Reached, and it offers no Actions.</p>
-    {% endif %}
-  </li>
+  <li class="border-b border-granite py-5">{% include "accounts/_module_row.html" %}</li>
   {% empty %}
-  <li class="text-foam-muted">No Modules yet. Your agent answers from your settings only.</li>
+  <li class="border-b border-granite py-5 text-foam-muted">No Modules yet. Your agent answers from your settings only.</li>
   {% endfor %}
 </ul>
 {% if rows %}
-<form method="post" class="mt-4">{% csrf_token %}<button name="check" value="1" class="rounded-pill border border-foam-faint px-4 py-2 hover:border-cable-light">Check what they offer</button></form>
+<form method="post" class="mt-6">{% csrf_token %}<button name="check" value="1" class="rounded-pill border border-foam-faint px-5 py-2.5 text-[0.9375rem] transition-colors hover:border-cable-light">Check what they offer</button></form>
 {% endif %}
 
+<div class="mt-12 max-w-md">
 {% if full %}
-{% for error in form.non_field_errors %}<p class="mt-6 rounded bg-red-100 px-3 py-2 text-red-900" role="alert">{{ error }}</p>{% endfor %}
+{% for error in form.non_field_errors %}<p class="rounded-md border border-red-300 px-3 py-2 text-red-300" role="alert">{{ error }}</p>{% endfor %}
 <p class="mt-6 text-foam-muted">That is the most Modules a Business can have. Remove one to add another.</p>
 {% else %}
-<form method="post" class="mt-8 space-y-4">
+<form method="post" class="space-y-5">
   {% csrf_token %}
   <h2 class="text-2xl">Add a Module</h2>
   {{ form.as_div }}
   <button class="pill">Add</button>
 </form>
 {% endif %}
+</div>
 {% endblock %}
