@@ -5,6 +5,7 @@ The Live transcript runs through a real Pipecat pipeline and socket, with a stan
 """
 
 import asyncio
+import contextlib
 import json
 import time
 
@@ -354,7 +355,9 @@ def test_the_live_transcript_reaches_the_page_with_its_speaker_and_no_log() -> N
         async def _gone(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
             await runner.cancel()
 
-        await runner.run()
+        # The TestClient cancels the app right after its disconnect, mid-teardown: the normal end here.
+        with contextlib.suppress(asyncio.CancelledError):
+            await runner.run()
 
     try:
         with TestClient(app).websocket_connect("/ws") as ws:
