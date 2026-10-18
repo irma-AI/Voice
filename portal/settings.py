@@ -39,7 +39,7 @@ ALLOWED_HOSTS = (
 PORTAL_URL = required("PORTAL_URL") or "http://localhost:8000"
 # The shared secret the core sends to fetch a Business's settings. Empty (only possible on a local run) refuses every request.
 CORE_SECRET = required("CORE_SECRET")
-# Where the core's call page is: the test call button sends a Business's browser there, never to an address taken from a request.
+# Where the core's call page is: the test call button and the Call link send a Business's browser there, never to an address taken from a request.
 CORE_URL = required("CORE_URL") or "http://localhost:7860"
 if not DEBUG and not CORE_URL.startswith(
     "https://"

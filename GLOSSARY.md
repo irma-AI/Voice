@@ -21,15 +21,15 @@ The business whose calls the agent answers, with its own facts and Modules. One 
 _Avoid_: tenant, customer, clinic, client, agency
 
 **Call link**:
-A Business's public address (`/call/<unguessable>/` on the Portal) where anyone can start a call with its settings.
+The address (`/call/<unguessable>/` on the Portal) a Business's Call button opens in its panel. It starts a call with the Business's settings only for a page loaded in a frame, and only once the Business has saved a Website domain; in a tab, or pasted anywhere else, it refuses a browser that says so (a script can send the header; not enforced).
 _Avoid_: public URL, widget
 
 **Call button**:
-A link a Business pastes into its own website, from a snippet on its dashboard. It opens the Business's call link in a new window.
+A button on a Business's own website, added with a script tag from its dashboard (shown once a Website domain is saved). A launcher sits in the corner of the page; pressing it opens the Call link in a panel on that page, and pressing it again ends the call. Browsers are told to let only the Website domain and its subdomains show it (not seen in a real browser yet).
 _Avoid_: widget, embed
 
 **Website domain**:
-The registrable domain of a Business's own website (`example.se` for `www.shop.example.se`), saved in its Portal settings. The Portal holds it and puts it on a Call link's ticket, so the call page can be framed only by that site; the agent's settings do not carry it.
+The registrable domain of a Business's own website (`example.se` for `www.shop.example.se`), saved in its Portal settings. The Portal holds it and puts it on a Call link's ticket, so the call page can be framed, and the Call button used, only on that site; the agent's settings do not carry it.
 _Avoid_: site, URL, host
 
 **Theme**:
