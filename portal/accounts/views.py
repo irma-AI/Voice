@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import unicodedata
 from collections import defaultdict
 from decimal import Decimal
@@ -664,9 +665,9 @@ CALL_BUTTON_FILE = settings.BASE_DIR / "static" / "portal" / "call-button.v1.js"
 CALL_BUTTON_INTEGRITY = (
     (settings.BASE_DIR / "call-button.v1.integrity").read_text().strip()
 )
-# A tag with a malformed hash would be run unchecked by browsers, so the Portal refuses to start on one.
-assert CALL_BUTTON_INTEGRITY.startswith("sha384-"), (
-    "portal/call-button.v1.integrity is not a sha384 hash: run make generate"
+# A tag with a malformed hash (a `make generate` with no openssl writes a bare "sha384-") would be run unchecked by browsers, so the Portal refuses to start on one.
+assert re.fullmatch(r"sha384-[A-Za-z0-9+/]{64}", CALL_BUTTON_INTEGRITY), (
+    "portal/call-button.v1.integrity is not a sha384 hash: run make generate (it needs openssl)"
 )
 
 

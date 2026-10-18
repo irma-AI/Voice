@@ -3,8 +3,9 @@
 // accent and the text on it in data-core, data-fill and data-ink (VOI-135), written by the Portal's dashboard. No messages
 // pass between the page and the panel (nothing to check the sender of); the launcher removes the panel to end the call.
 //
-// Pasted tags name this file by a hash of its bytes (integrity=): an edit here makes every one of them stop loading, so a
-// change goes in call-button.v2.js with its own hash, and this file stays. `make generate` writes the hash the dashboard shows.
+// Pasted tags name this file by a hash of its bytes (integrity=): an edit here makes every one of them stop loading, so the
+// frozen-paths guard refuses one. A change goes in call-button.v2.js with its own hash, with the dashboard's tag and the old
+// route's CALL_BUTTON_FILE (portal/accounts/views.py) pointing at it; this file stays. `make generate` writes the hash.
 //
 // The host page is someone else's: the launcher and the panel live in a closed shadow root, so its styles don't reach
 // them and theirs don't leak out. Built with DOM calls only and styled through a constructed stylesheet, which a

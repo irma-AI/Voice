@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from django.conf import settings as django_settings
 from django.contrib.staticfiles import finders
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
@@ -218,9 +219,9 @@ def served_file_hash() -> str:
     return "sha384-" + base64.b64encode(hashlib.sha384(served_file()).digest()).decode()
 
 
-def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw(
-    settings: Any,
-) -> None:
+def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw() -> (
+    None
+):
     anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     Business.objects.filter(pk=anna.pk).update(
         website_domain="anna.example.se", accent="#ffd60a"
@@ -233,7 +234,7 @@ def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw
         and ' crossorigin="anonymous"' in tag
     )
     # The hash `make generate` wrote is the file's (`make generate-check` keeps it current).
-    with open(settings.BASE_DIR / "call-button.v1.integrity") as f:
+    with open(django_settings.BASE_DIR / "call-button.v1.integrity") as f:
         assert f.read().strip() == served_file_hash(), (
             "portal/call-button.v1.integrity is stale: run make generate (a changed script belongs in call-button.v2.js)"
         )
@@ -243,8 +244,6 @@ def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw
         in tag
     )
     # WhiteNoise serves the file with the CORS header a cross-origin integrity check needs (here from the source tree, as a local run does; the image serves the collected copy).
-    settings.WHITENOISE_USE_FINDERS = True
-    settings.WHITENOISE_AUTOREFRESH = True
     response = Client().get(
         f"/static/portal/call-button.v1.js?business={anna.call_slug}"
     )
