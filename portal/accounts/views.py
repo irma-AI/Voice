@@ -159,18 +159,12 @@ def home(request: HttpRequest) -> HttpResponse:
 
 
 def showcase() -> dict[str, Any]:
-    """The landing page's example Business: the Portal's own settings form and Module row, filled with made-up content and never saved."""
-    form = SettingsForm(
-        initial={
-            "name": "Example Salon",
-            "instructions": "We are a hair salon. Open Monday to Friday 09:00 to 17:00 and Saturday 10:00 to 15:00. We cut, colour and style. Bookings are made through our booking system. For gift cards, ask for reception.",
-            "languages": ["sv", "en"],
-        }
-    )
-    # the page shows the three things an agent is set up with, not the website or the Theme
-    for name in ("website_domain", "logo", "remove_logo", "use_accent", "accent"):
-        del form.fields[name]
-    form.fields["instructions"].widget.attrs["rows"] = 6
+    """The landing page's example Business, shown as a read-out like the Portal's Module row: made-up content, never saved."""
+    agent = {
+        "name": "Example Salon",
+        "instructions": "We are a hair salon. Open Monday to Friday 09:00 to 17:00 and Saturday 10:00 to 15:00. We cut, colour and style. Bookings are made through our booking system. For gift cards, ask for reception.",
+        "languages": list(LANGUAGES.items()),
+    }
     module = {
         "name": "Bookings",
         "url": "https://bookings.example.com/mcp",
@@ -183,7 +177,7 @@ def showcase() -> dict[str, Any]:
             ("move_booking", "Moves a booking to a time that is free."),
         ]
     )
-    return {"example_form": form, "example_module": module, "example_offer": offer}
+    return {"example_agent": agent, "example_module": module, "example_offer": offer}
 
 
 def sees_totals(account: Any) -> bool:
@@ -298,7 +292,7 @@ class Text(forms.CharField):
         return str(super().to_python(value)).replace("\r\n", "\n").replace("\r", "\n")
 
 
-INSTRUCTIONS_MAX: int = Business._meta.get_field("instructions").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
+FACTS_MAX: int = Business._meta.get_field("facts").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
 
 
 class SettingsForm(forms.ModelForm):
@@ -308,11 +302,11 @@ class SettingsForm(forms.ModelForm):
         widget=forms.CheckboxSelectMultiple,
         error_messages={"required": "Pick at least one language."},
     )
-    instructions = Text(
+    facts = Text(
         required=False,
-        max_length=INSTRUCTIONS_MAX,
+        max_length=FACTS_MAX,
         widget=forms.Textarea(attrs={"rows": 12}),
-        help_text=f"What the agent should know about your business and how it should act, in your own words: what you do, where, when you are open, what things cost. Up to {INSTRUCTIONS_MAX:,} characters.",
+        help_text=f"Everything the agent should know about your business, in your own words: what you do, where, when you are open, what things cost. Up to {FACTS_MAX:,} characters.",
     )
 
     # Portal-only: the contract the core reads does not carry it. What was typed is reduced once here to the domain the database stores.
@@ -403,7 +397,7 @@ class SettingsForm(forms.ModelForm):
 
     class Meta:
         model = Business
-        fields = ("name", "instructions", "languages", "website_domain")
+        fields = ("name", "facts", "languages", "website_domain")
 
 
 @login_required

@@ -181,7 +181,7 @@ A near-monochrome night palette with one warm light.
 
 ## Layout
 
-Every band (nav, hero, sections, footer) shares one measure of 90rem centred, with a side gutter that grows from 1.25rem to 4rem. Sections open with 5rem top padding; the footer sits 7rem below the last section. The hero is a two-column grid (0.9fr text, 1.1fr instrument) at least one viewport tall.
+Every band (nav, hero, sections, footer) shares one measure of 90rem centred, with a side gutter that grows from 1.25rem to 4rem. Each landing section opens on a tick rule drawn like Turn's ring (a Granite hairline, a fine tick every 12px, a longer lighter one every 120px), 6 to 10rem below the last, so the space between sections is far wider than any inside them (VOI-106). From 1024px a section's header splits: heading left, lede right; below it stacks. The footer sits 7rem below the last section. The hero is a two-column grid (0.9fr text, 1.1fr instrument) at least one viewport tall.
 
 At 860px and below the layout goes to one column: wide-only nav links hide, the ring becomes a vertical rail down the right edge (track, warm fill downward, the same dots), and the current step and line sit in a block under the actions. Lists that were three columns (head, description, mark) stack, with the mark below.
 
@@ -216,7 +216,10 @@ Two corner shapes: the full pill for actions and toggles, and a gentle 0.5rem ra
 A label with a small dot before it. Works today: Cable light text and filled dot. With a Module: Foam muted text, hollow Cable light dot. Planned: Foam muted text, dashed Foam faint dot.
 
 ### Use list
-A borderless list ruled by Granite hairlines: serif row head, Foam muted description, status mark right-aligned.
+Grouped by status into three columns (Works today, With a Module, Planned), one under the other on phones. A hairline runs across the top of each group, dashed in Foam faint for Planned; the group's status dot sits on it like a step on the ring, with its label just below. Each use is a serif head over a Foam muted line; its mark is kept for screen readers (VOI-106).
+
+### Setup steps
+On the landing page the setup sits unframed in three steps (write instructions, choose languages, connect Modules) down a Granite rail with a hollow Foam muted dot per step, like Turn's phone rail. Each step's serif head and line sit left of a read-out drawn like the Portal's Module row (name, a tracked label, the instructions in a block ruled by a Granite hairline, language codes in mono, then the real Module row); above it on phones (VOI-106).
 
 ### Saved notice and call preview
 The saved notice is Foam text after a filled Cable light dot (it marks a live change). The settings page's call preview is the one bounded panel in the Portal: a Foam panel with Deep sea text holding the Business's logo, a ring mark and the button in the adjusted accent, because it stands in for a panel on the Business's own website. It shows the Theme as saved.
