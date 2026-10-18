@@ -74,6 +74,10 @@ def swedish_only() -> list[str]:
     return ["sv"]
 
 
+# The URL-safe base64 alphabet new_call_slug writes, at its length or more: the slug goes unescaped into the Call button tag a Business pastes.
+CALL_SLUG_PATTERN = r"^[A-Za-z0-9_-]{22,40}$"
+
+
 def new_call_slug() -> str:
     """The unguessable part of a Business's public call link."""
     return secrets.token_urlsafe(16)
@@ -181,6 +185,10 @@ class Business(models.Model):
                 condition=models.Q(privacy_url="")
                 | models.Q(privacy_url__regex=PRIVACY_URL_PATTERN),
                 name="business_privacy_url_must_be_empty_or_an_https_address",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(call_slug__regex=CALL_SLUG_PATTERN),
+                name="business_call_slug_must_be_22_to_40_url_safe_chars",
             ),
             models.CheckConstraint(
                 condition=models.Q(name__regex=r"\S"),

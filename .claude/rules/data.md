@@ -17,7 +17,7 @@ The Portal's system of record is Postgres (`DATABASE_URL`), with no cache or que
 ## Enforced by
 
 - `db-test-required` guard (`scripts/checks/db-test-required.json`): a changed migration needs a change under `tests/portal/`, or `db-test: skip <reason>`.
-- The refusals themselves: `tests/portal/test_accounts.py` (second Business on an account, duplicate or upper-case email, negative limit, empty name) and `tests/portal/test_business_settings.py` (no language or an unknown one, a setting longer than the contract allows) and `tests/portal/test_call_link.py` (a second Business with the same call link, a negative daily budget).
+- The refusals themselves: `tests/portal/test_accounts.py` (second Business on an account, duplicate or upper-case email, negative limit, empty name) and `tests/portal/test_business_settings.py` (no language or an unknown one, a setting longer than the contract allows) and `tests/portal/test_call_link.py` (a second Business with the same call link, a call link with a quote, space or angle bracket or under 22 characters, a negative daily budget).
 - `tests/portal/test_theme.py`: a logo over 256 KB, one that is not a PNG, WebP or JPEG by its bytes (SVG, GIF, empty), a logo key that is not the logo's hash, and an accent that is not `#` and six lower-case hex digits.
 - `tests/portal/test_website_domain.py`: a stored website domain that is upper case, has a scheme, path, port, space or header line, or is not a plain domain.
 - `tests/portal/test_privacy_url.py`: a stored privacy notice address that is not https, has no scheme, nothing after the scheme, a space or a header line.

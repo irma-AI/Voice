@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0015_business_daily_budget'),
+        ('accounts', '0016_business_business_call_slug_must_be_22_to_40_url_safe_chars'),
     ]
 
     operations = [
