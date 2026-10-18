@@ -9,6 +9,8 @@ import json
 import time
 
 import pytest
+import uvicorn
+import websockets
 from fastapi import FastAPI, WebSocket
 from loguru import logger
 from pipecat.frames.frames import (
@@ -28,12 +30,19 @@ from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams
 from pipecat.utils.text.base_text_aggregator import AggregationType
 from pipecat.workers.runner import WorkerRunner
 from starlette.testclient import TestClient
+from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketDisconnect
 
 from tests.test_settings_port import GOOD, fake_portal, portal_env
 from voice import serve
 from voice.auth import FONTS_PATH, REFUSAL, TICKET_PATHS
-from voice.serve import OneCallPerBusiness, RawPcmSerializer, create_app, same_site
+from voice.serve import (
+    DrainingServer,
+    OneCallPerBusiness,
+    RawPcmSerializer,
+    create_app,
+    same_site,
+)
 from voice.ticket import sign
 
 
@@ -91,6 +100,47 @@ def test_a_business_has_one_call_at_a_time_and_other_businesses_are_unaffected()
     assert calls.take(7)  # free again once the first call has ended
     calls.release(7)
     calls.release(7)  # releasing twice is harmless
+
+
+def test_a_stop_lets_the_open_call_end_before_the_server_hangs_up() -> None:
+    """A deploy stops the old copy with SIGTERM: a real server and a real WebSocket."""
+
+    async def scenario() -> None:
+        calls, over = OneCallPerBusiness(), asyncio.Event()
+
+        async def app(scope: Scope, receive: Receive, send: Send) -> None:
+            if scope["type"] != "websocket":
+                return
+            await receive()
+            await send({"type": "websocket.accept"})
+            assert calls.take(1)
+            await over.wait()
+            calls.release(1)
+            await send({"type": "websocket.close", "code": 1000})
+
+        config = uvicorn.Config(
+            app, host="127.0.0.1", port=0, lifespan="off", log_level="warning"
+        )
+        server = DrainingServer(config, calls)
+        serving = asyncio.create_task(server.serve())
+        while not server.started:
+            await asyncio.sleep(0.05)
+        port = server.servers[0].sockets[0].getsockname()[1]
+        async with websockets.connect(f"ws://127.0.0.1:{port}/") as call:
+            while not calls.any_open():
+                await asyncio.sleep(0.05)
+            server.should_exit = True  # what uvicorn's SIGTERM handler sets; calling the handler would re-raise the signal at pytest
+            await asyncio.sleep(1.5)
+            assert not serving.done()
+            await call.ping()  # still open: a hang-up would raise here
+            with pytest.raises(OSError):  # and no new call gets in
+                await websockets.connect(f"ws://127.0.0.1:{port}/")
+            over.set()
+            with pytest.raises(websockets.ConnectionClosedOK):
+                await call.recv()
+        await asyncio.wait_for(serving, 5)
+
+    asyncio.run(scenario())
 
 
 def test_the_call_page_opens_with_a_portal_ticket_and_refuses_everyone_else() -> None:
