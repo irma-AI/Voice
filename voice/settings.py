@@ -3,7 +3,7 @@
 One interface, `load_settings()`, and two adapters chosen by the environment: the Portal's settings
 address, or a file in the same shape (contract/business-settings.schema.json) for evals.
 Anything else (nothing set, both set, the Portal down, a reply that breaks the shape) raises
-`SettingsRefused`, and the caller refuses the call: a fallback could serve another Business's facts, or
+`SettingsRefused`, and the caller refuses the call: a fallback could serve another Business's instructions, or
 one that was switched off (ADR 0002). The Portal never imports this, and this never imports the Portal.
 """
 
@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 # Edit with contract/business-settings.schema.json: tests/test_settings_port.py reads both and fails on drift.
 LANGUAGES = {"sv": "Swedish", "en": "English"}
 NAME_MAX = 200
-FACTS_MAX = 5000
+INSTRUCTIONS_MAX = 5000
 MODULES_MAX = 10
 MODULE_NAME_MAX = 100
 MODULE_URL_MAX = 2000
@@ -47,7 +47,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class SettingsRefused(Exception):
-    """No safe settings for this call. The message goes in the log, so it holds no facts and no secret."""
+    """No safe settings for this call. The message goes in the log, so it holds no instructions and no secret."""
 
 
 @dataclass(frozen=True)
@@ -72,7 +72,7 @@ class Theme:
 @dataclass(frozen=True)
 class Settings:
     name: str
-    facts: str
+    instructions: str
     languages: tuple[str, ...]
     modules: tuple[Module, ...] = ()
     theme: Theme = Theme()
@@ -138,22 +138,22 @@ def parse(data: object) -> Settings:
         raise SettingsRefused("settings are not a JSON object")
     d: dict[str, Any] = data  # pyright: ignore[reportUnknownVariableType]
     if (
-        not {"name", "facts", "languages"}
+        not {"name", "instructions", "languages"}
         <= set(d)
-        <= {"name", "facts", "languages", "modules", "theme"}
+        <= {"name", "instructions", "languages", "modules", "theme"}
     ):
         raise SettingsRefused(
-            "settings do not have name, facts and languages, and at most modules and a theme besides"
+            "settings do not have name, instructions and languages, and at most modules and a theme besides"
         )
-    name, facts, languages = d["name"], d["facts"], d["languages"]
+    name, instructions, languages = d["name"], d["instructions"], d["languages"]
     raw_modules = d.get("modules", [])
     if not (isinstance(raw_modules, list) and len(raw_modules) <= MODULES_MAX):  # pyright: ignore[reportUnknownArgumentType]
         raise SettingsRefused("settings modules are not a short list")
     modules = cast("list[object]", raw_modules)
     if not (isinstance(name, str) and 1 <= len(name) <= NAME_MAX):
         raise SettingsRefused("settings name is missing or too long")
-    if not (isinstance(facts, str) and len(facts) <= FACTS_MAX):
-        raise SettingsRefused("settings facts are not text or too long")
+    if not (isinstance(instructions, str) and len(instructions) <= INSTRUCTIONS_MAX):
+        raise SettingsRefused("settings instructions are not text or too long")
     if not (
         isinstance(languages, list)
         and languages
@@ -162,7 +162,7 @@ def parse(data: object) -> Settings:
         raise SettingsRefused("settings languages are empty or not known")
     return Settings(
         name,
-        facts,
+        instructions,
         tuple(languages),  # pyright: ignore[reportUnknownArgumentType]
         tuple(_module(m) for m in modules),
         _theme(d["theme"]) if "theme" in d else Theme(),

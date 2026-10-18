@@ -19,7 +19,7 @@ from pipecat.adapters.schemas.function_schema import FunctionSchema
 
 from modules.example import HOURS
 from portal.accounts import modules as portal_modules
-from tests.evals.checks import BUSINESS_FACTS, MODULE_BUSINESS_FILE
+from tests.evals.checks import BUSINESS_INSTRUCTIONS, MODULE_BUSINESS_FILE
 from voice.agent import system_instruction
 from voice.modules import (
     MAX_ACTIONS,
@@ -119,7 +119,7 @@ def test_the_prompt_promises_tools_only_when_actions_reached_the_model() -> None
     assert "You also have tools" not in system_instruction(business)
     with_tools = system_instruction(business, has_actions=True)
     assert "You also have tools" in with_tools
-    # the facts rule above the tools paragraph must not win over a tool
+    # the instructions rule above the tools paragraph must not win over a tool
     assert "use it before you say you don't know" in with_tools
 
 
@@ -129,10 +129,10 @@ def test_the_modules_hours_cannot_be_guessed_from_the_test_business() -> None:
     def closing_times(hours: str) -> set[str]:
         return set(re.findall(r"-(\d+)", hours))
 
-    assert closing_times(HOURS).isdisjoint(closing_times(BUSINESS_FACTS))
+    assert closing_times(HOURS).isdisjoint(closing_times(BUSINESS_INSTRUCTIONS))
     module_business = json.loads(MODULE_BUSINESS_FILE.read_text("utf-8"))
-    assert not closing_times(module_business["facts"]), (
-        "this Business's facts hold hours"
+    assert not closing_times(module_business["instructions"]), (
+        "this Business's instructions hold hours"
     )
 
 

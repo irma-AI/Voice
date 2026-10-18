@@ -277,7 +277,12 @@ def test_a_business_cannot_set_its_own_link_from_the_settings_page() -> None:
     anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     client.post(
         "/settings/",
-        {"name": "Anna's Salon", "facts": "", "languages": ["sv"], "call_slug": "mine"},
+        {
+            "name": "Anna's Salon",
+            "instructions": "",
+            "languages": ["sv"],
+            "call_slug": "mine",
+        },
     )
     anna.refresh_from_db()
     assert anna.call_slug != "mine"

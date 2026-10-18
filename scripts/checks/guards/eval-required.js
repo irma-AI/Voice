@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Guard: a change to something only the evals can test (the list in scripts/eval-required.json: the agent's
-// prompt and settings, the Business's facts, the Pipecat pin) needs a receipt from a passing full `make eval`
+// prompt and settings, the Business's instructions, the Pipecat pin) needs a receipt from a passing full `make eval`
 // that matches the files as they are now. CI never runs the paid evals; Petter does, locally.
 // Known limits: a hand-written receipt passes this check, so review checks that the receipt came from `make eval`;
 // and an edit to the list, to scripts/eval-receipt.js or to this guard does not trigger it, but those are

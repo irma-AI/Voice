@@ -10,14 +10,14 @@ web
 
 ## Users
 
-- **Primary: small Swedish businesses on the hosted service.** An owner or staff member, not technical, who wants the business's calls answered. They are invited, set the agent up once (name, free-text facts, languages, Modules), try it with a Test call, paste a Call button on their website, and come back now and then to see recent calls.
+- **Primary: small Swedish businesses on the hosted service.** An owner or staff member, not technical, who wants the business's calls answered. They are invited, set the agent up once (name, free-text instructions, languages, Modules), try it with a Test call, paste a Call button on their website, and come back now and then to see recent calls.
 - **Secondary: self-hosters.** Technical people who run their own copy with their own Google key and wire their own Modules (MCP servers).
 - Owners use the Portal **phone first**, between jobs; desktop is secondary.
 - **Callers** never see the Portal; they meet the product only on the call page, opened from the Call button on the Business's own website.
 
 ## Product Purpose
 
-Voice answers a Business's callers with a live AI voice agent, in Swedish or English, from the Business's own facts and the Actions its Modules offer. The Portal is where a Business sets that agent up and sees what its calls used. Success: a non-technical owner gets a working agent from their facts alone, and callers get their question answered or a clean Hand-off.
+Voice answers a Business's callers with a live AI voice agent, in Swedish or English, from the Business's own Instructions and the Actions its Modules offer. The Portal is where a Business sets that agent up and sees what its calls used. Success: a non-technical owner gets a working agent from their Instructions alone, and callers get their question answered or a clean Hand-off.
 
 ## Positioning
 
@@ -34,8 +34,8 @@ Voice answers a Business's callers with a live AI voice agent, in Swedish or Eng
 
 ## Capabilities and Constraints
 
-- Shipped: login, invite, password reset, settings (name, facts, languages, Theme), Modules, Test call, Call button script (the browser is told to limit it to the Business's website domain; seen in desktop Chromium and on one iPhone, not on Android), recent calls, an operator totals page.
-- A Business's settings are a name, free-text facts, languages and a Theme (logo and one accent colour, shown only to its Callers); anything more structured comes as a Module, never a fixed Portal field. The Portal stores the Theme and tells the core; the call page and Call button show it from VOI-87 and VOI-89 (`docs/design/four-surface-redesign.md`).
+- Shipped: login, invite, password reset, settings (name, Instructions, languages, Theme), Modules, Test call, Call button script (the browser is told to limit it to the Business's website domain; seen in desktop Chromium and on one iPhone, not on Android), recent calls, an operator totals page.
+- A Business's settings are a name, free-text instructions, languages and a Theme (logo and one accent colour, shown only to its Callers); anything more structured comes as a Module, never a fixed Portal field. The Portal stores the Theme and tells the core; the call page and Call button show it from VOI-87 and VOI-89 (`docs/design/four-surface-redesign.md`).
 - Call languages: Swedish and English only.
 - Portal UI language: English, because the code is open and language-agnostic. Translations, Swedish first, are planned (VOI-67).
 - Stack: Django, Tailwind, htmx, Postgres (ADR 0002).

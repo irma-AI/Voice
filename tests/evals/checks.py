@@ -11,9 +11,11 @@ from voice.agent import DISCLOSURE
 
 # The Business the eval Channel serves (VOI-25): the core reads it as its settings file, and the checks read their figures from it.
 BUSINESS_FILE = Path(__file__).parent / "business.json"
-# The Business whose agent has a Module (modules/example.py); its facts hold no hours.
+# The Business whose agent has a Module (modules/example.py); its instructions hold no hours.
 MODULE_BUSINESS_FILE = Path(__file__).parent / "business_module.json"
-BUSINESS_FACTS: str = json.loads(BUSINESS_FILE.read_text("utf-8"))["facts"]
+BUSINESS_INSTRUCTIONS: str = json.loads(BUSINESS_FILE.read_text("utf-8"))[
+    "instructions"
+]
 
 
 @dataclass(frozen=True)
@@ -138,9 +140,9 @@ def _language(text: str) -> Literal["sv", "en", "unknown"]:
     return "sv" if sv > en else "en" if en > sv else "unknown"
 
 
-def _fact(key: str) -> str:
-    """The value of one line in the Business's facts, so a check never copies a figure."""
-    for line in BUSINESS_FACTS.splitlines():
+def _instruction(key: str) -> str:
+    """The value of one line in the Business's instructions, so a check never copies a figure."""
+    for line in BUSINESS_INSTRUCTIONS.splitlines():
         if line.startswith(f"{key}:"):
             return line.partition(":")[2].strip()
     raise KeyError(key)
@@ -194,14 +196,14 @@ def _numbers(text: str) -> set[int]:
 
 def _states(reply: str, key: str) -> bool:
     """Whether the reply gives the figure on the Business's `key` line."""
-    figure = int(re.findall(r"\d+", _fact(key))[0])
+    figure = int(re.findall(r"\d+", _instruction(key))[0])
     # "1 850" is 1850, not 850.
     return figure in _numbers(re.sub(r"(?<=\d) (?=\d{3}\b)", "", reply))
 
 
 def _gives_hours(reply: str, hours: str | None = None) -> bool:
     """Both closing times of `hours` (the Business's own by default), as digits or words; days and opening times are not checked."""
-    closing = {int(c) for c in re.findall(r"-(\d+)", hours or _fact("hours"))}
+    closing = {int(c) for c in re.findall(r"-(\d+)", hours or _instruction("hours"))}
     return closing <= _numbers(reply)
 
 
@@ -269,11 +271,11 @@ _DECLINES = re.compile(r"\b(inte|tyvärr|saknar|vet ej)\b", re.IGNORECASE)
 
 
 def invents_no_price(call: Call) -> Verdict:
-    """For a price the facts lack, the agent says it does not know and names no price."""
+    """For a price the instructions lack, the agent says it does not know and names no price."""
     reply = _answer(call)
     if not reply:
         return Verdict(False, "the agent did not answer the Caller")
-    if _PRICE.search(reply.replace(_fact("address"), "")):
+    if _PRICE.search(reply.replace(_instruction("address"), "")):
         return Verdict(False, f"the reply names a price: {reply!r}")
     if not _DECLINES.search(reply):
         return Verdict(False, f"the reply does not say it does not know: {reply!r}")

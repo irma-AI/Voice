@@ -109,7 +109,7 @@ class Business(models.Model):
         Account, on_delete=models.PROTECT, related_name="business"
     )
     name = models.CharField(max_length=200)
-    facts = models.CharField(max_length=5000, blank=True, default="")
+    instructions = models.CharField(max_length=5000, blank=True, default="")
     languages = ArrayField(
         models.CharField(max_length=2, choices=list(LANGUAGES.items())),
         default=swedish_only,
@@ -172,7 +172,7 @@ class Business(models.Model):
         """What the settings address serves: exactly the properties of contract/business-settings.schema.json."""
         served: dict[str, object] = {
             "name": self.name,
-            "facts": self.facts,
+            "instructions": self.instructions,
             "languages": self.languages,
             "modules": [m.as_setting() for m in self.modules_to_serve()],
         }

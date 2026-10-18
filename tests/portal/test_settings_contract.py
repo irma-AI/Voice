@@ -24,7 +24,7 @@ def test_what_the_portal_serves_matches_the_schema() -> None:
     business = Business.objects.create(
         account=Account.objects.create_user("anna.testsson@example.com", "x" * 20),
         name="Anna's Salon",
-        facts="Öppet mån-fre 8-17.",
+        instructions="Öppet mån-fre 8-17.",
         languages=["sv", "en"],
     )
     Module.objects.create(business=business, name="bookings", url="https://8.8.8.8/mcp")

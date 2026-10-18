@@ -78,7 +78,7 @@ def test_the_portal_showcase_is_the_portals_own_form_and_module_row_labelled_as_
     page = landing()
     assert "Example Business · illustrative, not real data" in page
     # The Portal's own settings form fields, disabled so nothing can be sent.
-    for field in ('name="name"', 'name="facts"', 'name="languages"'):
+    for field in ('name="name"', 'name="instructions"', 'name="languages"'):
         assert field in page, field
     assert 'name="website_domain"' not in page
     assert "<fieldset disabled" in page

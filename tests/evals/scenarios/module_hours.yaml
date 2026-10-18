@@ -1,4 +1,4 @@
-# The Business's facts have no opening hours; its Module has an Action that gives them. The Caller asks the hours and the agent must call the Action and use its answer. The checks read the call record.
+# The Business's instructions have no opening hours; its Module has an Action that gives them. The Caller asks the hours and the agent must call the Action and use its answer. The checks read the call record.
 user:
   modality: audio
 judge:

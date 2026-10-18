@@ -29,4 +29,4 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 - The conversation script (a longer call: move a booking, then ask to be put through to a person). Petter writes it later.
 - AA contrast of the palette (`docs/design/four-surface-redesign.md`).
-- Line labels "Instructions" and "MCP" against the product's terms "facts" and "Modules".
+- Line labels "Instructions" and "MCP" against the product's term "Modules" ("Instructions" is the product term since VOI-107).

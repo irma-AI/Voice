@@ -163,14 +163,14 @@ def showcase() -> dict[str, Any]:
     form = SettingsForm(
         initial={
             "name": "Example Salon",
-            "facts": "We are a hair salon. Open Monday to Friday 09:00 to 17:00 and Saturday 10:00 to 15:00. We cut, colour and style. Bookings are made through our booking system. For gift cards, ask for reception.",
+            "instructions": "We are a hair salon. Open Monday to Friday 09:00 to 17:00 and Saturday 10:00 to 15:00. We cut, colour and style. Bookings are made through our booking system. For gift cards, ask for reception.",
             "languages": ["sv", "en"],
         }
     )
     # the page shows the three things an agent is set up with, not the website or the Theme
     for name in ("website_domain", "logo", "remove_logo", "use_accent", "accent"):
         del form.fields[name]
-    form.fields["facts"].widget.attrs["rows"] = 6
+    form.fields["instructions"].widget.attrs["rows"] = 6
     module = {
         "name": "Bookings",
         "url": "https://bookings.example.com/mcp",
@@ -298,7 +298,7 @@ class Text(forms.CharField):
         return str(super().to_python(value)).replace("\r\n", "\n").replace("\r", "\n")
 
 
-FACTS_MAX: int = Business._meta.get_field("facts").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
+INSTRUCTIONS_MAX: int = Business._meta.get_field("instructions").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
 
 
 class SettingsForm(forms.ModelForm):
@@ -308,11 +308,11 @@ class SettingsForm(forms.ModelForm):
         widget=forms.CheckboxSelectMultiple,
         error_messages={"required": "Pick at least one language."},
     )
-    facts = Text(
+    instructions = Text(
         required=False,
-        max_length=FACTS_MAX,
+        max_length=INSTRUCTIONS_MAX,
         widget=forms.Textarea(attrs={"rows": 12}),
-        help_text=f"Everything the agent should know about your business, in your own words: what you do, where, when you are open, what things cost. Up to {FACTS_MAX:,} characters.",
+        help_text=f"What the agent should know about your business and how it should act, in your own words: what you do, where, when you are open, what things cost. Up to {INSTRUCTIONS_MAX:,} characters.",
     )
 
     # Portal-only: the contract the core reads does not carry it. What was typed is reduced once here to the domain the database stores.
@@ -403,7 +403,7 @@ class SettingsForm(forms.ModelForm):
 
     class Meta:
         model = Business
-        fields = ("name", "facts", "languages", "website_domain")
+        fields = ("name", "instructions", "languages", "website_domain")
 
 
 @login_required

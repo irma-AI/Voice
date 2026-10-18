@@ -87,7 +87,7 @@ def test_the_core_reads_the_ticketed_businesss_settings_from_the_real_portal(
     live_server: Any,
 ) -> None:
     anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    Business.objects.filter(pk=anna.pk).update(facts="Open 8-17.")
+    Business.objects.filter(pk=anna.pk).update(instructions="Open 8-17.")
     business_with_login("bo.testsson@example.com", "Bo's Bikes")
 
     ticket = ticket_in(client.post("/test-call/")["Location"])
@@ -95,7 +95,7 @@ def test_the_core_reads_the_ticketed_businesss_settings_from_the_real_portal(
     assert named is not None
     core_env = {"SETTINGS_URL": live_server.url, "CORE_SECRET": SECRET}
     got = load_settings(core_env, str(named.business))
-    assert (got.name, got.facts) == ("Anna's Salon", "Open 8-17.")
+    assert (got.name, got.instructions) == ("Anna's Salon", "Open 8-17.")
 
 
 def test_a_portal_with_no_secret_hands_out_no_ticket(settings: Any) -> None:

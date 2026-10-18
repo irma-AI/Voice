@@ -42,7 +42,7 @@ Petter, verbatim: "The current design is just placeholder for testing but i want
 ## 3. Call page
 
 - **Where it lives now:** the core serves it, and since VOI-71 it opens only inside a frame on the Business's own website (the saved Website domain, `frame-ancestors`). VOI-73 (in progress in another session) builds the loader script, the launcher and the panel. This redesign **styles what VOI-73 ships**, and its ticket waits on VOI-73.
-- **Identity:** per-Business Theme (Petter chose this over the Business name set in Voice's style). The Business's logo and accent colour show on the page. This changes the rule in `GLOSSARY.md` and `PRODUCT.md`: a Business's settings are now a name, free-text facts, languages and a Theme.
+- **Identity:** per-Business Theme (Petter chose this over the Business name set in Voice's style). The Business's logo and accent colour show on the page. This changes the rule in `GLOSSARY.md` and `PRODUCT.md`: a Business's settings are now a name, free-text instructions, languages and a Theme.
 - **Language:** English page text for now (Petter: "English for now as it's open source and agnostic but we should probably add translations"). The agent still speaks the Business's languages.
 - **Disclosure in writing:** shown before the Caller presses start and for the whole call. Petter approved the English line on 2026-10-17, verbatim: "You are talking to an AI assistant." The agent keeps saying the Swedish line ("Du pratar med en AI-assistent.") aloud on Swedish calls. Design places these lines and never rewords them.
 - **During a call:** who is speaking (agent or Caller) and a **Live transcript** of both sides. Shown only, never kept, and not part of the Call record.
