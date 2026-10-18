@@ -215,6 +215,9 @@ Two corner shapes: the full pill for actions and toggles, and a gentle 0.5rem ra
 ### Status marks
 A label with a small dot before it. Works today: Cable light text and filled dot. With a Module: Foam muted text, hollow Cable light dot. Planned: Foam muted text, dashed Foam faint dot.
 
+### Section rule
+Each landing section after the hero opens on a rule drawn like Turn's ring: a 1px Granite hairline across the measure, a fine Granite tick every 12px and a longer tick in the ring's major-tick grey (#6A7380) every 120px. It is the only separator between sections; nothing is filled or boxed.
+
 ### Use list
 Grouped by status into three columns (Works today, With a Module, Planned), one under the other on phones. A hairline runs across the top of each group, dashed in Foam faint for Planned; the group's status dot sits on it like a step on the ring, with its label just below. Each use is a serif head over a Foam muted line; its mark is kept for screen readers (VOI-106).
 
@@ -234,6 +237,8 @@ The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light pro
 - **Do** separate with 1px Granite hairlines and keep surfaces flat on the Deep sea ground.
 - **Do** bound controls with Foam faint, not Granite.
 - **Do** mark unbuilt capability with the dashed Planned treatment.
+- **Do** set landing sections apart with the section rule, wide space between sections and a shape of their own (status groups, setup steps), not with fills or frames.
+- **Do** write copy that says what the visitor gets and what the agent does, outcome first; mark what is not built as Planned rather than leaving it out. Keep headings short and step names plain verbs ("Choose languages", not "Choose its languages").
 - **Do** give any moving element a visible Pause control, and under reduced motion keep its content changing in turn with no oscillating or travelling movement; a slow, steady fill may stay.
 
 ### Don't:
@@ -241,6 +246,8 @@ The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light pro
 - **Don't** use a gradient as decoration; the only gradient is the ground's Blue hour falloff.
 - **Don't** put the uppercase label above a heading as a kicker or eyebrow.
 - **Don't** colour a finished or Planned thing in Cable light.
+- **Don't** frame the Portal like a screenshot or browser window on the landing page; show its parts as read-outs and real rows on the ground.
+- **Don't** tell visitors what Voice does not do ("builds no integrations"), and don't explain how the product was defined; say what it does.
 
 ## Open
 

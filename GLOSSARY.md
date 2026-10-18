@@ -68,6 +68,14 @@ _Avoid_: plugin, integration, connector
 One thing a Module lets the agent do during a call, such as looking up a booking.
 _Avoid_: tool (in everyday talk), function
 
+**Command**:
+One thing a Business's own agent can tell Voice to do, such as changing its facts or removing a Module, over MCP. Each is something a person can already do in the Portal. Not an Action, which is what the voice agent does during a call.
+_Avoid_: tool (in everyday talk), Action, API call
+
+**Access token**:
+The secret a Business makes in its Portal and pastes into its own agent, so the agent can send Commands. It is read-only or full, chosen when it is made, and works for that one Business.
+_Avoid_: API key, password
+
 **Portal**:
 The web app where a Business logs in to set its Modules and general settings. It ships in both the open code and the hosted service.
 _Avoid_: dashboard (only one page of it), admin

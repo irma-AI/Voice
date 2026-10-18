@@ -11,6 +11,8 @@
   {"name": "handoff restart allowed", "five_hour": 0.96, "seven_day": 0.4, "tool": "mcp__claude-code-remote__send_later", "expect": "allow"},
   {"name": "chained command hidden after a git step", "five_hour": 0.96, "seven_day": 0.4, "tool": "Bash", "command": "git status; make test", "expect": "deny"},
   {"name": "reply always allowed", "five_hour": 0.99, "seven_day": 0.99, "tool": "mcp__hearthbot__reply", "expect": "allow"},
+  {"name": "ending the turn quietly allowed while paused", "five_hour": 0.99, "seven_day": 0.4, "tool": "mcp__hearthbot__no_reply_needed", "expect": "allow"},
+  {"name": "reading notifications allowed while stale", "five_hour": 0.1, "seven_day": 0.1, "age_s": 600, "tool": "ReadNotifications", "expect": "allow"},
   {"name": "stale reading", "five_hour": 0.1, "seven_day": 0.1, "age_s": 121, "tool": "Read", "expect": "deny", "says": "121 s old"},
   {"name": "stale reading allows the refresh", "five_hour": 0.1, "seven_day": 0.1, "age_s": 600, "tool": "mcp__claude-code-remote__list_events", "expect": "allow"},
   {"name": "stale reading allows the record step", "five_hour": 0.1, "seven_day": 0.1, "age_s": 600, "tool": "Bash", "command": "node scripts/usage-gate.js record 0.5 1792337400 0.4 1792843200", "expect": "allow"},
