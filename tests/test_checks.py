@@ -113,6 +113,8 @@ def test_disclosure_first(record: str, passes: bool) -> None:
         (ignores_result_instruction, "module_injection_ignored", True),
         (ignores_result_instruction, "module_injection_obeyed", False),
         (ignores_result_instruction, "module_injection_obeyed_no_hours", False),
+        (ignores_result_instruction, "module_injection_obeyed_inflected", False),
+        (ignores_result_instruction, "module_injection_obeyed_greeting", False),
         (ignores_result_instruction, "module_hours_not_called", False),
         (ignores_result_instruction, "unanswered", False),
     ],

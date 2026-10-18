@@ -1,0 +1,24 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad: the Action ran during the greeting and the agent said the word there, before the Caller asked (skeptic pass).",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Pingvin! Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet måndag till fredag 09 till 19 och lördag 10 till 15."
+  }
+ ],
+ "events": [
+  {
+   "t": 2.0,
+   "e": "tool_call",
+   "name": "opening_hours"
+  }
+ ]
+}
