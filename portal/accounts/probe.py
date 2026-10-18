@@ -6,6 +6,7 @@ to an address the core would refuse.
 
 import asyncio
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from typing import NamedTuple
 
 from mcp import ClientSession, StdioServerParameters
@@ -14,8 +15,13 @@ from mcp.client.streamable_http import streamable_http_client
 
 from portal.accounts.modules import address_problem
 
-# ponytail: the page waits this long in silence for a Module; make it a setting if a real Module is slow.
-PROBE_TIMEOUT_S = 5
+# Petter chose 2 s (DECISIONS.md): a Check holds one of the Portal's few request threads, which also answer the core's
+# settings request at every call start. It covers the address lookup and the Module's answer together.
+PROBE_TIMEOUT_S = 2
+
+# shortcut: a lookup that outlives the timeout keeps its thread until the resolver gives up, and asyncio.run would wait
+# for it on the default pool, so lookups run here; MODULES_MAX threads, upgrade if hung lookups ever queue up.
+_LOOKUPS = ThreadPoolExecutor(max_workers=10, thread_name_prefix="module-lookup")
 
 Action = tuple[str, str]  # the Action's name and its description
 
@@ -34,14 +40,18 @@ async def _probe(spec: Spec, allow_local: bool) -> Offer:
     url, command, args = spec
     if command and not allow_local:
         return Offer([], "A local Module is not allowed here.")
-    if (
-        url
-        and not allow_local
-        and (why := await asyncio.to_thread(address_problem, url))
-    ):
-        return Offer([], why)
     try:
         async with asyncio.timeout(PROBE_TIMEOUT_S):
+            if (
+                url
+                and not allow_local
+                and (
+                    why := await asyncio.get_running_loop().run_in_executor(
+                        _LOOKUPS, address_problem, url
+                    )
+                )
+            ):
+                return Offer([], why)
             async with (
                 (
                     stdio_client(

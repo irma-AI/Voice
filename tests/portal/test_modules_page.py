@@ -2,6 +2,8 @@
 
 import socket
 import sys
+import threading
+import time
 from contextlib import closing
 from typing import Any
 
@@ -179,6 +181,31 @@ def test_a_module_that_never_answers_says_so(settings: Any) -> None:
         add(client, "hung", f"http://127.0.0.1:{hung.getsockname()[1]}/mcp")
         page = checked(client)
     assert f"did not answer within {probe.PROBE_TIMEOUT_S} seconds" in page
+
+
+def test_a_module_whose_address_lookup_hangs_gives_up_within_the_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    Module.objects.create(
+        business=business, name="slow", url="https://slow.example/mcp"
+    )
+    # the resolver, standing in for a DNS server that never answers
+    release = threading.Event()
+
+    def never_answers(*_: Any, **__: Any) -> list[Any]:
+        release.wait(30)
+        return []
+
+    monkeypatch.setattr(socket, "getaddrinfo", never_answers)
+    started = time.monotonic()
+    try:
+        page = checked(client)
+        took = time.monotonic() - started
+    finally:
+        release.set()
+    assert f"did not answer within {probe.PROBE_TIMEOUT_S} seconds" in page
+    assert took < probe.PROBE_TIMEOUT_S + 1
 
 
 def test_a_hosted_page_does_not_reach_into_our_network_for_a_stored_address() -> None:
