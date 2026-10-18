@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// Guard: no commit or PR text that reaches main carries Claude's identity or attribution (CLAUDE.md § Workflow). GitHub's
+// Guard: every commit that reaches main is authored and committed by the one identity in scripts/git-identity.sh, and no
+// commit or PR text carries Claude's identity or attribution (CLAUDE.md § Workflow). An allow-list since VOI-140: a
+// deny-list of Claude's address let another address of Petter's onto four branches on 2026-10-18. GitHub's
 // squash merge adds "Co-authored-by: <author>" for each branch-commit author other than the merger, so a branch
 // of commits authored "Claude <noreply@anthropic.com>" puts that line on main. Checks author and committer, and
 // the message for Co-authored-by / Claude-Session trailers, the "Generated with/by Claude Code" footer and session links.
@@ -14,8 +16,10 @@ const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 const ROOT = process.env.GUARD_ROOT || process.cwd();
 
-const FIX = 'run `sh scripts/git-identity.sh`, then re-author your branch: `git rebase -r origin/main --exec "git commit --amend --no-edit --reset-author"`, strip any Claude trailer from the messages, and force-push your own branch with --force-with-lease';
-const IDENTITY = /@anthropic\.com>?$|^claude\b/i; // "Name <email>" of an author or committer
+const FIX = 'run `sh scripts/git-identity.sh` (and pass no -c user.name or user.email), then re-author your branch: `git rebase -r origin/main --exec "git commit --amend --no-edit --reset-author"`, strip any Claude trailer from the messages, and force-push your own branch with --force-with-lease';
+// The one identity, read from the script that sets it (hard rule 5); the pre-commit hook reads the same line.
+const EMAIL = fs.readFileSync(path.join(ROOT, 'scripts', 'git-identity.sh'), 'utf8').match(/^email='(.*)'$/m)[1];
+const allowed = (ident) => ident.endsWith(`<${EMAIL}>`); // "Name <email>" of an author or committer
 const MESSAGE = require(path.join(__dirname, '..', '..', 'claude-attribution.js')); // shared with the GitHub write hook
 
 // A fixture has `.guard-commits.json` (a list of {sha, author, committer, message}) in place of git.
@@ -46,8 +50,8 @@ if (prWhy.length) {
 }
 for (const c of list) {
   const why = [];
-  if (IDENTITY.test(c.author)) why.push(`authored by ${c.author}`);
-  if (IDENTITY.test(c.committer)) why.push(`committed by ${c.committer}`);
+  if (!allowed(c.author)) why.push(`authored by ${c.author}`);
+  if (!allowed(c.committer)) why.push(`committed by ${c.committer}`);
   for (const [re, what] of MESSAGE) if (re.test(c.message)) why.push(`has ${what}`);
   if (why.length) {
     console.log(`${c.sha.slice(0, 7)}\tcommit ${c.sha.slice(0, 7)} ${why.join(' and ')}: ${FIX}`);
