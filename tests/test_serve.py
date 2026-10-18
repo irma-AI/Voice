@@ -219,6 +219,8 @@ def test_without_settings_the_call_page_shows_voices_own_look(
         assert '<span class="name">Voice</span>' in page
         assert "<img" not in page
         assert DISCLOSURE in page
+        # A screen reader finds the Live transcript as a log it can read, not announced over the agent's voice.
+        assert 'role="log" aria-live="off" aria-label="Live transcript"' in page
 
 
 def test_the_typefaces_are_open_and_nothing_else_under_them() -> None:

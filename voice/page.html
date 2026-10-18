@@ -61,7 +61,7 @@
 <style>__THEME__</style>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin: 0; min-height: 100%; }
+  html, body { margin: 0; }
   body {
     min-height: 100dvh;
     background: var(--color-deep-sea) radial-gradient(120% 90% at 70% 0%, var(--color-blue-hour) 0%, var(--color-deep-sea) 78%) fixed;
@@ -74,16 +74,21 @@
   ::selection { background: var(--color-cable-light); color: var(--color-deep-sea); }
   :focus-visible { outline: 2px solid var(--color-cable-light); outline-offset: 4px; }
 
+  /* One column the height of the panel (32rem at most on the Business's site): the Live transcript takes the
+     slack, so the button stays in view in every state. Opened on its own, the column stops at 40rem. */
   .panel {
     width: 100%;
     max-width: 26rem;
-    padding: calc(var(--spacing) * 6) calc(var(--spacing) * 5) calc(var(--spacing) * 7);
+    height: min(100dvh, 40rem);
+    overflow-y: auto;
+    padding: calc(var(--spacing) * 5);
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: calc(var(--spacing) * 5);
+    gap: calc(var(--spacing) * 3);
   }
+  .panel > * { flex: none; }
 
   .brand { min-height: 2.5rem; display: flex; align-items: center; justify-content: center; }
   .brand img { display: block; max-height: 2.5rem; max-width: 12rem; object-fit: contain; }
@@ -105,10 +110,13 @@
   }
 
   /* A compact Turn: the ring is this call, filling with time. */
-  .instrument { position: relative; width: 10.5rem; aspect-ratio: 1; }
+  .instrument { position: relative; width: clamp(6.5rem, 24dvh, 9rem); aspect-ratio: 1; }
   .instrument svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
   .track { fill: none; stroke: var(--color-granite); stroke-width: 1; }
-  .arc { fill: none; stroke: var(--live); stroke-width: 2; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+  /* The arc is lit only while the call is live; after it, the time the call took stays drawn in Foam faint. */
+  .arc { fill: none; stroke: var(--color-foam-faint); stroke-width: 2; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+  [data-state="live"] .arc { stroke: var(--live); }
+  [data-state="start"] .arc, [data-state="connecting"] .arc { visibility: hidden; }
   .centre {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -125,12 +133,19 @@
   }
   .speaker { display: inline-flex; align-items: center; gap: 0.5em; min-height: 1.4em; }
 
-  /* The Live transcript: the previous line and the latest, shown only. The agent speaks in Cable light,
-     never the Business's accent: that is adjusted for AA only against the text it carries, not against Deep sea. */
-  .turn { width: 100%; min-height: 5.5rem; display: flex; flex-direction: column; justify-content: flex-end; gap: calc(var(--spacing) * 2); text-align: left; }
+  /* The Live transcript: the previous line and the latest, shown only. It fills the space between the ring and the
+     state and is cut at the top, so the newest words stay in view. The agent's latest line is Cable light while the
+     call is live, never the Business's accent: that is adjusted for AA only against the text it carries, not against
+     Deep sea. A finished line goes back to Foam muted: a colour, not opacity, so its label keeps AA contrast. */
+  .turn {
+    width: 100%; flex: 1 1 0; min-height: 0; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: flex-end; gap: calc(var(--spacing) * 2); text-align: left;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 1.5rem);
+    mask-image: linear-gradient(to bottom, transparent, #000 1.5rem);
+  }
   .turn p { margin: 0; font-size: var(--text-base); line-height: var(--text-base--line-height); color: var(--color-foam); overflow-wrap: anywhere; }
-  .turn p[data-who="agent"] { color: var(--color-cable-light); }
-  .turn p:not(:last-child) { opacity: 0.6; font-size: var(--text-sm); line-height: var(--text-sm--line-height); }
+  [data-state="live"] .turn p[data-who="agent"]:last-child { color: var(--color-cable-light); }
+  .turn p:not(:last-child) { color: var(--color-foam-muted); font-size: var(--text-sm); line-height: var(--text-sm--line-height); }
   .turn .label { display: block; margin-bottom: 0.125rem; }
 
   /* State: a dot and a label, then a sentence that says what to do. */
@@ -171,6 +186,9 @@
 
   .fine { margin: 0; font-size: var(--text-xs); line-height: var(--text-xs--line-height); color: var(--color-foam-muted); }
 
+  /* A phone on its side leaves the panel under 420px tall: the ring gives way so the button stays in view. */
+  @media (max-height: 420px) { .instrument { display: none; } }
+
   @media (prefers-reduced-motion: reduce) {
     .arc, .pill { transition: none; }
     [data-state="connecting"] .chip .dot { animation: none; }
@@ -188,7 +206,7 @@
       <span class="speaker label" id="speaker" data-who=""><span class="dot"></span><span id="speaker-name">Listening</span></span>
     </div>
   </div>
-  <div class="turn" id="turn" aria-label="What is being said"></div>
+  <div class="turn" id="turn" role="log" aria-live="off" aria-label="Live transcript"></div>
   <div class="state" role="status" aria-live="polite">
     <span class="chip"><span class="dot"></span><span class="label" id="chip">Ready</span></span>
     <p class="message" id="message">Press Start call and allow your microphone when your browser asks.</p>
@@ -380,6 +398,8 @@ async function start() {
   show("live");
 }
 go.onclick = () => (call ? call() : start());
+// Escape inside the panel never reaches the Business's page, where it closes the panel; here it hangs up.
+document.addEventListener("keydown", (e) => e.key === "Escape" && call && call());
 </script>
 </body>
 </html>
