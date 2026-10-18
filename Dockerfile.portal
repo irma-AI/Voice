@@ -11,5 +11,7 @@ RUN useradd --system app
 USER app
 EXPOSE 8000
 # DATABASE_URL, DJANGO_SECRET_KEY, ALLOWED_HOSTS, PORTAL_URL, CORE_URL, CORE_SECRET, EMAIL_HOST and EMAIL_FROM come from the environment (Dokploy, .env.example); ENVIRONMENT=production.
+# Healthy once gunicorn accepts connections, which is after migrate; with the update order start-first, Dokploy keeps the old copy serving until then (VOI-121). (Migrations: .claude/rules/data.md.)
+HEALTHCHECK --interval=5s --timeout=3s --start-period=60s --retries=3 CMD ["python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 2)"]
 # Migrations run at start, so a deploy and its schema never disagree. One worker: the login limit counts in the worker's memory.
 CMD ["sh", "-c", "python -m django migrate --noinput && exec gunicorn portal.wsgi --bind 0.0.0.0:8000 --workers 1 --threads 4 --no-control-socket"]
