@@ -20,16 +20,15 @@
 </ul>
 
 {% if business %}
-<section class="mt-10 space-y-3">
+<section class="mt-12 border-t border-granite pt-8 space-y-3">
   <p>Your website domain: {% if business.website_domain %}<strong>{{ business.website_domain }}</strong>{% else %}none set{% endif %}. <a href="{% url 'business_settings' %}" class="underline hover:text-cable-light">Change it</a></p>
-  <p>Your public call link: <a href="{{ call_url }}" class="underline break-all hover:text-cable-light">{{ call_url }}</a></p>
-  <p class="text-sm text-foam-muted">Anyone with this link can call your agent from a browser. There is no daily limit yet.</p>
-</section>
-
-<section class="mt-12 border-t border-granite pt-8">
   <h2 class="text-2xl">A call button for your website</h2>
-  <p class="mt-2 text-sm text-foam-muted">Paste this where the button should appear. It opens your call link in a new window.</p>
+  {% if button_html %}
+  <p class="text-sm text-foam-muted">Paste this on every page of {{ business.website_domain }} (or a subdomain) where the button should appear, just before the closing &lt;/body&gt; tag. A button appears in the corner; pressing it opens the call in a panel on the page. Browsers are told to let only your website domain show it.</p>
   <pre class="mt-4 overflow-x-auto rounded-md border border-granite bg-deep-sea/60 p-4 text-sm" tabindex="0"><code>{{ button_html }}</code></pre>
+  {% else %}
+  <p class="text-sm text-foam-muted">Your call button is closed: save your website domain in <a href="{% url 'business_settings' %}" class="underline hover:text-cable-light">your settings</a> first, and the snippet to paste shows here.</p>
+  {% endif %}
 </section>
 {% endif %}
 </div>

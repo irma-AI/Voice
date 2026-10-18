@@ -8,6 +8,7 @@ import unicodedata
 from collections import defaultdict
 from decimal import Decimal
 from typing import Any
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from django import forms
@@ -31,6 +32,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
+from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
@@ -154,19 +156,16 @@ def sees_totals(account: Any) -> bool:
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
     business = Business.objects.filter(account=request.user).first()
-    call_url = business and settings.PORTAL_URL.rstrip("/") + reverse(
-        "call_link", args=[business.call_slug]
-    )
     return render(
         request,
         "accounts/dashboard.html",
         {
             "business": business,
             "sees_totals": sees_totals(request.user),
-            "call_url": call_url,
-            # The Business pastes this into its own website; the text is what a caller reads on the button.
-            "button_html": call_url
-            and f'<a href="{call_url}" target="_blank" rel="noopener">Prata med vår AI-assistent</a>',
+            # The Business pastes this into its own website (VOI-73); only a saved domain makes it work, so only then is it shown.
+            "button_html": business
+            and business.website_domain
+            and f'<script async src="{settings.PORTAL_URL.rstrip("/")}{reverse("call_button_js")}" data-business="{business.call_slug}"></script>',
         },
     )
 
@@ -450,7 +449,7 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     return redirect("modules")
 
 
-# What a Caller reads when the Business has not saved its website (English; Petter approved the words on 2026-10-17, VOI-71).
+# What a Caller reads when the call link is opened from anywhere but a frame on the Business's website, or the Business has not saved one (English; Petter approved the words on 2026-10-17 for a Business with no saved website, VOI-71; showing them for a request outside a frame (VOI-73) waits for his okay).
 CALL_LINK_REFUSAL = (
     "This call can't be opened from here. Start it from the company's own website."
 )
@@ -474,13 +473,33 @@ def test_call(request: HttpRequest) -> HttpResponse:
 
 @require_GET
 @never_cache
+@xframe_options_exempt  # the panel on the Business's website frames this route (VOI-73); the core's frame-ancestors keeps every other site out
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
-    """A Business's public call link. Open to anyone, so anyone can start a call for that Business (there is no limit yet, DECISIONS.md), but only once it has saved its website (VOI-71): the core lets only that site frame the page."""
+    """A Business's public call link, opened in the panel the Call button script builds on the Business's website (VOI-73).
+
+    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too.
+    """
     business = get_object_or_404(Business, call_slug=slug)
+    if request.headers.get("Sec-Fetch-Dest") != "iframe":
+        log.warning(
+            "call link refused: Business %s opened outside a frame", business.pk
+        )
+        return HttpResponseForbidden(CALL_LINK_REFUSAL)
     if not business.website_domain:
         log.warning("call link refused: Business %s has no website domain", business.pk)
         return HttpResponseForbidden(CALL_LINK_REFUSAL)
     return to_core(business, "call_link", business.website_domain)
+
+
+@require_GET
+def call_button_js(request: HttpRequest) -> HttpResponse:
+    """The script a Business's website loads for its call button. The same for every Business; it learns which one from its own tag."""
+    return render(
+        request,
+        "call_button.js",
+        {"core_origin": "{0.scheme}://{0.netloc}".format(urlsplit(settings.CORE_URL))},
+        content_type="text/javascript; charset=utf-8",  # without it the page's own encoding decides how "å" reads
+    )
 
 
 def core_secret_sent(request: HttpRequest) -> bool:

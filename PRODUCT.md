@@ -28,13 +28,13 @@ Voice answers a Business's callers with a live AI voice agent, in Swedish or Eng
 ## Operating Context
 
 - Access is by invitation only; there is no self-signup.
-- The call page opens only from a Portal-made link: a Test call or the Business's Call link / Call button.
+- The call page opens only from a Portal-made link: a Test call, or the Call button on the Business's own website.
 - Every call spends real Gemini credit; a Call record keeps what each call used and cost, never words or audio.
 - The Portal and the call page are separate services; a Portal problem never cuts a live call (ADR 0002).
 
 ## Capabilities and Constraints
 
-- Shipped: login, invite, password reset, settings (name, facts, languages, Theme), Modules, Test call, Call link and Call button snippet, recent calls, an operator totals page.
+- Shipped: login, invite, password reset, settings (name, facts, languages, Theme), Modules, Test call, Call button script (the browser is told to limit it to the Business's website domain; not seen in a real browser yet), recent calls, an operator totals page.
 - A Business's settings are a name, free-text facts, languages and a Theme (logo and one accent colour, shown only to its Callers); anything more structured comes as a Module, never a fixed Portal field. The Portal stores the Theme and tells the core; the call page and Call button show it from VOI-87 and VOI-89 (`docs/design/four-surface-redesign.md`).
 - Call languages: Swedish and English only.
 - Portal UI language: English, because the code is open and language-agnostic. Translations, Swedish first, are planned (VOI-67).

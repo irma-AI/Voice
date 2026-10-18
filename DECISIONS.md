@@ -297,6 +297,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-17] VOI-81: the other Portal pages got only class swaps (stone greys to tokens, the dark button to the pill) so they stay readable on the dark ground until VOI-85 and VOI-86 restyle them; copy, routes and behaviour are unchanged.
 [2026-10-17] VOI-85: the recent calls page still shows no cost, though the ticket brief listed it: the Call record rule and tests/portal/test_recent_calls.py say a Business sees no money, and 'no new data' outranks the brief.
 [2026-10-17] VOI-85: a Module row's dot is Cable light only once Check reached it, hollow while unchecked or failed, since Cable light marks what is live; the restyle changed no copy or routes.
+
 [2026-10-18] VOI-83: the logo's public address is the SHA-256 of its bytes (a column the database checks against the bytes), not the call slug: the slug is a credential for starting calls, and a content hash names no Business and lets browsers cache it for a year.
 [2026-10-18] VOI-83: the logo's type is a CHECK on its leading bytes and is worked out again from them when served, with no stored type column; a GeneratedField fails Django's checks on the dummy backend that `make generate` runs on.
 [2026-10-18] VOI-83: the contract carries the accent already adjusted for AA with the text it carries (Foam or Deep sea, whichever reads better), computed by the Portal at each read: one copy of the contrast rule, so the core only paints it.
@@ -327,3 +328,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-18] VOI-88: the agent's words show in Cable light, not the Business's accent: the Portal adjusts the accent for AA only against the text it carries, so on Deep sea it could fail contrast (as in VOI-87).
 [2026-10-18] VOI-88: the core swaps Pipecat's WebSocket output for a subclass after it is built and calls its private _write_frame (pinned 1.12.0): Pipecat takes no output class and has no public send for a frame.
 [2026-10-18] VOI-88: merged origin/main into the stack: kept the theme branch side (fonts parity, VOI-86/87 lines) plus main's VOI-90 showcase, which now also leaves out the Theme fields so the landing shows the same three settings.
+[2026-10-18] VOI-83: merged origin/main again (VOI-73 Call button): the dashboard keeps main's panel-based call button section in the new style and drops the bare public call link it replaced; main's tests, routes and the logo route both stay.
