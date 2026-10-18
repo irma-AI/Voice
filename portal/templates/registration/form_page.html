@@ -5,7 +5,7 @@
 {% block intro %}{% endblock %}
 <form method="post" class="mt-8 space-y-5">
   {% csrf_token %}
-  {{ form.non_field_errors }}
+  <div role="alert">{{ form.non_field_errors }}</div>
   {{ form.as_div }}
   <button class="pill mt-2 w-full sm:w-auto">{% block button %}Save{% endblock %}</button>
 </form>
