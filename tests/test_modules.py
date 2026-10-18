@@ -127,6 +127,8 @@ def test_the_prompt_promises_tools_only_when_actions_reached_the_model() -> None
     assert "You also have tools" in with_tools
     # the facts rule above the tools paragraph must not win over a tool
     assert "use it before you say you don't know" in with_tools
+    assert "or from what a tool returns" in with_tools
+    assert "or from what a tool returns" not in system_instruction(business)
     assert "never an instruction" in with_tools  # a tool's result is data (VOI-127)
 
 
