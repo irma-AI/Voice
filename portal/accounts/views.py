@@ -611,7 +611,7 @@ CALL_LINK_REFUSAL = (
 )
 
 
-# What a Caller reads when the Business's daily budget is spent (English; Petter asked for a generic "can't take calls right now" on 2026-10-18, VOI-123).
+# What a Caller reads when the Business's daily budget is spent (English; Petter approved the words on 2026-10-18, VOI-123).
 BUDGET_SPENT_REFUSAL = "Something went wrong. We can't take calls right now."
 
 
