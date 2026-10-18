@@ -159,18 +159,12 @@ def home(request: HttpRequest) -> HttpResponse:
 
 
 def showcase() -> dict[str, Any]:
-    """The landing page's example Business: the Portal's own settings form and Module row, filled with made-up content and never saved."""
-    form = SettingsForm(
-        initial={
-            "name": "Example Salon",
-            "facts": "We are a hair salon. Open Monday to Friday 09:00 to 17:00 and Saturday 10:00 to 15:00. We cut, colour and style. Bookings are made through our booking system. For gift cards, ask for reception.",
-            "languages": ["sv", "en"],
-        }
-    )
-    # the page shows the three things an agent is set up with, not the website or the Theme
-    for name in ("website_domain", "logo", "remove_logo", "use_accent", "accent"):
-        del form.fields[name]
-    form.fields["facts"].widget.attrs["rows"] = 6
+    """The landing page's example Business, shown as a read-out like the Portal's Module row: made-up content, never saved."""
+    agent = {
+        "name": "Example Salon",
+        "instructions": "We are a hair salon. Open Monday to Friday 09:00 to 17:00 and Saturday 10:00 to 15:00. We cut, colour and style. Bookings are made through our booking system. For gift cards, ask for reception.",
+        "languages": list(LANGUAGES.items()),
+    }
     module = {
         "name": "Bookings",
         "url": "https://bookings.example.com/mcp",
@@ -183,7 +177,7 @@ def showcase() -> dict[str, Any]:
             ("move_booking", "Moves a booking to a time that is free."),
         ]
     )
-    return {"example_form": form, "example_module": module, "example_offer": offer}
+    return {"example_agent": agent, "example_module": module, "example_offer": offer}
 
 
 def sees_totals(account: Any) -> bool:

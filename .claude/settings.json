@@ -84,6 +84,17 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/usage-gate.js\"; c=$?; [ $c -eq 0 ] || { [ $c -eq 2 ] || echo \"Usage gate crashed (exit $c), so usage cannot be checked: tool call denied.\" >&2; exit 2; }",
+            "timeout": 5,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
         "matcher": "mcp__github__.*",
         "hooks": [
           {
@@ -146,6 +157,15 @@
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ponytail-mode-tracker.js\"",
             "timeout": 5,
             "statusMessage": "Tracking ponytail mode..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/usage-gate.js\"",
+            "timeout": 5
           }
         ]
       }

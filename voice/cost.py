@@ -130,7 +130,8 @@ def _match(skus: list[dict[str, Any]], model: str, kind: Kind) -> dict[str, Any]
 
     def is_it(sku: dict[str, Any]) -> bool:
         d = _words(sku.get("displayName", ""))
-        if name not in d or direction not in d:
+        # The name ends the entry: "gemini 3.8 live" must not also take "gemini 3.8 live extended thinking".
+        if not d.endswith(name) or direction not in d:
             return False
         if modality == "audio":
             return "audio" in d

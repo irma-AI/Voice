@@ -11,55 +11,55 @@ colors:
   granite: "#3A3F47"
 typography:
   display:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "clamp(3.25rem, 6.4vw, 5.75rem)"
-    fontWeight: 400
+    fontWeight: 350
     lineHeight: 0.98
     letterSpacing: "-0.02em"
   headline:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "clamp(2.25rem, 4.2vw, 3.5rem)"
-    fontWeight: 400
+    fontWeight: 350
     lineHeight: 1.05
     letterSpacing: "-0.015em"
   title:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "2.25rem"
-    fontWeight: 400
+    fontWeight: 350
     lineHeight: 1.1
     letterSpacing: "-0.01em"
   title-sm:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "1.75rem"
-    fontWeight: 400
+    fontWeight: 350
     lineHeight: 1.15
   spoken:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "1.625rem"
     fontWeight: 400
     lineHeight: 1.15
   note:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "1.0625rem"
     fontWeight: 400
     lineHeight: 1.2
   lede:
-    fontFamily: "Geist, system-ui, sans-serif"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 400
     lineHeight: 1.5
   body:
-    fontFamily: "Geist, system-ui, sans-serif"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.5
   small:
-    fontFamily: "Geist, system-ui, sans-serif"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.45
   label:
-    fontFamily: "Geist, system-ui, sans-serif"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: 1.4
@@ -157,16 +157,16 @@ A near-monochrome night palette with one warm light.
 
 ## Typography
 
-**Display Font:** Instrument Serif (with Georgia, serif)
-**Body Font:** Geist, variable (with system-ui, sans-serif)
+**Display Font:** Newsreader, variable with optical sizes, weights 300 to 500 (with Georgia, serif)
+**Body Font:** Schibsted Grotesk, variable 400 to 900 (with system-ui, sans-serif)
 
-**Character:** a tall, high-contrast serif carries headlines and spoken words; a clean geometric sans carries interface text and small tracked labels. Both are self-hosted stand-ins (SIL OFL 1.1) until the final faces are chosen.
+**Character:** a calm, literary serif with optical sizes carries headlines and spoken words, crisp from the hero down to a transcript line; a sturdy Scandinavian grotesk carries interface text and small tracked labels. Both are self-hosted under the SIL OFL 1.1, chosen by Petter on 2026-10-18 (VOI-104).
 
 ### Hierarchy
-- **Display** (400, fluid 3.25 to 5.75rem, 0.98): the one page headline.
-- **Headline** (400, fluid 2.25 to 3.5rem, 1.05, max 20ch): section headings.
-- **Title** (400, 2.25rem, 1.1): sub-section heads such as Hosted and Self-hosted; Portal page h1s use 3rem today.
-- **Title small** (400, 1.75rem, 1.15): list-row heads in the use list.
+- **Display** (350, fluid 3.25 to 5.75rem, 0.98): the one page headline.
+- **Headline** (350, fluid 2.25 to 3.5rem, 1.05, max 20ch): section headings.
+- **Title** (350, 2.25rem, 1.1): sub-section heads such as Hosted and Self-hosted; Portal page h1s use 3rem today.
+- **Title small** (350, 1.75rem, 1.15): list-row heads in the use list.
 - **Spoken** (400 serif, 1.625rem on phones, 28 units inside the ring): the words of the call, Caller in Foam, Agent in Cable light.
 - **Note** (italic serif, about 17px): the short note under a step name.
 - **Lede** (1.125rem, 1.5, 34 to 52ch): sublines and section introductions in Foam muted.
@@ -181,7 +181,7 @@ A near-monochrome night palette with one warm light.
 
 ## Layout
 
-Every band (nav, hero, sections, footer) shares one measure of 90rem centred, with a side gutter that grows from 1.25rem to 4rem. Sections open with 5rem top padding; the footer sits 7rem below the last section. The hero is a two-column grid (0.9fr text, 1.1fr instrument) at least one viewport tall.
+Every band (nav, hero, sections, footer) shares one measure of 90rem centred, with a side gutter that grows from 1.25rem to 4rem. Each landing section opens on a tick rule drawn like Turn's ring (a Granite hairline, a fine tick every 12px, a longer lighter one every 120px), 6 to 10rem below the last, so the space between sections is far wider than any inside them (VOI-106). From 1024px a section's header splits: heading left, lede right; below it stacks. The footer sits 7rem below the last section. The hero is a two-column grid (0.9fr text, 1.1fr instrument) at least one viewport tall.
 
 At 860px and below the layout goes to one column: wide-only nav links hide, the ring becomes a vertical rail down the right edge (track, warm fill downward, the same dots), and the current step and line sit in a block under the actions. Lists that were three columns (head, description, mark) stack, with the mark below.
 
@@ -215,14 +215,20 @@ Two corner shapes: the full pill for actions and toggles, and a gentle 0.5rem ra
 ### Status marks
 A label with a small dot before it. Works today: Cable light text and filled dot. With a Module: Foam muted text, hollow Cable light dot. Planned: Foam muted text, dashed Foam faint dot.
 
+### Section rule
+Each landing section after the hero opens on a rule drawn like Turn's ring: a 1px Granite hairline across the measure, a fine Granite tick every 12px and a longer tick in the ring's major-tick grey (#6A7380) every 120px. It is the only separator between sections; nothing is filled or boxed.
+
 ### Use list
-A borderless list ruled by Granite hairlines: serif row head, Foam muted description, status mark right-aligned.
+Grouped by status into three columns (Works today, With a Module, Planned), one under the other on phones. A hairline runs across the top of each group, dashed in Foam faint for Planned; the group's status dot sits on it like a step on the ring, with its label just below. Each use is a serif head over a Foam muted line; its mark is kept for screen readers (VOI-106).
+
+### Setup steps
+On the landing page the setup sits unframed in three steps (write instructions, choose languages, connect Modules) down a Granite rail with a hollow Foam muted dot per step, like Turn's phone rail. Each step's serif head and line sit left of a read-out drawn like the Portal's Module row (name, a tracked label, the instructions in a block ruled by a Granite hairline, language codes in mono, then the real Module row); above it on phones (VOI-106).
 
 ### Saved notice and call preview
 The saved notice is Foam text after a filled Cable light dot (it marks a live change). The settings page's call preview is the one bounded panel in the Portal: a Foam panel with Deep sea text holding the Business's logo, a ring mark and the button in the adjusted accent, because it stands in for a panel on the Business's own website. It shows the Theme as saved.
 
 ### Turn (signature)
-The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light progress arc filling clockwise over the loop, a hollow dot per step with a sans label and an italic serif note; a Planned step leaves by a dashed exit. Inside: a speaker line that is flat in silence, Foam for the Caller and Cable light for the Agent, with the current line and the previous one's words at 55% opacity (its speaker label stays Foam muted). Words spoken in a Planned step are Foam faint, never warm, and that step's dot shows before them. Ring labels are sized so they hold about 12px on screen at 1280px wide; at the loop's end only what the loop drew fades, while ticks and track stay. Phones: the rail described under Layout. It plays on load, phones included, and always has a Pause control; under reduced motion it still plays in turn (steps, lines and words appear as they come) but nothing sweeps or moves: the arc and rail step to each new line, and the speaker line holds one still shape. Steps and lines fade in over 1 to 1.2s on a soft ease-out.
+The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light progress arc filling clockwise over the loop, a hollow dot per step with a sans label and an italic serif note; a Planned step leaves by a dashed exit. Inside: a speaker line that is flat in silence, Foam for the Caller and Cable light for the Agent, with the current line and the previous one's words at 55% opacity (its speaker label stays Foam muted). Words spoken in a Planned step are Foam faint, never warm, and that step's dot shows before them. Ring labels are sized so they hold about 12px on screen at 1280px wide; at the loop's end only what the loop drew fades, while ticks and track stay. Phones: the rail described under Layout. It plays on load, phones included, and always has a Pause control; under reduced motion it still plays in turn (steps, lines and words appear as they come) and the arc and rail still fill at their slow, steady pace, but the speaker line holds one still shape (VOI-105). A new line rolls the transcript up: the line just spoken slides up and dims into the previous line (on phones, one smaller row), and the new one rises in below. Steps and lines fade in over 1 to 1.2s on a soft ease-out.
 
 ## Do's and Don'ts
 
@@ -231,17 +237,20 @@ The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light pro
 - **Do** separate with 1px Granite hairlines and keep surfaces flat on the Deep sea ground.
 - **Do** bound controls with Foam faint, not Granite.
 - **Do** mark unbuilt capability with the dashed Planned treatment.
-- **Do** give any moving element a visible Pause control, and under reduced motion keep its content changing in turn with no movement.
+- **Do** set landing sections apart with the section rule, wide space between sections and a shape of their own (status groups, setup steps), not with fills or frames.
+- **Do** write copy that says what the visitor gets and what the agent does, outcome first; mark what is not built as Planned rather than leaving it out. Keep headings short and step names plain verbs ("Choose languages", not "Choose its languages").
+- **Do** give any moving element a visible Pause control, and under reduced motion keep its content changing in turn with no oscillating or travelling movement; a slow, steady fill may stay.
 
 ### Don't:
 - **Don't** add shadows, glows, cards or photos.
 - **Don't** use a gradient as decoration; the only gradient is the ground's Blue hour falloff.
 - **Don't** put the uppercase label above a heading as a kicker or eyebrow.
 - **Don't** colour a finished or Planned thing in Cable light.
+- **Don't** frame the Portal like a screenshot or browser window on the landing page; show its parts as read-outs and real rows on the ground.
+- **Don't** tell visitors what Voice does not do ("builds no integrations"), and don't explain how the product was defined; say what it does.
 
 ## Open
 
-- Final typefaces and their licences; Instrument Serif and Geist are stand-ins.
 - The light daylight variant of the palette for the Portal on phones: declined in VOI-86 (see DECISIONS.md); needs a measured palette first.
 - WCAG 2.2 AA contrast has not been checked across the whole palette; only Granite as a control border was measured and ruled out.
 - Error and alert colours have no token yet.

@@ -13,8 +13,8 @@
   --color-foam-faint: rgb(255 255 255 / 0.5);
 
   /* Type: stand-in faces until Petter picks the final ones */
-  --font-serif: "Instrument Serif", Georgia, serif;
-  --font-sans: "Geist", system-ui, sans-serif;
+  --font-serif: "Newsreader", Georgia, serif;
+  --font-sans: "Schibsted Grotesk", system-ui, sans-serif;
   --text-xs: 0.75rem;
   --text-xs--line-height: 1.4;
   --text-sm: 0.875rem;
