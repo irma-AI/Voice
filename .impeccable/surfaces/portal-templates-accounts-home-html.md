@@ -28,5 +28,5 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 ## Unresolved
 
 - The conversation script (a longer call: move a booking, then ask to be put through to a person). Petter writes it later.
-- Exact typefaces and licences; AA contrast of the palette (`docs/design/four-surface-redesign.md`).
+- AA contrast of the palette (`docs/design/four-surface-redesign.md`).
 - Line labels "Instructions" and "MCP" against the product's terms "facts" and "Modules".

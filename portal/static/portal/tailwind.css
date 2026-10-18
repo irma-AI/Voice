@@ -3,12 +3,11 @@
 @source "../../templates";
 @source not "../../../.impeccable";
 
-/* Self-hosted stand-in faces, both SIL OFL 1.1 (licences beside the files in fonts/):
-   Instrument Serif from github.com/Instrument/instrument-serif at 65c0ef2,
-   Geist from github.com/vercel/geist-font at e1f671c. */
-@font-face { font-family: "Instrument Serif"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/InstrumentSerif-Regular.woff2") format("woff2"); }
-@font-face { font-family: "Instrument Serif"; font-style: italic; font-weight: 400; font-display: swap; src: url("fonts/InstrumentSerif-Italic.woff2") format("woff2"); }
-@font-face { font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("fonts/Geist-Variable.woff2") format("woff2"); }
+/* Self-hosted faces, both SIL OFL 1.1 (licences beside the files in fonts/), from github.com/google/fonts at 47d54ca,
+   subset to Latin, Latin-1 and Latin Extended-A: Newsreader (optical sizes, weights cut to 300-500) and Schibsted Grotesk. */
+@font-face { font-family: "Newsreader"; font-style: normal; font-weight: 300 500; font-display: swap; src: url("fonts/Newsreader-Variable.woff2") format("woff2"); }
+@font-face { font-family: "Newsreader"; font-style: italic; font-weight: 300 500; font-display: swap; src: url("fonts/Newsreader-Italic-Variable.woff2") format("woff2"); }
+@font-face { font-family: "Schibsted Grotesk"; font-style: normal; font-weight: 400 900; font-display: swap; src: url("fonts/SchibstedGrotesk-Variable.woff2") format("woff2"); }
 
 @layer base {
   html { color-scheme: dark; -webkit-text-size-adjust: 100%; }
@@ -19,7 +18,7 @@
   }
   ::selection { background: var(--color-cable-light); color: var(--color-deep-sea); }
   :focus-visible { outline: 2px solid var(--color-cable-light); outline-offset: 3px; }
-  h1, h2 { @apply font-serif font-normal; letter-spacing: -0.01em; text-wrap: balance; }
+  h1, h2 { @apply font-serif; font-weight: 350; letter-spacing: -0.02em; text-wrap: balance; }
   a { text-underline-offset: 0.3em; text-decoration-color: var(--color-foam-faint); }
   a:hover { text-decoration-color: var(--color-cable-light); }
   code, pre { font-variant-numeric: tabular-nums; }

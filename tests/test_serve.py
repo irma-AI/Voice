@@ -229,11 +229,15 @@ def test_without_settings_the_call_page_shows_voices_own_look(
 
 def test_the_typefaces_are_open_and_nothing_else_under_them() -> None:
     client = TestClient(create_app("portal-secret"))
-    font = client.get("/fonts/Geist-Variable.woff2")  # no ticket needed
+    font = client.get("/fonts/SchibstedGrotesk-Variable.woff2")  # no ticket needed
     assert font.status_code == 200
     assert font.headers["content-type"] == "font/woff2"
     assert font.content[:4] == b"wOF2"
-    for path in ("/fonts/Geist-OFL.txt", "/fonts/nope.woff2", "/fonts/../page.html"):
+    for path in (
+        "/fonts/SchibstedGrotesk-OFL.txt",
+        "/fonts/nope.woff2",
+        "/fonts/../page.html",
+    ):
         assert client.get(path).status_code in (403, 404), path
 
 

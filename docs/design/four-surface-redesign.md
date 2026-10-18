@@ -85,7 +85,7 @@ From the `/impeccable` decision page (seed `81c20105`). This holds what Petter s
 
 The Portal on phones gets a light variant of the same palette (pale ground, navy text, cable light as accent), since it's used in daylight. Not yet checked for WCAG 2.2 AA contrast.
 
-**Type:** a refined, high-contrast serif for headlines and spoken lines, paired with a clean modern sans for interface text. The exact faces and their licences are not chosen yet. The mockups render the serif in the style of Reckless Neue (a paid licence) and the sans in the style of Inter.
+**Type:** a refined serif for headlines and spoken lines, paired with a clean modern sans for interface text. Settled 2026-10-18 (VOI-104), from a comparison of free faces: Newsreader and Schibsted Grotesk, both SIL OFL 1.1 and self-hosted. They replaced the stand-ins Instrument Serif and Geist.
 
 **Components seen and liked on the board:** white pill "Request access"; text link "Open code · Self-host it"; a call panel with a separate label column, **Caller** and **Agent**; Module rows marked "Connected" with an "Add a Module" entry; call-state chips (Connecting, Live, Agent speaking, Ended, Microphone blocked); a round launcher for the embedded call; a thin warm line connecting elements.
 

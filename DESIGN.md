@@ -11,55 +11,55 @@ colors:
   granite: "#3A3F47"
 typography:
   display:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "clamp(3.25rem, 6.4vw, 5.75rem)"
-    fontWeight: 400
+    fontWeight: 350
     lineHeight: 0.98
     letterSpacing: "-0.02em"
   headline:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "clamp(2.25rem, 4.2vw, 3.5rem)"
-    fontWeight: 400
+    fontWeight: 350
     lineHeight: 1.05
     letterSpacing: "-0.015em"
   title:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "2.25rem"
-    fontWeight: 400
+    fontWeight: 350
     lineHeight: 1.1
     letterSpacing: "-0.01em"
   title-sm:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "1.75rem"
-    fontWeight: 400
+    fontWeight: 350
     lineHeight: 1.15
   spoken:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "1.625rem"
     fontWeight: 400
     lineHeight: 1.15
   note:
-    fontFamily: "Instrument Serif, Georgia, serif"
+    fontFamily: "Newsreader, Georgia, serif"
     fontSize: "1.0625rem"
     fontWeight: 400
     lineHeight: 1.2
   lede:
-    fontFamily: "Geist, system-ui, sans-serif"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 400
     lineHeight: 1.5
   body:
-    fontFamily: "Geist, system-ui, sans-serif"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.5
   small:
-    fontFamily: "Geist, system-ui, sans-serif"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.45
   label:
-    fontFamily: "Geist, system-ui, sans-serif"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: 1.4
@@ -157,16 +157,16 @@ A near-monochrome night palette with one warm light.
 
 ## Typography
 
-**Display Font:** Instrument Serif (with Georgia, serif)
-**Body Font:** Geist, variable (with system-ui, sans-serif)
+**Display Font:** Newsreader, variable with optical sizes, weights 300 to 500 (with Georgia, serif)
+**Body Font:** Schibsted Grotesk, variable 400 to 900 (with system-ui, sans-serif)
 
-**Character:** a tall, high-contrast serif carries headlines and spoken words; a clean geometric sans carries interface text and small tracked labels. Both are self-hosted stand-ins (SIL OFL 1.1) until the final faces are chosen.
+**Character:** a calm, literary serif with optical sizes carries headlines and spoken words, crisp from the hero down to a transcript line; a sturdy Scandinavian grotesk carries interface text and small tracked labels. Both are self-hosted under the SIL OFL 1.1, chosen by Petter on 2026-10-18 (VOI-104).
 
 ### Hierarchy
-- **Display** (400, fluid 3.25 to 5.75rem, 0.98): the one page headline.
-- **Headline** (400, fluid 2.25 to 3.5rem, 1.05, max 20ch): section headings.
-- **Title** (400, 2.25rem, 1.1): sub-section heads such as Hosted and Self-hosted; Portal page h1s use 3rem today.
-- **Title small** (400, 1.75rem, 1.15): list-row heads in the use list.
+- **Display** (350, fluid 3.25 to 5.75rem, 0.98): the one page headline.
+- **Headline** (350, fluid 2.25 to 3.5rem, 1.05, max 20ch): section headings.
+- **Title** (350, 2.25rem, 1.1): sub-section heads such as Hosted and Self-hosted; Portal page h1s use 3rem today.
+- **Title small** (350, 1.75rem, 1.15): list-row heads in the use list.
 - **Spoken** (400 serif, 1.625rem on phones, 28 units inside the ring): the words of the call, Caller in Foam, Agent in Cable light.
 - **Note** (italic serif, about 17px): the short note under a step name.
 - **Lede** (1.125rem, 1.5, 34 to 52ch): sublines and section introductions in Foam muted.
@@ -241,7 +241,6 @@ The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light pro
 
 ## Open
 
-- Final typefaces and their licences; Instrument Serif and Geist are stand-ins.
 - The light daylight variant of the palette for the Portal on phones: declined in VOI-86 (see DECISIONS.md); needs a measured palette first.
 - WCAG 2.2 AA contrast has not been checked across the whole palette; only Granite as a control border was measured and ruled out.
 - Error and alert colours have no token yet.
