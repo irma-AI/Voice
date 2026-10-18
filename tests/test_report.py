@@ -44,7 +44,7 @@ TOTALS = {
 
 
 # No Google key in these tests' environment: the record is priced as far as the key (the pricing itself is tests/test_cost_catalogue.py).
-NO_KEY = {"cost_usd": None, "price_date": None, "cost_reason": "no_google_key"}
+NO_KEY = {"cost_usd": None, "price_date": None, "cost_reason": "no_billing_key"}
 
 
 def a_record() -> dict[str, Any]:
@@ -103,7 +103,7 @@ def test_a_finished_call_makes_a_record_the_contract_accepts() -> None:
         "call_link",
         184,
     )
-    assert record["cost_usd"] is None and record["cost_reason"] == "no_google_key"
+    assert record["cost_usd"] is None and record["cost_reason"] == "no_billing_key"
 
 
 def test_the_tally_adds_up_every_usage_report_of_a_call() -> None:

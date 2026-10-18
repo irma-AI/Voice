@@ -1,8 +1,7 @@
 """What a call cost, in US dollars, from Google's Cloud Billing Catalog (VOI-42).
 
 The catalogue is Google's public price list (the v2beta SKU list and v1beta price endpoints that take an API key, per
-https://cloud.google.com/billing/docs/how-to/get-pricing-information-api), asked for in dollars with the core's own Google
-key. The price of each token kind is kept in memory for a day. No price is written down here. When the catalogue can't be read, or its entries can't be matched to the Live model's
+https://cloud.google.com/billing/docs/how-to/get-pricing-information-api), asked for in dollars with `BILLING_API_KEY`. The price of each token kind is kept in memory for a day. No price is written down here. When the catalogue can't be read, or its entries can't be matched to the Live model's
 token kinds, the cost is empty and a `CostReason` says why: a wrong price is worse than none.
 """
 
@@ -36,7 +35,7 @@ KEPT_FOR_S = 24 * 3600
 class CostReason(StrEnum):
     """Why a record has no cost. The Portal stores the code as is; tests/test_cost_catalogue.py reaches every one."""
 
-    NO_KEY = "no_google_key"
+    NO_KEY = "no_billing_key"
     UNREACHABLE = "catalogue_unreachable"
     UNREADABLE = "catalogue_unreadable"
     NOT_MATCHED = "price_not_matched"
