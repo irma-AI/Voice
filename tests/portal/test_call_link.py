@@ -268,6 +268,29 @@ def test_every_business_has_its_own_link_and_the_database_refuses_a_shared_one()
         Business.objects.filter(pk=bo.pk).update(call_slug=anna.call_slug)
 
 
+@pytest.mark.parametrize(
+    "slug",
+    [
+        'abcdefghijklmnopqrstu"',
+        "abcdefghijk lmnopqrstuv",
+        "abcdefghijk<lmnopqrstuv",
+        "abcdefghijklmnopqrstu",
+    ],
+    ids=["quote", "space", "angle bracket", "too short"],
+)
+def test_the_database_refuses_a_call_link_the_pasted_tag_could_not_carry(
+    slug: str,
+) -> None:
+    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    with (
+        pytest.raises(
+            IntegrityError, match="business_call_slug_must_be_22_to_40_url_safe_chars"
+        ),
+        transaction.atomic(),
+    ):
+        Business.objects.filter(pk=anna.pk).update(call_slug=slug)
+
+
 def snippet(page: str) -> str:
     """The script tag on the dashboard, as the Business would paste it."""
     return unescape(page).split("<code>")[1].split("</code>")[0]
