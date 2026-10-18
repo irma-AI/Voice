@@ -40,7 +40,7 @@ function changedFiles() {
   if (teamDrift) { console.log(`team\t${teamDrift}`); process.exitCode = 1; }
   let needed;
   try { needed = changed.some((f) => needsTicket(ROOT, f)); } catch (e) {
-    console.log(`config\tcannot read scripts/low-risk-paths.json from ${process.env.GUARD_BASE || 'the working tree'} (${e.message.split('\n')[0]}): fetch the base branch (CI checks out with fetch-depth 0)`);
+    console.log(`config\t${e.message}`);
     process.exitCode = 1;
     return;
   }

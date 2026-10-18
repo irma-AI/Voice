@@ -24,7 +24,7 @@ if (!fixture && !process.env.GUARD_BASE) {
 let label, paths;
 try { ({ label, paths } = readBaseJson(ROOT, 'scripts/low-risk-paths.json').fenced); } catch (e) {
   console.log('#scanned 1');
-  console.log(`config\tcannot read scripts/low-risk-paths.json from ${process.env.GUARD_BASE || 'the fixture'} (${e.message.split('\n')[0]}): fetch the base branch (CI checks out with fetch-depth 0)`);
+  console.log(`config\t${e.message}`);
   process.exit(1);
 }
 

@@ -37,7 +37,7 @@ function changedFiles() {
 let cfg;
 try { cfg = readConfig(ROOT); } catch (e) {
   console.log('#scanned 1');
-  fail('config', `cannot read scripts/eval-required.json from ${process.env.GUARD_BASE || 'the working tree'} (${e.message.split('\n')[0]}): fetch the base branch (CI checks out with fetch-depth 0)`);
+  fail('config', e.message);
   process.exit();
 }
 const listed = [...cfg.paths, ...Object.keys(cfg.lines)];
