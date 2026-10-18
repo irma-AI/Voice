@@ -220,14 +220,17 @@ def test_the_log_says_what_google_said_and_what_matched_and_never_the_key() -> N
     finally:
         logger.remove(sink)
     assert any(
-        line.startswith("price match: ['Gemini 3.8 Live audio input tokens'")
+        line.startswith(
+            "price match: ['Bidi_generate_content audio input token count for gemini-3.8-live'"
+        )
         for line in lines
     )
     assert (
         "price catalogue answered 401 UNAUTHENTICATED API_KEYS_NOT_SUPPORTED" in lines
     )
     assert any(
-        "0 entries for output text" in line and "Gemini 3.8 Live video input" in line
+        "0 entries for output text" in line
+        and "video input token count for gemini-3.8-live" in line
         for line in lines
     )
     assert KEY not in "".join(lines)
