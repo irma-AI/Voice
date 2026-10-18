@@ -1,0 +1,20 @@
+[
+  {"name": "below the warn line", "five_hour": 0.5, "seven_day": 0.4, "tool": "Edit", "expect": "allow"},
+  {"name": "five-hour at the warn line", "five_hour": 0.9, "seven_day": 0.4, "tool": "Edit", "expect": "warn"},
+  {"name": "weekly at the warn line", "five_hour": 0.1, "seven_day": 0.92, "tool": "Edit", "expect": "warn"},
+  {"name": "five-hour at the stop line", "five_hour": 0.95, "seven_day": 0.4, "tool": "Edit", "expect": "deny", "says": "stop line"},
+  {"name": "weekly at the stop line", "five_hour": 0.1, "seven_day": 0.97, "tool": "Bash", "command": "make test", "expect": "deny", "says": "weekly usage at 97%"},
+  {"name": "stop line passed its reset", "five_hour": 0.99, "seven_day": 0.4, "reset_in_s": -10, "tool": "Edit", "expect": "allow"},
+  {"name": "handoff push allowed over the line", "five_hour": 0.96, "seven_day": 0.4, "tool": "Bash", "command": "cd /home/user/Voice && git add -A && git commit -m \"VOI-1: paused\" && git push -u origin b", "expect": "allow"},
+  {"name": "handoff ticket comment allowed", "five_hour": 0.96, "seven_day": 0.4, "tool": "Bash", "command": "linearis issues discuss VOI-1 --body \"https://github.com/x/y/pull/1\"", "expect": "allow"},
+  {"name": "handoff draft PR allowed", "five_hour": 0.96, "seven_day": 0.4, "tool": "mcp__github__update_pull_request", "expect": "allow"},
+  {"name": "handoff restart allowed", "five_hour": 0.96, "seven_day": 0.4, "tool": "mcp__claude-code-remote__send_later", "expect": "allow"},
+  {"name": "chained command hidden after a git step", "five_hour": 0.96, "seven_day": 0.4, "tool": "Bash", "command": "git status; make test", "expect": "deny"},
+  {"name": "reply always allowed", "five_hour": 0.99, "seven_day": 0.99, "tool": "mcp__hearthbot__reply", "expect": "allow"},
+  {"name": "stale reading", "five_hour": 0.1, "seven_day": 0.1, "age_s": 121, "tool": "Read", "expect": "deny", "says": "121 s old"},
+  {"name": "stale reading allows the refresh", "five_hour": 0.1, "seven_day": 0.1, "age_s": 600, "tool": "mcp__claude-code-remote__list_events", "expect": "allow"},
+  {"name": "stale reading allows the record step", "five_hour": 0.1, "seven_day": 0.1, "age_s": 600, "tool": "Bash", "command": "node scripts/usage-gate.js record 0.5 1792337400 0.4 1792843200", "expect": "allow"},
+  {"name": "stale reading blocks the handoff steps too", "five_hour": 0.99, "seven_day": 0.1, "age_s": 600, "tool": "mcp__github__update_pull_request", "expect": "deny", "says": "Refresh it"},
+  {"name": "no reading", "reading": null, "tool": "Edit", "expect": "deny", "says": "no usage reading yet"},
+  {"name": "malformed reading", "reading": {"five_hour": {"utilization": "high"}}, "tool": "Edit", "expect": "deny", "says": "malformed"}
+]

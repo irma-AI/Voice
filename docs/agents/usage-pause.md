@@ -1,6 +1,6 @@
 # Pausing near the usage limit, and resuming
 
-A thread **pauses** when the account's usage reaches the stop line (95% of the five-hour or the weekly limit, spec VOI-100): it hands its work over as a WIP draft PR and schedules its own restart. Whoever **resumes** treats the PR as a snapshot and checks what moved first.
+A thread **pauses** when the account's usage reaches the stop line: the usage gate (`scripts/usage-gate.js`) then allows only the steps below: it hands its work over as a WIP draft PR and schedules its own restart. Whoever **resumes** treats the PR as a snapshot and checks what moved first.
 
 ## Pausing
 
