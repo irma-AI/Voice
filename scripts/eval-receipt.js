@@ -8,13 +8,16 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const { readBaseJson } = require('./base-config');
+
 const ROOT = path.resolve(__dirname, '..');
 const CONFIG = 'scripts/eval-required.json';
-const readConfig = (root) => JSON.parse(fs.readFileSync(path.join(root, CONFIG), 'utf8'));
+// The list as on the base branch (scripts/base-config.js), so a change cannot drop itself from it; `write` reads
+// origin/main like the guard's CI run reads the PR's base.
+const readConfig = (root, opts) => readBaseJson(root, CONFIG, opts);
 
 // { "<path>": "<sha256>" }; throws when a listed file or pinned line is gone, so a rename can't silently shrink the list.
-function fingerprint(root = ROOT) {
-  const cfg = readConfig(root);
+function fingerprint(root = ROOT, cfg = readConfig(root)) {
   const out = {};
   for (const f of [...cfg.paths, ...Object.keys(cfg.lines)]) {
     const file = path.join(root, f);
@@ -32,8 +35,9 @@ function fingerprint(root = ROOT) {
 
 if (require.main === module) {
   if (process.argv[2] !== 'write') { console.error('usage: node scripts/eval-receipt.js write'); process.exit(2); }
-  const receipt = path.join(ROOT, readConfig(ROOT).receipt);
-  fs.writeFileSync(receipt, JSON.stringify({ files: fingerprint() }, null, 2) + '\n');
+  const cfg = readConfig(ROOT, { local: true });
+  const receipt = path.join(ROOT, cfg.receipt);
+  fs.writeFileSync(receipt, JSON.stringify({ files: fingerprint(ROOT, cfg) }, null, 2) + '\n');
   console.log(`wrote ${path.relative(ROOT, receipt)}: commit it with the change`);
 }
 module.exports = { fingerprint, readConfig };
