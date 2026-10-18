@@ -115,13 +115,26 @@
     name: el("step-name"), note: el("step-note"), who: el("live-who"), say: el("live-say"), wave: el("wave-small"),
   };
   let shown = null, shownStep = null;
-  // A change of speaker or step fades the old words out quickly and the new ones in, instead of snapping (VOI-105).
-  // A fade is not movement, so it stays under reduced motion.
-  const OUT = 180, fades = {};
-  function fade(key, nodes, write) {
-    clearTimeout(fades[key]);
-    nodes.forEach((n) => n.classList.add("turn-out"));
-    fades[key] = setTimeout(() => { write(); nodes.forEach((n) => n.classList.remove("turn-out")); }, OUT);
+  // A new line rolls the transcript up (VOI-105): the words just spoken slide up and dim into the previous line, the
+  // oldest slide away, and the new ones rise in below. Text never blinks out. Under reduced motion nothing slides; it fades.
+  const ease = "cubic-bezier(0.22, 1, 0.36, 1)";
+  const roll = (node, from, to, opts) => node.animate(
+    [{ opacity: from[0], transform: reduce ? "none" : from[1] }, { opacity: to[0], transform: reduce ? "none" : to[1] }],
+    { duration: 520, easing: ease, fill: "backwards", ...opts });
+  function leave(node, to) {
+    const ghost = node.cloneNode(true);
+    [ghost, ...ghost.querySelectorAll("[data-turn]")].forEach((n) => n.removeAttribute("data-turn"));
+    ghost.classList.add("turn-ghost");
+    node.parentNode.insertBefore(ghost, node);
+    roll(ghost, [1, "none"], [0, to], { duration: 360, fill: "forwards" }).finished.then(() => ghost.remove(), () => ghost.remove());
+  }
+  const RISE = Number(cur.querySelector("text").getAttribute("y")) - Number(prev.querySelector("text").getAttribute("y"));
+  const liveLine = el("live-line"), livePrev = el("live-prev");
+  function setLive(who, say, l, warm) {
+    who.textContent = l ? l.who : "";
+    say.textContent = l ? l.say : "";
+    say.classList.toggle("agent", warm && !!l && l.who === "Agent" && !l.planned);
+    say.classList.toggle("planned", !!l && l.planned);
   }
   // The rail stretches to the hero's height, so each dot is drawn back to a 5px circle on screen; measured on resize, not per frame.
   new ResizeObserver(([entry]) => {
@@ -138,14 +151,21 @@
     if (idx !== shown) {
       shown = idx;
       const l = LINES[idx];
-      fade("line", [prev, cur, live.who, live.say], () => {
-        setLine(prev, LINES[idx - 1]);
-        setLine(cur, l);
-        live.who.textContent = l ? l.who : "";
-        live.say.textContent = l ? l.say : "";
-        live.say.classList.toggle("agent", !!l && l.who === "Agent" && !l.planned);
-        live.say.classList.toggle("planned", !!l && l.planned);
-      });
+      const moving = idx > 0 && LINES[idx - 1];
+      if (moving) { leave(prev, "translateY(-40px)"); leave(livePrev, "translateY(-0.75rem)"); }
+      setLine(prev, LINES[idx - 1]);
+      setLine(cur, l);
+      const [pw, ps] = livePrev.children;
+      setLive(pw, ps, LINES[idx - 1], false);
+      setLive(live.who, live.say, l, true);
+      if (moving) {
+        roll(prev, [1, `translateY(${RISE}px)`], [1, "none"]);
+        roll(cur, [0, "translateY(24px)"], [1, "none"], { delay: 120 });
+        // One layout read per new line (not per frame): how far the phone's previous line rises.
+        const rise = liveLine.offsetTop - livePrev.offsetTop;
+        roll(livePrev, [1, `translateY(${rise}px) scale(${26 / 18})`], [1, "none"]); // from the live line's size to its own
+        roll(liveLine, [0, "translateY(0.75rem)"], [1, "none"], { delay: 120 });
+      }
     }
     wavePath(el("wave"), t, 210, envelope(t, line, 26), 1);
     ringLive.style.opacity = reduce ? 1 : t > LOOP - 2 ? Math.max(0, (LOOP - t) / 2) : Math.min(1, t * 2 + 0.2);
@@ -155,11 +175,10 @@
     const step = [...STEPS].reverse().find((s) => t >= s.t);
     if (step !== shownStep) {
       shownStep = step;
-      fade("step", [live.name.parentElement], () => {
-        live.name.textContent = step ? step.name : "";
-        live.note.textContent = step ? step.note : "";
-        live.note.classList.toggle("planned", !!step && step.planned);
-      });
+      live.name.textContent = step ? step.name : "";
+      live.note.textContent = step ? step.note : "";
+      live.note.classList.toggle("planned", !!step && step.planned);
+      if (step) roll(live.name.parentElement, [0, "none"], [1, "none"], { duration: 400 });
     }
     wavePath(live.wave, t, 160, envelope(t, line, 18), 1.3);
   }

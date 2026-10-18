@@ -114,10 +114,11 @@
   .turn-ring .turn-who { font-size: 16px; fill: var(--color-foam-muted); }
   .turn-say { font: 400 28px/1.1 var(--font-serif); fill: var(--color-foam); }
   .turn-line { opacity: 0; transition: opacity 240ms ease-out; }
-  /* A change of speaker: the old words fade out (turn.js waits 180ms), then the new ones fade in; the speaker line eases its colour. */
-  .turn-ring .turn-line.turn-out, .turn-live .turn-out { opacity: 0; transition-duration: 180ms; transition-timing-function: ease-in; }
-  .turn-live-step, .turn-live .turn-who, .turn-live-say { transition: opacity 240ms ease-out; }
+  /* A new line rolls the transcript up (turn.js); the line leaving is a copy that slides away, and colours ease as a line dims. */
+  .turn-say { transition: fill 520ms ease; }
   .turn-wave { transition: stroke 300ms ease; }
+  .turn-live-lines { position: relative; }
+  .turn-live-lines .turn-ghost { position: absolute; inset: 0 0 auto; pointer-events: none; }
   .turn-line.on { opacity: 1; }
   .turn-line.agent .turn-say, .turn-line.agent .turn-who { fill: var(--color-cable-light); }
   /* The previous words dim; their speaker label stays readable (AA). Words of a Planned step are never warm. */
@@ -141,7 +142,7 @@
     .turn-rail-fill { stroke: var(--color-cable-light); stroke-width: 2.5; stroke-linecap: round; }
     .turn-rail-dot { fill: var(--color-deep-sea); stroke: var(--color-cable-light); stroke-width: 2; opacity: 0; transition: opacity 1s; }
     .turn-rail-dot.on { opacity: 1; }
-    .turn-live { display: block; margin-top: 0.75rem; padding-top: 1.25rem; border-top: 1px solid var(--color-granite); min-height: 10.5rem; }
+    .turn-live { display: block; margin-top: 0.75rem; padding-top: 1.25rem; border-top: 1px solid var(--color-granite); min-height: 13.5rem; }
     .turn-live-step { margin: 0 0 0.375rem; font: 500 12px var(--font-sans); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--color-foam-muted); }
     .turn-live-step em { font: italic 400 15px var(--font-serif); letter-spacing: 0; text-transform: none; color: var(--color-cable-light); margin-left: 0.375rem; }
     .turn-live-step em.planned { color: var(--color-foam-faint); }
@@ -150,6 +151,11 @@
     .turn-live-say { margin: 0; font: 400 1.625rem/1.15 var(--font-serif); color: var(--color-foam); }
     .turn-live-say.agent { color: var(--color-cable-light); }
     .turn-live-say.planned { color: var(--color-foam-faint); }
+    /* The line just spoken: one smaller row, dimmed by colour (an opacity would fight turn.js's roll). */
+    .turn-live-prev { margin-bottom: 0.75rem; }
+    .turn-live-prev { transform-origin: 0 0; }
+    .turn-live-prev .turn-live-say { font-size: 1.125rem; color: var(--color-foam-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .turn-live-say { transition: color 520ms ease; }
     .turn-caption-phone { display: flex; justify-content: space-between; margin-top: 1.75rem; }
   }
 
