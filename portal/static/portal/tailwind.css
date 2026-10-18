@@ -45,6 +45,7 @@
   /* A form shown as an example (the landing page) is disabled but keeps full-strength text. */
   fieldset:disabled input, fieldset:disabled textarea { color: var(--color-foam); -webkit-text-fill-color: var(--color-foam); opacity: 1; cursor: default; }
   fieldset:disabled input:hover, fieldset:disabled textarea:hover { border-color: var(--color-foam-faint); }
+  form input[aria-invalid="true"] { border-color: var(--color-red-300); }
   form .errorlist { @apply text-sm text-red-300; }
   form .helptext { @apply text-sm text-foam-muted; }
 }
