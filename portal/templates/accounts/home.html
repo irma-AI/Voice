@@ -91,25 +91,51 @@
   </section>
 
   <section id="use-cases" class="land-section" aria-labelledby="use-cases-title">
-    <h2 id="use-cases-title" class="land-h2">What it does today, and what needs a Module.</h2>
-    <p class="land-lede">Voice builds no integrations. What your agent can do in a call comes from the Modules you connect. Each use says whether it works today, needs a Module, or is planned.</p>
-    <ul class="uses">
-      <li class="use"><h3>Answers callers on your website</h3><p>A Call button on your site opens a call with your agent, right in the browser.</p><span class="mark mark-today">Works today</span></li>
-      <li class="use"><h3>Speaks Swedish or English</h3><p>It answers in the languages you choose for your Business.</p><span class="mark mark-today">Works today</span></li>
-      <li class="use"><h3>Answers from your facts</h3><p>Write your opening hours, services and prices as plain text. The agent answers from them.</p><span class="mark mark-today">Works today</span></li>
-      <li class="use"><h3>Shows your recent calls</h3><p>When each call started and how long it ran, in the Portal.</p><span class="mark mark-today">Works today</span></li>
-      <li class="use"><h3>Moves and books appointments</h3><p>Connect your booking system's MCP server, and the agent uses it mid-call.</p><span class="mark mark-module">With a Module</span></li>
-      <li class="use"><h3>Looks things up for the caller</h3><p>An order's status, a free table, a delivery date: whatever a Module you add can answer.</p><span class="mark mark-module">With a Module</span></li>
-      <li class="use"><h3>Hands the call to a person</h3><p>When the caller asks for someone, or the agent can't finish.</p><span class="mark mark-planned">Planned</span></li>
-      <li class="use"><h3>Lets your own agents run Voice</h3><p>Everything you can do in the Portal, offered to your agents as an MCP tool.</p><span class="mark mark-planned">Planned</span></li>
-    </ul>
+    <div class="land-head">
+      <h2 id="use-cases-title" class="land-h2">What it does today, and what needs a Module.</h2>
+      <p class="land-lede">Voice builds no integrations. What your agent can do in a call comes from the Modules you connect. Each use says whether it works today, needs a Module, or is planned.</p>
+    </div>
+    {# Grouped by what it takes: the status is each group's head, drawn as a dot on a hairline like a step on the ring. Each use still carries its mark for screen readers. #}
+    <div class="use-groups">
+      <div class="use-group use-group-today">
+        <h3 id="uses-today" class="use-group-head mark mark-today">Works today</h3>
+        <ul class="uses" aria-labelledby="uses-today">
+          <li class="use"><h4>Answers callers on your website</h4><p>A Call button on your site opens a call with your agent, right in the browser.</p><span class="sr-only">Works today</span></li>
+          <li class="use"><h4>Speaks Swedish or English</h4><p>It answers in the languages you choose for your Business.</p><span class="sr-only">Works today</span></li>
+          <li class="use"><h4>Answers from your facts</h4><p>Write your opening hours, services and prices as plain text. The agent answers from them.</p><span class="sr-only">Works today</span></li>
+          <li class="use"><h4>Shows your recent calls</h4><p>When each call started and how long it ran, in the Portal.</p><span class="sr-only">Works today</span></li>
+        </ul>
+      </div>
+      <div class="use-group use-group-module">
+        <h3 id="uses-module" class="use-group-head mark mark-module">With a Module</h3>
+        <ul class="uses" aria-labelledby="uses-module">
+          <li class="use"><h4>Moves and books appointments</h4><p>Connect your booking system's MCP server, and the agent uses it mid-call.</p><span class="sr-only">With a Module</span></li>
+          <li class="use"><h4>Looks things up for the caller</h4><p>An order's status, a free table, a delivery date: whatever a Module you add can answer.</p><span class="sr-only">With a Module</span></li>
+        </ul>
+      </div>
+      <div class="use-group use-group-planned">
+        <h3 id="uses-planned" class="use-group-head mark mark-planned">Planned</h3>
+        <ul class="uses" aria-labelledby="uses-planned">
+          <li class="use"><h4>Hands the call to a person</h4><p>When the caller asks for someone, or the agent can't finish.</p><span class="sr-only">Planned</span></li>
+          <li class="use"><h4>Lets your own agents run Voice</h4><p>Everything you can do in the Portal, offered to your agents as an MCP tool.</p><span class="sr-only">Planned</span></li>
+        </ul>
+      </div>
+    </div>
   </section>
 
   <section id="portal" class="land-section" aria-labelledby="portal-title">
-    <h2 id="portal-title" class="land-h2">Set up your agent in the Portal.</h2>
-    <p class="land-lede">Name your agent, write what it should know, choose its languages, then connect the Modules it uses mid-call. This is the Portal's own settings form and Module list, filled in with an example.</p>
-    <p class="mb-6 text-sm text-foam-muted">Example Business · illustrative, not real data. Nothing here can be edited.</p>
-    <div class="grid gap-x-16 gap-y-14 border-t border-granite pt-10 lg:grid-cols-2">
+    <div class="land-head">
+      <h2 id="portal-title" class="land-h2">Set up your agent in the Portal.</h2>
+      <p class="land-lede">Name your agent, write what it should know, choose its languages, then connect the Modules it uses mid-call. This is the Portal's own settings form and Module list, filled in with an example.</p>
+    </div>
+    {# The Portal itself, framed by a hairline and its own header, so it reads as the product rather than more page. #}
+    <div class="showcase">
+      <div class="showcase-bar">
+        <span class="showcase-mark"><span class="font-serif text-2xl leading-none">Voice</span> <span class="text-xs font-medium tracking-label text-foam-muted uppercase">Portal</span></span>
+        <span class="showcase-pages" aria-hidden="true"><span class="text-foam">Settings</span><span>Modules</span><span>Calls</span></span>
+        <span class="showcase-note">Example Business · illustrative, not real data. Nothing here can be edited.</span>
+      </div>
+      <div class="showcase-panes">
       <div class="max-w-md">
         <h3 class="font-serif text-[1.75rem] leading-[1.15]">Your agent</h3>
         <p class="mt-1 text-sm text-foam-muted">Name, facts and languages. A change applies from the next call.</p>
@@ -124,11 +150,12 @@
           <li class="border-b border-granite py-5">{% include "accounts/_module_row.html" with module=example_module offered=example_offer example=True %}</li>
         </ul>
       </div>
+      </div>
     </div>
   </section>
 
   <section class="land-section land-close" aria-labelledby="run-title">
-    <h2 id="run-title" class="land-h2">We run it, or you do.</h2>
+    <div class="land-head"><h2 id="run-title" class="land-h2">We run it, or you do.</h2></div>
     <div class="land-ways">
       <div>
         <h3>Hosted</h3>
