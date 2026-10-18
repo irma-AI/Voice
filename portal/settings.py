@@ -56,6 +56,7 @@ SUPER_ADMIN_EMAIL = os.environ.get("SUPER_ADMIN_EMAIL", "").strip().lower()
 CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "").strip()
 
 INSTALLED_APPS = [
+    "whitenoise.runserver_nostatic",  # a local run serves static files through WhiteNoise too, with the CORS header the Call button's integrity check needs
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.postgres",
@@ -70,8 +71,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
-if not DEBUG:  # a local run's runserver serves static files itself; the image serves the collected ones
-    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+# WhiteNoise serves the static files, the collected ones in the image and the source ones on a local run (its finders mode), each with `Access-Control-Allow-Origin: *`.
+MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 # A refused form gets a Portal page that says what to do, not Django's own explanation of CSRF.
 CSRF_FAILURE_VIEW = "portal.accounts.views.csrf_failure"
 ROOT_URLCONF = "portal.urls"

@@ -1,7 +1,10 @@
 // The call button a Business pastes into its website (VOI-73): a launcher in the corner that opens the call in a panel.
-// Its address names the Business (?business=<call slug>), and the Portal writes that Business's adjusted accent in below
-// (VOI-89). No messages pass between the page and the panel (nothing to check the sender of); the launcher removes the
-// panel to end the call.
+// Its address names the Business (?business=<call slug>); the tag carries the core's origin and the Business's adjusted
+// accent and the text on it in data-core, data-fill and data-ink (VOI-135), written by the Portal's dashboard. No messages
+// pass between the page and the panel (nothing to check the sender of); the launcher removes the panel to end the call.
+//
+// Pasted tags name this file by a hash of its bytes (integrity=): an edit here makes every one of them stop loading, so a
+// change goes in call-button.v2.js with its own hash, and this file stays. `make generate` writes the hash the dashboard shows.
 //
 // The host page is someone else's: the launcher and the panel live in a closed shadow root, so its styles don't reach
 // them and theirs don't leak out. Built with DOM calls only and styled through a constructed stylesheet, which a
@@ -13,10 +16,13 @@
   // A tag pasted before VOI-89 names its Business in data-business instead; it keeps working, in Voice's own look.
   const business = new URL(tag.src).searchParams.get("business") || tag.dataset.business;
   if (!business) return;
-  const core = "{{ core_origin|escapejs }}";
+  const core = tag.dataset.core;
   // The launcher's fill and the ring and words on it, at AA or better (portal/accounts/theme.py, on_accent).
-  const fill = "{{ fill|escapejs }}";
-  const ink = "{{ ink|escapejs }}";
+  const { fill, ink } = tag.dataset;
+  if (!core || !fill || !ink) {
+    console.warn("voice-call-button: the script tag needs data-core, data-fill and data-ink; paste the code from the Portal's dashboard again");
+    return;
+  }
   const label = "Prata med vår AI-assistent";
   const NAME = "voice-call-button";
 
