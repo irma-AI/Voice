@@ -104,3 +104,12 @@ def test_a_visitor_and_a_login_without_a_business_get_nothing_of_anyones() -> No
     client.force_login(account)
     page = shown(client)
     assert "05:00" not in page and "No calls yet" in page
+
+
+def test_every_logged_in_page_links_to_the_others_and_marks_the_current_one() -> None:
+    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    page = shown(client)
+    for href in ('href="/settings/"', 'href="/modules/"', 'href="/calls/"'):
+        assert href in page, href
+    assert page.count('aria-current="page"') == 1
+    assert 'aria-label="Pages"' not in Client().get("/login/").content.decode()

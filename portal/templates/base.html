@@ -15,9 +15,18 @@
     <nav class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-gutter py-5" aria-label="Portal">
       <a href="{% url 'home' %}" class="flex items-baseline gap-2 no-underline"><span class="font-serif text-3xl leading-none tracking-[-0.01em]">Voice</span> <span class="text-xs font-medium tracking-label text-foam-muted uppercase">Portal</span></a>
       {% if user.is_authenticated %}
-        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="rounded-pill px-3 py-2 text-sm text-foam-muted underline decoration-foam-faint underline-offset-[0.3em] hover:text-foam hover:decoration-cable-light">Log out</button></form>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="min-h-11 rounded-pill px-3 text-sm text-foam-muted underline decoration-foam-faint underline-offset-[0.3em] hover:text-foam hover:decoration-cable-light">Log out</button></form>
       {% endif %}
     </nav>
+    {% if user.is_authenticated %}
+    {% with here=request.resolver_match.url_name %}
+    <nav class="mx-auto flex max-w-5xl flex-wrap gap-x-6 px-gutter" aria-label="Pages">
+      <a href="{% url 'business_settings' %}" class="flex min-h-11 items-center text-sm no-underline hover:text-foam {% if here == 'business_settings' %}text-foam{% else %}text-foam-muted{% endif %}"{% if here == 'business_settings' %} aria-current="page"{% endif %}>Settings</a>
+      <a href="{% url 'modules' %}" class="flex min-h-11 items-center text-sm no-underline hover:text-foam {% if here == 'modules' %}text-foam{% else %}text-foam-muted{% endif %}"{% if here == 'modules' %} aria-current="page"{% endif %}>Modules</a>
+      <a href="{% url 'calls' %}" class="flex min-h-11 items-center text-sm no-underline hover:text-foam {% if here == 'calls' %}text-foam{% else %}text-foam-muted{% endif %}"{% if here == 'calls' %} aria-current="page"{% endif %}>Calls</a>
+    </nav>
+    {% endwith %}
+    {% endif %}
   </header>
   <main class="mx-auto max-w-5xl px-gutter pt-8 pb-16 sm:pt-14">{% block content %}{% endblock %}</main>
 {% endblock %}

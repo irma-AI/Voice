@@ -2,7 +2,7 @@
 {% block title %}Calls · Voice Portal{% endblock %}
 {% block content %}
 <h1 class="text-4xl sm:text-[3.5rem] sm:leading-none">Your recent calls</h1>
-<p class="mt-4 max-w-prose text-foam-muted">Newest first. Times are in {{ time_zone }}.</p>
+<p class="mt-4 max-w-prose text-foam-muted">Newest first. Times are in {{ time_zone }}; lengths are minutes:seconds.</p>
 
 <ul class="mt-10 border-t border-granite">
   {% for started, length, kind in rows %}
@@ -12,8 +12,7 @@
       <p class="mt-1 flex items-center gap-2 text-sm text-foam-muted"><span aria-hidden="true" class="size-2 rounded-full border border-foam-faint"></span>{{ kind }}</p>
     </div>
     <div class="text-right">
-      <p class="text-lg tabular-nums">{{ length }}</p>
-      <p class="mt-1 text-sm text-foam-muted">length (minutes:seconds)</p>
+      <p class="text-lg tabular-nums"><span class="sr-only">Length </span>{{ length }}</p>
     </div>
   </li>
   {% empty %}
