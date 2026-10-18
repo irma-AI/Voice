@@ -70,6 +70,9 @@ def test_no_ticket_or_a_bad_one_is_refused_and_never_reaches_the_app() -> None:
         sent, reached = run_asgi("http", "/", query)
         assert sent[0]["status"] == 403 and not reached, query
         assert REFUSAL.encode() in sent[1]["body"], query
+        # A page a screen reader can find its way in: its language, a main landmark, the sentence as its heading.
+        assert sent[1]["body"].startswith(b'<!doctype html><html lang="sv">'), query
+        assert f"<main><h1>{REFUSAL}</h1></main>".encode() in sent[1]["body"], query
         sent, reached = run_asgi("websocket", "/ws", query)
         assert sent == [{"type": "websocket.close", "code": 1008}] and not reached
 

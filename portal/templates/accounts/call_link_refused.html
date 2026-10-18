@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{# A call link that cannot open a call. It shows in the Call button's panel, so no Portal header: the Caller never sees the Portal. #}
+{% block title %}{{ sentence }}{% endblock %}
+{% block body %}
+<main class="grid min-h-dvh place-items-center px-5 py-6 text-center">
+  <h1 class="max-w-[22ch] text-xl">{{ sentence }}</h1>
+</main>
+{% endblock %}

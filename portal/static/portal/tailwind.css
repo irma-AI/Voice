@@ -197,7 +197,8 @@
   .error-summary { @apply space-y-2 rounded-md border border-red-300 px-4 py-3 text-red-300; }
   .error-summary:focus { outline: none; }
   .error-summary ul { @apply m-0 list-none space-y-1 p-0 text-sm; }
-  .error-summary a { @apply text-red-300 underline underline-offset-[0.2em]; }
+  /* Each link at least 24px tall (WCAG 2.5.8): stacked, they would otherwise sit closer than the 24px spacing allows. */
+  .error-summary a { @apply inline-block py-1 text-red-300 underline underline-offset-[0.2em]; }
 
   /* The Call button code on the dashboard: wrapped so all of it shows on a phone, with a Copy button (portal.js). */
   .snippet { @apply space-y-3; }
@@ -208,6 +209,8 @@
   /* Settings: the colour picker only shows while "Use an accent colour" is ticked; nothing is saved from it otherwise. */
   .accent:has(#id_use_accent:not(:checked)) > :not(.check) { display: none; }
   /* Save stays in reach on a phone: a bar held to the bottom of the screen, ruled off like the rows. */
+  /* A field that Tab scrolls to stops above the bar, not under it (WCAG 2.4.11). */
+  html:has(.save-bar) { @apply scroll-pb-28 lg:scroll-pb-0; }
   .save-bar { @apply sticky bottom-0 -mx-gutter border-t border-granite bg-deep-sea px-gutter pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:static lg:mx-0 lg:border-t-0 lg:bg-transparent lg:p-0; }
 
   /* The call panel as a Business's Callers see it: a Foam panel (it sits on the Business's own site) with the logo,

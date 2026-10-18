@@ -90,7 +90,8 @@
   }
   .panel > * { flex: none; }
 
-  .brand { min-height: 2.5rem; display: flex; align-items: center; justify-content: center; }
+  /* The page's one heading: who the Caller is talking to, for a screen reader's heading list. */
+  .brand { margin: 0; font: inherit; min-height: 2.5rem; display: flex; align-items: center; justify-content: center; }
   .brand img { display: block; max-height: 2.5rem; max-width: 12rem; object-fit: contain; }
   .brand .name {
     font-family: var(--font-serif);
@@ -179,7 +180,7 @@
     transition: background-color 0.2s ease-out, color 0.2s ease-out, border-color 0.2s ease-out;
   }
   .pill:hover { background: var(--action-hover); }
-  .pill:disabled { cursor: progress; opacity: 0.6; }
+  .pill[aria-disabled="true"], .pill[aria-disabled="true"]:hover { cursor: progress; opacity: 0.6; background: var(--action); }
   /* Hanging up is the quiet ghost: the live thing is the call, not the button. */
   [data-state="live"] .pill { background: transparent; color: var(--color-foam); box-shadow: inset 0 0 0 1px var(--color-foam-faint); }
   [data-state="live"] .pill:hover { box-shadow: inset 0 0 0 1px var(--color-foam-muted); }
@@ -197,7 +198,7 @@
 </head>
 <body>
 <main class="panel" id="panel" data-state="start">
-  <header class="brand">__BRAND__</header>
+  <h1 class="brand">__BRAND__</h1>
   <p class="disclosure">You are talking to an AI assistant.</p>
   <div class="instrument" aria-hidden="true">
     <svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="48"/><circle class="arc" id="arc" cx="50" cy="50" r="48" pathLength="1000" stroke-dasharray="1000" stroke-dashoffset="1000"/></svg>
@@ -235,7 +236,8 @@ function show(state) {
   document.getElementById("chip").textContent = chip;
   document.getElementById("message").textContent = message;
   go.textContent = button;
-  go.disabled = state === "connecting";
+  // aria-disabled, not disabled: a disabled button drops the keyboard focus, and Hang up would have to be found again.
+  go.setAttribute("aria-disabled", String(state === "connecting"));
 }
 
 // The ring and clock: time since the call went live, out of the core's cap.
@@ -397,7 +399,7 @@ async function start() {
   call = end;
   show("live");
 }
-go.onclick = () => (call ? call() : start());
+go.onclick = () => panel.dataset.state !== "connecting" && (call ? call() : start());
 // Escape inside the panel never reaches the Business's page, where it closes the panel; here it hangs up.
 document.addEventListener("keydown", (e) => e.key === "Escape" && call && call());
 </script>

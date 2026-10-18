@@ -33,6 +33,13 @@ SENTENCE = (
 )
 
 
+def assert_the_refusal_page(page: str) -> None:
+    """The refusal shows in the Call button's panel: a page with its language and the sentence as its one heading."""
+    assert '<html lang="en">' in page
+    heading = re.search(r"<h1[^>]*>(.*?)</h1>", page, re.DOTALL)
+    assert heading and unescape(heading[1]).strip() == SENTENCE
+
+
 @pytest.fixture(autouse=True)
 def core(settings: Any) -> None:
     settings.CORE_SECRET = SECRET
@@ -72,7 +79,7 @@ def test_a_business_with_no_saved_website_gets_no_ticket(
     response = Client().get(f"/call/{anna.call_slug}/", headers=IN_A_FRAME)
 
     assert response.status_code == 403 and "Location" not in response
-    assert response.content.decode() == SENTENCE
+    assert_the_refusal_page(response.content.decode())
     assert f"Business {anna.pk} has no website domain" in caplog.text
 
 
@@ -95,7 +102,7 @@ def test_a_request_that_does_not_say_it_is_in_a_frame_gets_no_ticket(
     response = Client().get(f"/call/{anna.call_slug}/", headers=headers)
 
     assert response.status_code == 403 and "Location" not in response
-    assert response.content.decode() == SENTENCE
+    assert_the_refusal_page(response.content.decode())
     assert f"Business {anna.pk} opened outside a frame" in caplog.text
 
 
@@ -183,6 +190,8 @@ def test_the_script_is_served_with_the_core_it_lets_the_microphone_into() -> Non
     assert response["Content-Type"] == "text/javascript; charset=utf-8"
     script = response.content.decode()
     assert '"https://voice.example.se"' in script  # CORE_URL's origin, no path
+    # The launcher's words are Swedish on any host page, so a screen reader is told so (WCAG 3.1.2).
+    assert 'launcher.lang = "sv"' in script and 'panel.lang = "sv"' in script
     assert Client().post("/call-button.js").status_code == 405
 
 
