@@ -47,11 +47,12 @@ def assert_the_refusal_page(page: str, sentence: str = SENTENCE) -> None:
 
 
 def a_business_with_a_budget(usd: str) -> Business:
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    Business.objects.filter(pk=anna.pk).update(
+    nth = Business.objects.count() + 1
+    business, _ = business_with_login(f"anna{nth}.testsson@example.com", "Anna's Salon")
+    Business.objects.filter(pk=business.pk).update(
         website_domain="anna.example.se", daily_budget_usd=usd
     )
-    return anna
+    return business
 
 
 def link(business: Business) -> Any:
@@ -154,6 +155,8 @@ def test_a_spent_daily_budget_refuses_with_no_ticket(
     assert "0.6" not in caplog.text and "1.0" not in caplog.text  # the id only
     a_call(anna, "priced-000000003", now, cost_usd="5")  # over
     assert link(anna).status_code == 403
+    bo = a_business_with_a_budget("0")  # no records: the off switch
+    assert link(bo).status_code == 403
 
 
 def test_a_call_with_no_cost_counts_at_the_fallback_rate() -> None:
@@ -168,6 +171,10 @@ def test_a_call_with_no_cost_counts_at_the_fallback_rate() -> None:
     assert link(anna).status_code == 302
     a_call(anna, "unpriced-00000002", timezone.now(), length_seconds=1, **unpriced)
     assert link(anna).status_code == 403
+    # A call priced at nothing (its usage reports never came) counts like an unpriced one, not as free.
+    bo = a_business_with_a_budget("1.00")
+    a_call(bo, "free-00000000001", timezone.now(), length_seconds=200, cost_usd="0")
+    assert link(bo).status_code == 403
 
 
 def test_a_test_call_neither_counts_nor_is_refused() -> None:

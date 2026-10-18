@@ -627,14 +627,16 @@ def call_link_refused(
 
 
 def spent_today(business: Business) -> Decimal:
-    """Today's Call link spend in dollars, the day on TIME_ZONE like the totals page: priced records as priced, unpriced ones at FALLBACK_USD_PER_MINUTE. Test calls do not count, and neither does a call still open (Petter, 2026-10-18: a call may run over, the next one is refused)."""
+    """Today's Call link spend in dollars, the day on TIME_ZONE like the totals page: priced records as priced; unpriced ones, and ones priced at nothing (a call whose usage reports never came), at FALLBACK_USD_PER_MINUTE. Test calls do not count, and neither does a call still open (Petter, 2026-10-18: a call may run over, the next one is refused). A budget of 0 refuses every call."""
     zone = ZoneInfo(settings.TIME_ZONE)
     today = datetime.combine(datetime.now(zone).date(), time.min, tzinfo=zone)
     sums = CallRecord.objects.filter(
         business=business, kind="call_link", started_at__gte=today
     ).aggregate(
         priced=Sum("cost_usd"),
-        unpriced_seconds=Sum("length_seconds", filter=Q(cost_usd__isnull=True)),
+        unpriced_seconds=Sum(
+            "length_seconds", filter=Q(cost_usd__isnull=True) | Q(cost_usd=0)
+        ),
     )
     return (sums["priced"] or Decimal(0)) + FALLBACK_USD_PER_MINUTE * (
         sums["unpriced_seconds"] or 0

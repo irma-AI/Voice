@@ -123,7 +123,7 @@ class Business(models.Model):
     call_slug = models.CharField(max_length=40, unique=True, default=new_call_slug)
     # The registrable domain of the Business's own website, or empty for none (domain.py). Portal-only: the settings contract does not carry it.
     website_domain = models.CharField(max_length=DOMAIN_MAX, blank=True, default="")
-    # US dollars of Call link calls per day (on TIME_ZONE) before the call link refuses (views.spent_today). No Portal page sets it, so a Business cannot raise it (VOI-123). db_default: the previous Portal copy still invites while the migration runs (.claude/rules/data.md).
+    # US dollars of Call link calls per day (on TIME_ZONE) before the call link refuses (views.spent_today); 0 refuses every call. No Portal page sets it, so a Business cannot raise it (VOI-123). db_default: the previous Portal copy still invites while the migration runs (.claude/rules/data.md).
     # shortcut: the operator changes it from a Django shell on the Portal host, add a management command when a second Business needs its own budget
     daily_budget_usd = models.DecimalField(
         max_digits=8,
