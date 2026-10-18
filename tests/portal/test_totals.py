@@ -105,11 +105,28 @@ def test_phones_get_every_figure_without_the_wide_table(settings: Any) -> None:
     settings.SUPER_ADMIN_EMAIL = EMAIL
     anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
     _, petter = business_with_login(EMAIL, "Petter's Business")
-    a_call(anna, "priced-000000001", datetime(2026, 10, 17, 5, 0, tzinfo=UTC), cost_usd="0.25")
+    a_call(
+        anna,
+        "priced-000000001",
+        datetime(2026, 10, 17, 5, 0, tzinfo=UTC),
+        cost_usd="0.25",
+    )
     page = petter.get("/totals/").content.decode()
-    phone = page[page.index('class="mt-8 border-b border-granite md:hidden"') : page.index("</ul>")]
+    phone = page[
+        page.index('class="mt-8 border-b border-granite md:hidden"') : page.index(
+            "</ul>"
+        )
+    ]
     wide = page[page.index('role="region"') :]
     assert "hidden overflow-x-auto md:block" in page
     for part in (phone, wide):
-        for figure in ("2026-10", "Anna&#x27;s Salon", "Test calls", "Call links", "3.1", "$0.2500", "$0.0000"):
+        for figure in (
+            "2026-10",
+            "Anna&#x27;s Salon",
+            "Test calls",
+            "Call links",
+            "3.1",
+            "$0.2500",
+            "$0.0000",
+        ):
             assert figure in part, (figure, part[:80])
