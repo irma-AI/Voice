@@ -46,6 +46,7 @@ Voice answers a Business's callers with a live AI voice agent, in Swedish or Eng
 - Name: Voice; the web app is the Portal.
 - Caller-facing legal wording is fixed by Petter; never reword it in design work. The spoken disclosure is "Du pratar med en AI-assistent."; the written one on the call page is "You are talking to an AI assistant." (approved 2026-10-17). Call page text is English for now, like the Portal (VOI-67).
 - Use `GLOSSARY.md`'s terms in UI copy and avoid the words it lists under _Avoid_.
+- Copy sells what Voice does and what is planned, outcome first, never what it does not do or how it was defined; unbuilt things carry Planned. Headings are short, step names plain verbs (Petter, 2026-10-18).
 
 ## Evidence on Hand
 
