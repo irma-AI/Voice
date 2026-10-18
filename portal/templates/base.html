@@ -25,6 +25,7 @@
       <a href="{% url 'business_settings' %}" class="flex min-h-11 items-center text-sm no-underline hover:text-foam {% if here == 'business_settings' %}text-foam{% else %}text-foam-muted{% endif %}"{% if here == 'business_settings' %} aria-current="page"{% endif %}>Settings</a>
       <a href="{% url 'modules' %}" class="flex min-h-11 items-center text-sm no-underline hover:text-foam {% if here == 'modules' %}text-foam{% else %}text-foam-muted{% endif %}"{% if here == 'modules' %} aria-current="page"{% endif %}>Modules</a>
       <a href="{% url 'calls' %}" class="flex min-h-11 items-center text-sm no-underline hover:text-foam {% if here == 'calls' %}text-foam{% else %}text-foam-muted{% endif %}"{% if here == 'calls' %} aria-current="page"{% endif %}>Calls</a>
+      <a href="{% url 'access_tokens' %}" class="flex min-h-11 items-center text-sm no-underline hover:text-foam {% if here == 'access_tokens' %}text-foam{% else %}text-foam-muted{% endif %}"{% if here == 'access_tokens' %} aria-current="page"{% endif %}>Access tokens</a>
     </nav>
     {% endwith %}
     {% endif %}

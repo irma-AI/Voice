@@ -418,3 +418,7 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-18] ESCALATED: which MCP framework: official SDK + django-stateless-mcp (recommended, already locked) or FastMCP 4 (moves the Portal to an async server) -> Petter
 [2026-10-18] ESCALATED: where the agent endpoint runs: its own Dokploy app from the Portal image (recommended, keeps agent traffic off call starts) or inside the Portal; a new app is a deploy setting -> Petter
 [2026-10-18] VOI-103: the gate trial ran in the thread that built it, not a fresh thread on a trial branch: a session reloads hooks from its working tree, so the same gate applied, and no extra thread was spent; the reset was simulated by recording past reset times.
+[2026-10-18] Access token secrets are hashed with plain SHA-256, not a slow password hash: the secret is 256 random bits, so nothing can be guessed, and the endpoint looks a token up by its hash on every request.
+[2026-10-18] The revoked time is the database's own clock, enforced by a trigger (migration 0014) and set by AccessToken.revoke: a Python-side time would let any writer pick it, and Postgres cannot tell which function wrote.
+[2026-10-18] An Access token is marked operator at creation (is_operator), not looked up from SUPER_ADMIN_EMAIL on each use: a token's reach should not change because a setting did.
+[2026-10-18] No limit on how many Access tokens a Business holds: a number is a product rule for Petter's own card (VOI-110), and revoked tokens stay listed so a Business can see what was used.
