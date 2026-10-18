@@ -1,40 +1,46 @@
 {
-  "_note": "Synthetic: the shape of Google's documented public Cloud Billing Catalog replies (v2beta skus list, v1beta sku price) with prices from docs/research/gemini-live-pricing.md. Not a real reply; the real entry names are read on the first live call (VOI-42).",
+  "_note": "Synthetic: the shape of Google's documented public Cloud Billing Catalog replies (v2beta skus list, v1beta sku price) with prices from docs/research/gemini-live-pricing.md. Not a real reply; the entry names are copied from the real catalogue's list read on 2026-10-18 (VOI-42), including the extended-thinking variant that shares the model's name as a prefix.",
   "skus": [
     {
       "name": "skus/AAAA-0001",
       "skuId": "AAAA-0001",
-      "displayName": "Gemini 2.5 Flash Live audio input tokens",
+      "displayName": "BidiGenerateContent audio input token count for Gemini 2.0 Flash Live",
       "service": "AEFD-7695-64FA"
     },
     {
       "name": "skus/AAAA-0002",
       "skuId": "AAAA-0002",
-      "displayName": "Gemini 3.8 Live audio input tokens",
+      "displayName": "Bidi_generate_content audio input token count for gemini-3.8-live",
       "service": "AEFD-7695-64FA"
     },
     {
       "name": "skus/AAAA-0003",
       "skuId": "AAAA-0003",
-      "displayName": "Gemini 3.8 Live text input tokens",
+      "displayName": "Bidi_generate_content text input token count for gemini-3.8-live",
       "service": "AEFD-7695-64FA"
     },
     {
       "name": "skus/AAAA-0004",
       "skuId": "AAAA-0004",
-      "displayName": "Gemini 3.8 Live video input tokens",
+      "displayName": "Bidi_generate_content video input token count for gemini-3.8-live",
       "service": "AEFD-7695-64FA"
     },
     {
       "name": "skus/AAAA-0005",
       "skuId": "AAAA-0005",
-      "displayName": "Gemini 3.8 Live audio output tokens",
+      "displayName": "Bidi_generate_content audio output token count for gemini-3.8-live",
       "service": "AEFD-7695-64FA"
     },
     {
       "name": "skus/AAAA-0006",
       "skuId": "AAAA-0006",
-      "displayName": "Gemini 3.8 Live text output tokens",
+      "displayName": "Bidi_generate_content text output token count for gemini-3.8-live",
+      "service": "AEFD-7695-64FA"
+    },
+    {
+      "name": "skus/AAAA-0007",
+      "skuId": "AAAA-0007",
+      "displayName": "Bidi_generate_content audio input token count for gemini-3.8-live-extended-thinking",
       "service": "AEFD-7695-64FA"
     }
   ]
