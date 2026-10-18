@@ -30,6 +30,12 @@
     <button type="button" class="ghost" data-copy="call-button-code" hidden>Copy code</button>
     <p class="snippet-copied" role="status"></p>
   </div>
+  <p class="max-w-prose text-sm text-foam-muted">Only if your website sets a security policy (a <code>Content-Security-Policy</code> or <code>Permissions-Policy</code> header), the button can fail to show, with no message. The policy must allow:</p>
+  <ul class="max-w-prose list-disc space-y-1 pl-6 text-sm text-foam-muted">
+    <li>scripts from <code>{{ portal_origin }}</code> (<code>script-src</code>)</li>
+    <li>frames from both <code>{{ portal_origin }}</code> and <code>{{ core_origin }}</code> (<code>frame-src</code>); the call panel moves from the first to the second, so naming only one blocks it</li>
+    <li>the microphone for your own site (<code>Permissions-Policy: microphone=(self)</code>, not <code>microphone=()</code>); otherwise the call starts and the microphone is then refused</li>
+  </ul>
   {% else %}
   <p class="max-w-prose text-sm text-foam-muted">Your call button is closed until you save your website in <a href="{% url 'business_settings' %}" class="link-inline">your settings</a>. Then the code to paste on your website shows here.</p>
   {% endif %}

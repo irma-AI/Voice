@@ -181,6 +181,23 @@ def test_the_dashboard_shows_the_script_snippet_only_with_a_saved_website() -> N
     assert "portal/portal.js" in page
 
 
+def test_the_dashboard_names_the_addresses_a_security_policy_must_allow() -> None:
+    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+
+    assert "security policy" not in client.get("/dashboard/").content.decode()
+
+    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+    page = client.get("/dashboard/").content.decode()
+    # Scripts need the Portal; frames need the Portal and the core (the panel redirects from one to the other).
+    assert "scripts from <code>https://portal.example.se</code>" in page
+    assert (
+        "frames from both <code>https://portal.example.se</code> and <code>https://voice.example.se</code>"
+        in page
+    )
+    assert "microphone=(self)" in page
+    assert snippet(page).startswith("<script")  # the new text sits after the snippet
+
+
 def test_the_script_is_served_with_the_core_it_lets_the_microphone_into() -> None:
     response = Client().get(
         "/call-button.js"
