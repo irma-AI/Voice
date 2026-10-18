@@ -46,6 +46,8 @@ from portal.accounts.domain import parse_domain, shown_domain
 from portal.accounts.models import (
     CALL_KINDS,
     LANGUAGES,
+    PRIVACY_URL_MAX,
+    PRIVACY_URL_PATTERN,
     AccessToken,
     Account,
     Business,
@@ -336,6 +338,30 @@ class SettingsForm(forms.ModelForm):
         except ValueError as e:
             raise forms.ValidationError(str(e)) from None
 
+    # The Business's own privacy notice: the call page links it beside the AI disclosure (the Business is the controller toward its Callers).
+    privacy_url = forms.URLField(
+        label="Your privacy notice",
+        required=False,
+        max_length=PRIVACY_URL_MAX,
+        assume_scheme="https",
+        help_text="The address of your privacy notice for callers, for example https://www.example.se/privacy. Your Callers see a link to it on the call page. Leave it empty for none.",
+        widget=forms.URLInput(
+            attrs={
+                "autocomplete": "url",
+                "autocapitalize": "none",
+                "spellcheck": "false",
+            }
+        ),
+    )
+
+    def clean_privacy_url(self) -> str:
+        url: str = self.cleaned_data["privacy_url"]
+        if url and not re.fullmatch(PRIVACY_URL_PATTERN, url):
+            raise forms.ValidationError(
+                "That is not an https address. Type the address of your privacy notice, starting with https://."
+            )
+        return url
+
     # The Theme (theme.py), shown only to the Business's Callers. The contract carries it as `theme`.
     logo = forms.FileField(
         label="Logo",
@@ -402,7 +428,7 @@ class SettingsForm(forms.ModelForm):
 
     class Meta:
         model = Business
-        fields = ("name", "facts", "languages", "website_domain")
+        fields = ("name", "facts", "languages", "website_domain", "privacy_url")
 
 
 @login_required

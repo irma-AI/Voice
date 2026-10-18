@@ -110,6 +110,11 @@
     text-wrap: balance;
   }
 
+  /* The Business's own privacy notice, when it has given one: a small line under the disclosure. */
+  .privacy { margin: 0; font-size: var(--text-xs); line-height: var(--text-xs--line-height); }
+  .privacy a { color: var(--color-foam-muted); text-decoration: underline; text-underline-offset: 0.15em; }
+  .privacy a:hover, .privacy a:focus-visible { color: var(--color-foam); }
+
   /* A compact Turn: the ring is this call, filling with time. */
   .instrument { position: relative; width: clamp(6.5rem, 24dvh, 9rem); aspect-ratio: 1; }
   .instrument svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
@@ -200,6 +205,7 @@
 <main class="panel" id="panel" data-state="start">
   <h1 class="brand">__BRAND__</h1>
   <p class="disclosure">You are talking to an AI assistant.</p>
+  __PRIVACY__
   <div class="instrument" aria-hidden="true">
     <svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="48"/><circle class="arc" id="arc" cx="50" cy="50" r="48" pathLength="1000" stroke-dasharray="1000" stroke-dashoffset="1000"/></svg>
     <div class="centre">

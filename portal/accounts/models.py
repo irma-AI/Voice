@@ -25,6 +25,11 @@ log = logging.getLogger(__name__)
 # The languages a Business may pick; contract/business-settings.schema.json lists the same two (tests/portal/test_settings_contract.py).
 LANGUAGES = {"sv": "Swedish", "en": "English"}
 
+# The Business's own privacy notice for its Callers, linked from the call page beside the AI disclosure: an https address with no
+# whitespace, or empty for none. contract/business-settings.schema.json carries the same rule; tests/portal/test_settings_contract.py reads both.
+PRIVACY_URL_MAX = 2000
+PRIVACY_URL_PATTERN = r"^https://\S+$"
+
 # A Call record holds numbers, codes and times only; contract/call-record.schema.json lists the same kinds and patterns (tests/portal/test_call_records.py).
 CALL_KINDS = {"test": "Test call", "call_link": "Call link"}
 CALL_ID_PATTERN = r"^[A-Za-z0-9-]{8,64}$"
@@ -141,6 +146,11 @@ class Business(models.Model):
     # Set only by set_logo; the database refuses a key that is not the hash of the bytes beside it.
     logo_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
     accent = models.CharField(max_length=7, blank=True, default="")
+    # The Business is the controller toward its Callers (docs/privacy/README.md), so the notice is its own page, linked, never text stored here.
+    # db_default too: the previous Portal copy still inserts Businesses without this column while the migration runs (.claude/rules/data.md).
+    privacy_url = models.CharField(
+        max_length=PRIVACY_URL_MAX, blank=True, default="", db_default=""
+    )
 
     class Meta:
         constraints = [
@@ -170,6 +180,11 @@ class Business(models.Model):
                 condition=models.Q(website_domain="")
                 | models.Q(website_domain__regex=DOMAIN_PATTERN),
                 name="business_website_domain_must_be_empty_or_a_clean_domain",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(privacy_url="")
+                | models.Q(privacy_url__regex=PRIVACY_URL_PATTERN),
+                name="business_privacy_url_must_be_empty_or_an_https_address",
             ),
             models.CheckConstraint(
                 condition=models.Q(call_slug__regex=CALL_SLUG_PATTERN),
@@ -203,6 +218,8 @@ class Business(models.Model):
         }
         if found := self.theme():
             served["theme"] = found
+        if self.privacy_url:
+            served["privacy_url"] = self.privacy_url
         return served
 
     def set_logo(self, data: bytes | None) -> None:

@@ -32,6 +32,8 @@ COLOUR_PATTERN = (
     r"#[0-9a-f]{6}"  # the schema's theme accent and accent_text, anchored there
 )
 LOGO_URL_MAX = 2000
+PRIVACY_URL_MAX = 2000
+PRIVACY_URL_PATTERN = r"https://\S+"  # the schema's privacy_url, anchored there
 # ponytail: a call waits this long in silence for the Portal before it is refused; make it a setting if the Portal is slow in practice.
 PORTAL_TIMEOUT_S = 5
 MAX_REPLY_BYTES = (
@@ -76,6 +78,8 @@ class Settings:
     languages: tuple[str, ...]
     modules: tuple[Module, ...] = ()
     theme: Theme = Theme()
+    # The Business's own privacy notice, linked on the call page; None for no link.
+    privacy_url: str | None = None
 
 
 def _theme(data: object) -> Theme:
@@ -98,6 +102,16 @@ def _theme(data: object) -> Theme:
     ):
         raise SettingsRefused("the theme's logo_url is not a short http address")
     return Theme(d.get("accent"), d.get("accent_text"), d.get("logo_url"))
+
+
+def _privacy_url(value: object) -> str:
+    if not (
+        isinstance(value, str)
+        and len(value) <= PRIVACY_URL_MAX
+        and re.fullmatch(PRIVACY_URL_PATTERN, value)
+    ):
+        raise SettingsRefused("the privacy_url is not a short https address")
+    return value
 
 
 def _text(value: object, longest: int) -> str:
@@ -140,10 +154,10 @@ def parse(data: object) -> Settings:
     if (
         not {"name", "facts", "languages"}
         <= set(d)
-        <= {"name", "facts", "languages", "modules", "theme"}
+        <= {"name", "facts", "languages", "modules", "theme", "privacy_url"}
     ):
         raise SettingsRefused(
-            "settings do not have name, facts and languages, and at most modules and a theme besides"
+            "settings do not have name, facts and languages, and at most modules, a theme and a privacy_url besides"
         )
     name, facts, languages = d["name"], d["facts"], d["languages"]
     raw_modules = d.get("modules", [])
@@ -166,6 +180,7 @@ def parse(data: object) -> Settings:
         tuple(languages),  # pyright: ignore[reportUnknownArgumentType]
         tuple(_module(m) for m in modules),
         _theme(d["theme"]) if "theme" in d else Theme(),
+        _privacy_url(d["privacy_url"]) if "privacy_url" in d else None,
     )
 
 
