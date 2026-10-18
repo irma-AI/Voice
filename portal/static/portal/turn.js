@@ -115,6 +115,14 @@
     name: el("step-name"), note: el("step-note"), who: el("live-who"), say: el("live-say"), wave: el("wave-small"),
   };
   let shown = null, shownStep = null;
+  // A change of speaker or step fades the old words out quickly and the new ones in, instead of snapping (VOI-105).
+  // A fade is not movement, so it stays under reduced motion.
+  const OUT = 180, fades = {};
+  function fade(key, nodes, write) {
+    clearTimeout(fades[key]);
+    nodes.forEach((n) => n.classList.add("turn-out"));
+    fades[key] = setTimeout(() => { write(); nodes.forEach((n) => n.classList.remove("turn-out")); }, OUT);
+  }
   // The rail stretches to the hero's height, so each dot is drawn back to a 5px circle on screen; measured on resize, not per frame.
   new ResizeObserver(([entry]) => {
     const { width, height } = entry.contentRect, kx = 40 / (width || 40), ky = 1000 / (height || 1000);
@@ -129,13 +137,15 @@
     exit.classList.toggle("on", STEPS.some((s) => s.planned && t >= s.t));
     if (idx !== shown) {
       shown = idx;
-      setLine(prev, LINES[idx - 1]);
-      setLine(cur, LINES[idx]);
       const l = LINES[idx];
-      live.who.textContent = l ? l.who : "";
-      live.say.textContent = l ? l.say : "";
-      live.say.classList.toggle("agent", !!l && l.who === "Agent" && !l.planned);
-      live.say.classList.toggle("planned", !!l && l.planned);
+      fade("line", [prev, cur, live.who, live.say], () => {
+        setLine(prev, LINES[idx - 1]);
+        setLine(cur, l);
+        live.who.textContent = l ? l.who : "";
+        live.say.textContent = l ? l.say : "";
+        live.say.classList.toggle("agent", !!l && l.who === "Agent" && !l.planned);
+        live.say.classList.toggle("planned", !!l && l.planned);
+      });
     }
     wavePath(el("wave"), t, 210, envelope(t, line, 26), 1);
     ringLive.style.opacity = reduce ? 1 : t > LOOP - 2 ? Math.max(0, (LOOP - t) / 2) : Math.min(1, t * 2 + 0.2);
@@ -145,9 +155,11 @@
     const step = [...STEPS].reverse().find((s) => t >= s.t);
     if (step !== shownStep) {
       shownStep = step;
-      live.name.textContent = step ? step.name : "";
-      live.note.textContent = step ? step.note : "";
-      live.note.classList.toggle("planned", !!step && step.planned);
+      fade("step", [live.name.parentElement], () => {
+        live.name.textContent = step ? step.name : "";
+        live.note.textContent = step ? step.note : "";
+        live.note.classList.toggle("planned", !!step && step.planned);
+      });
     }
     wavePath(live.wave, t, 160, envelope(t, line, 18), 1.3);
   }

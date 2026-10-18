@@ -113,7 +113,11 @@
   .turn-who { font: 500 12px var(--font-sans); letter-spacing: var(--tracking-label); text-transform: uppercase; }
   .turn-ring .turn-who { font-size: 16px; fill: var(--color-foam-muted); }
   .turn-say { font: 400 28px/1.1 var(--font-serif); fill: var(--color-foam); }
-  .turn-line { opacity: 0; transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1); }
+  .turn-line { opacity: 0; transition: opacity 240ms ease-out; }
+  /* A change of speaker: the old words fade out (turn.js waits 180ms), then the new ones fade in; the speaker line eases its colour. */
+  .turn-ring .turn-line.turn-out, .turn-live .turn-out { opacity: 0; transition-duration: 180ms; transition-timing-function: ease-in; }
+  .turn-live-step, .turn-live .turn-who, .turn-live-say { transition: opacity 240ms ease-out; }
+  .turn-wave { transition: stroke 300ms ease; }
   .turn-line.on { opacity: 1; }
   .turn-line.agent .turn-say, .turn-line.agent .turn-who { fill: var(--color-cable-light); }
   /* The previous words dim; their speaker label stays readable (AA). Words of a Planned step are never warm. */
