@@ -50,6 +50,7 @@ from portal.accounts.models import (
 )
 from portal.accounts.theme import (
     DEEP_SEA,
+    FOAM,
     LOGO_MAX_BYTES,
     LOGO_PROBLEM,
     LOGO_SIGNATURES,
@@ -205,7 +206,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             # The Business pastes this into its own website (VOI-73); only a saved domain makes it work, so only then is it shown.
             "button_html": business
             and business.website_domain
-            and f'<script async src="{settings.PORTAL_URL.rstrip("/")}{reverse("call_button_js")}" data-business="{business.call_slug}"></script>',
+            and f'<script async src="{settings.PORTAL_URL.rstrip("/")}{reverse("call_button_js")}?business={business.call_slug}"></script>',
         },
     )
 
@@ -580,11 +581,24 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
 
 @require_GET
 def call_button_js(request: HttpRequest) -> HttpResponse:
-    """The script a Business's website loads for its call button. The same for every Business; it learns which one from its own tag."""
+    """The script a Business's website loads for its call button. Its address names the Business (`?business=<call slug>`),
+    so the launcher carries that Business's adjusted accent; an unknown slug, or a tag pasted before VOI-89 that names it
+    in `data-business` instead, gets Voice's own look (the call link itself still decides whether a call opens)."""
+    business = Business.objects.filter(
+        call_slug=request.GET.get("business", "")
+    ).first()
+    theme = business.theme() if business else {}
     return render(
         request,
         "call_button.js",
-        {"core_origin": "{0.scheme}://{0.netloc}".format(urlsplit(settings.CORE_URL))},
+        {
+            "core_origin": "{0.scheme}://{0.netloc}".format(
+                urlsplit(settings.CORE_URL)
+            ),
+            # The launcher's fill and the ring and label on it: the Theme's pair reaches AA (theme.on_accent), and so does Voice's.
+            "fill": theme.get("accent", DEEP_SEA),
+            "ink": theme.get("accent_text", FOAM),
+        },
         content_type="text/javascript; charset=utf-8",  # without it the page's own encoding decides how "å" reads
     )
 
