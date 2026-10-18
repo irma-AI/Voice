@@ -13,9 +13,9 @@
 {% block body %}
   <header>
     <nav class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-gutter py-5" aria-label="Portal">
-      <a href="{% url 'home' %}" class="flex items-baseline gap-2 no-underline"><span class="font-serif text-3xl leading-none tracking-[-0.01em]">Voice</span> <span class="text-xs font-medium tracking-label text-foam-muted uppercase">Portal</span></a>
+      <a href="{% url 'home' %}" class="flex items-baseline gap-2 py-1 no-underline"><span class="font-serif text-3xl leading-none tracking-[-0.01em]">Voice</span> <span class="text-xs font-medium tracking-label text-foam-muted uppercase">Portal</span></a>
       {% if user.is_authenticated %}
-        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="rounded-pill px-3 py-2 text-sm text-foam-muted underline decoration-foam-faint underline-offset-[0.3em] hover:text-foam hover:decoration-cable-light">Log out</button></form>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="rounded-pill px-3 py-3 text-sm text-foam-muted underline decoration-foam-faint underline-offset-[0.3em] hover:text-foam hover:decoration-cable-light">Log out</button></form>
       {% endif %}
     </nav>
   </header>

@@ -201,7 +201,8 @@ Two corner shapes: the full pill for actions and toggles, and a gentle 0.5rem ra
 
 ### Buttons
 - **Primary pill:** Foam ground, Deep sea text, 500 weight, pill shape; warms to Cable light on hover; focus ring offset 4px. One primary action per band.
-- **Ghost toggle:** transparent pill with a 1px Foam faint border and Foam muted text, at least 2.75rem tall; on hover the text goes Foam and the border Foam muted. Used for the Pause/Play control and the Portal's secondary actions.
+- **Ghost toggle:** transparent pill with a 1px Foam faint border and Foam muted text, at least 2.75rem tall; on hover the text goes Foam and the border Foam muted. Used for the Pause/Play control and the Portal's secondary actions (`.ghost`, such as Copy code).
+- **Save bar:** on a long Portal form the primary pill sits in a bar held to the bottom of the screen below 1024px, Deep sea with a Granite hairline above; on wide screens it falls back into the page. Every Portal tap target (pills, check rows, header links) is at least 2.75rem tall.
 
 ### Links
 - **Text link:** Foam muted, underlined with a 0.3em offset and a Foam faint underline that turns Cable light on hover; text goes Foam on hover. "Open code · Self-host it" is the pattern.
