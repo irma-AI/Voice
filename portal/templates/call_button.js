@@ -75,6 +75,8 @@
 
     const launcher = document.createElement("button");
     launcher.type = "button";
+    // Its words are Swedish whatever the host page's language, so a screen reader reads them in Swedish (WCAG 3.1.2).
+    launcher.lang = "sv";
     launcher.setAttribute("aria-expanded", "false");
     // Voice's ring mark, in the ink on the accent.
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -103,6 +105,7 @@
       panel = document.createElement("iframe");
       panel.id = "panel";
       panel.title = label;
+    panel.lang = "sv"; // the title's language; the call page inside says its own
       // The microphone and autoplay are the core's to use: the Portal's address redirects there, and an iframe only grants them to the address it was given.
       panel.allow = `microphone ${core}; autoplay ${core}`;
       panel.src = `${portal}/call/${encodeURIComponent(business)}/`;
