@@ -10,6 +10,12 @@ urlpatterns = [
     path("settings/", views.business_settings, name="business_settings"),
     path("modules/", views.modules, name="modules"),
     path("modules/<int:module_id>/remove/", views.remove_module, name="remove_module"),
+    path("tokens/", views.access_tokens, name="access_tokens"),
+    path(
+        "tokens/<int:token_id>/revoke/",
+        views.revoke_access_token,
+        name="revoke_access_token",
+    ),
     path("calls/", views.calls, name="calls"),
     path("totals/", views.totals, name="totals"),
     path("test-call/", views.test_call, name="test_call"),

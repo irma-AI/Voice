@@ -423,3 +423,8 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-18] VOI-121: declined Dokploy watch paths so a Portal-only merge leaves the call app alone: with start-first and the wait for open calls a restart no longer cuts anything, and watch paths for this repo were not checked.
 [2026-10-18] ESCALATED: should a deploy wait for calls in progress (up to 10 minutes, a Business may then briefly run two calls at once) or cut them at once as today? -> Petter
 [2026-10-18] ESCALATED: set start-first on apps app and portal and an 11-minute stop wait on app, on Dokploy, after the VOI-121 change is merged? -> Petter
+[2026-10-18] Access token secrets are hashed with plain SHA-256, not a slow password hash: the secret is 256 random bits, so nothing can be guessed, and the endpoint looks a token up by its hash on every request.
+[2026-10-18] The revoked time is the database's own clock, enforced by a trigger (migration 0014) and set by AccessToken.revoke: a Python-side time would let any writer pick it, and Postgres cannot tell which function wrote.
+[2026-10-18] An Access token is marked operator at creation (is_operator), not looked up from SUPER_ADMIN_EMAIL on each use: a token's reach should not change because a setting did.
+[2026-10-18] No limit on how many Access tokens a Business holds: a number is a product rule for Petter's own card (VOI-110), and revoked tokens stay listed so a Business can see what was used.
+[2026-10-18] VOI-111: declined a trigger against deleting a token row and a guard for the one code path (review findings): the ticket asks for neither, and ARCHITECTURE.md says they are not enforced; VOI-112 decides if a Business's deletion must keep token history.

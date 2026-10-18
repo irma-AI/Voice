@@ -11,12 +11,12 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
-from django.db.models.functions import Length, Lower, Trim
+from django.db.models.functions import Length, Lower, Now, Trim
 from django.db.models.lookups import Exact, LessThanOrEqual
 from django.urls import reverse
 
 from portal.accounts import modules as module_rules
-from portal.accounts import theme
+from portal.accounts import theme, tokens
 from portal.accounts.domain import DOMAIN_MAX, DOMAIN_PATTERN
 
 log = logging.getLogger(__name__)
@@ -327,3 +327,61 @@ class CallRecord(models.Model):
                 name="call_record_has_a_cost_with_its_price_date_or_a_reason_for_none",
             ),
         ]
+
+
+class AccessToken(models.Model):
+    """What lets a Business's own agent act for it (ADR 0003). The secret is shown once and never stored, only its SHA-256. Once made, only `last_used_at` and a first `revoked_at` can change: a trigger (migration 0014) refuses the rest, for every role."""
+
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="access_tokens"
+    )
+    label = models.CharField(max_length=tokens.LABEL_MAX)
+    scope = models.CharField(max_length=10, choices=list(tokens.SCOPES.items()))
+    # Set at creation from the Account that made it (`SUPER_ADMIN_EMAIL`), so the operator's tools follow the token, not a later change of the setting.
+    is_operator = models.BooleanField(default=False)
+    token_hash = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )  # UTC (USE_TZ), like every stored time
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(scope__in=list(tokens.SCOPES)),
+                name="access_token_scope_must_be_read_or_full",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(token_hash__regex=tokens.HASH_PATTERN),
+                name="access_token_must_hold_a_sha256_hash_never_the_secret",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(label__regex=r"\S"),
+                name="access_token_label_must_not_be_blank",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.label
+
+    @classmethod
+    def make(
+        cls, business: Business, label: str, scope: str, is_operator: bool
+    ) -> tuple[AccessToken, str]:
+        """The one way a token is made (the Access tokens page): the token and its secret, which nothing else keeps."""
+        secret = tokens.new_secret()
+        made = cls.objects.create(
+            business=business,
+            label=label,
+            scope=scope,
+            is_operator=is_operator,
+            token_hash=tokens.hash_of(secret),
+        )
+        return made, secret
+
+    def revoke(self) -> None:
+        """The one way a token stops working (the Access tokens page). The database sets the time (its own clock, refused if any other) and a revoked token stays revoked."""
+        type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(
+            revoked_at=Now()
+        )
