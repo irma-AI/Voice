@@ -86,6 +86,7 @@ def test_the_portal_showcase_is_a_read_out_and_the_portals_own_module_row_labell
     assert "What it offers" in page and "move_booking" in page
     assert "Remove" not in page
 
+
 def test_request_access_is_hidden_while_contact_email_is_empty(settings: Any) -> None:
     settings.CONTACT_EMAIL = ""
     page = landing()
