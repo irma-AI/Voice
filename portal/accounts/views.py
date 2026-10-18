@@ -34,14 +34,16 @@ from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
 from portal.accounts import modules as module_rules
-from portal.accounts import probe
+from portal.accounts import probe, tokens
 from portal.accounts.domain import parse_domain, shown_domain
 from portal.accounts.models import (
     CALL_KINDS,
     LANGUAGES,
+    AccessToken,
     Account,
     Business,
     CallRecord,
@@ -535,6 +537,71 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
         return back_to("modules")
     get_object_or_404(Module, pk=module_id, business__account=request.user).delete()
     return redirect("modules")
+
+
+class AccessTokenForm(forms.Form):
+    """Making an Access token: a label and read-only or full."""
+
+    label = forms.CharField(
+        max_length=tokens.LABEL_MAX,
+        error_messages={
+            "required": "Give the token a label, such as the name of the agent that will use it."
+        },
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+    )
+    scope = forms.ChoiceField(
+        choices=list(tokens.SCOPES.items()),
+        initial="read",
+        widget=forms.RadioSelect,
+        error_messages={"required": "Choose read-only or full."},
+    )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.label_suffix = ""
+
+    def clean_label(self) -> str:
+        return self.cleaned_data["label"].strip()
+
+
+@login_required
+@never_cache
+@sensitive_variables(
+    "secret", "made"
+)  # a debug page or error email must never carry the secret
+def access_tokens(request: HttpRequest) -> HttpResponse:
+    """The Business's Access tokens, and the form to make one. The secret of a new token is on the page that answers the POST and nowhere after."""
+    business = get_object_or_404(Business, account=request.user)
+    form = AccessTokenForm(request.POST or None)
+    made = None
+    if request.method == "POST" and form.is_valid():
+        _, secret = AccessToken.make(
+            business,
+            form.cleaned_data["label"],
+            form.cleaned_data["scope"],
+            sees_totals(request.user),
+        )
+        made = {"label": form.cleaned_data["label"], "secret": secret}
+        form = AccessTokenForm()
+    return render(
+        request,
+        "accounts/tokens.html",
+        {
+            "form": form,
+            "made": made,
+            "rows": business.access_tokens.order_by("-created_at", "-id"),  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
+            "time_zone": settings.TIME_ZONE,
+        },
+    )
+
+
+@login_required
+def revoke_access_token(request: HttpRequest, token_id: int) -> HttpResponse:
+    """The one way a token is revoked: only one of the logged-in Business's own, at once."""
+    if request.method != "POST":
+        return back_to("access_tokens")
+    get_object_or_404(AccessToken, pk=token_id, business__account=request.user).revoke()
+    return redirect("access_tokens")
 
 
 # What a Caller reads when the call link is opened from anywhere but a frame on the Business's website, or the Business has not saved one (English; Petter approved the words on 2026-10-17 for a Business with no saved website, VOI-71; showing them for a request outside a frame (VOI-73) waits for his okay).
