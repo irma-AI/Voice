@@ -10,13 +10,12 @@ Format: `- [ ] <what to do>, <where>. Needed for: <why>. Added by: <ticket or th
 - [x] Google Cloud: switch on the Cloud Billing API for the core's Google project and let the core's key call it. Needed for: until then every call's cost is empty with the reason "catalogue unreadable". Added by: VOI-42 (PR #55). Done 2026-10-18 (Petter says so).
 - [x] Make one short real call, then tell the thread "VOI-42: cost of each call". Needed for: its tokens and dollars get compared with Google's usage page, which also settles whether the model reports per-turn or running token totals. Do this after the Cloud Billing API is on. Added by: VOI-42 (PR #55). Test calls made 2026-10-18 (Petter says so); the VOI-42 thread still has to read the result.
 - [ ] After PR #102 merges: in Google Cloud, create an API key limited to the Cloud Billing API; in Dokploy, add it as `BILLING_API_KEY` on the app "app", then redeploy. Needed for: the core reads Google's price catalogue with this key, so each call gets a cost (the Cloud Billing API itself is already on). Added by: VOI-42 (PR #102).
-- [ ] Say "go" in the thread "Clean Claude line from main" when you want the cleaned history pushed to `main`. Needed for: removes the old Claude co-author lines from main's history; the prepared rewrite is on hold and will be rebuilt on the newest `main`. A force-push is refused by the `main` ruleset, so expect to lift it for the push and turn it back on after (the same as the 2026-10-13 rewrite). Added by: the history clean-up thread.
 
 ## Optional
 
 Petter OK'd deleting these on 2026-10-18, but a session's `git push --delete` is refused by the proxy (tried on all three), so they stay yours. Or delete them in one go from github.com/irma-AI/Voice/branches.
 
-- [ ] GitHub, Branches: delete the old `deploy-behind-login` branch. Needed for: tidiness only, it sits on the pre-rewrite history.
+- [ ] GitHub, Branches: delete the old `deploy-behind-login` branch. Needed for: tidiness only, it is an old branch nothing uses.
 - [ ] GitHub, Branches: delete the scratch branch `claude/project-thread-d56n2t-scratch-base`. Needed for: tidiness only, it was left over from testing and threads can't delete branches. Added by: VOI-36 (PR #37).
 - [ ] GitHub, Branches: delete the leftover branch `voi-48-claude-footer-guard`. Needed for: tidiness only, its PR #50 merged on 2026-10-17 and the proxy blocks branch deletes from sessions. Added by: VOI-48 (PR #50).
 
