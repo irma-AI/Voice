@@ -331,3 +331,8 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-18] VOI-83: merged origin/main again (VOI-73 Call button): the dashboard keeps main's panel-based call button section in the new style and drops the bare public call link it replaced; main's tests, routes and the logo route both stay.
 [2026-10-18] VOI-95: Modules, calls and totals critique fixed in templates only (page links, 44px targets, keyboard-reachable totals table, calls unit stated once); Totals stays off the page links (operator-only). The detector's browser half did not run (no free Browser tab).
 [2026-10-18] VOI-95: declined Remove confirm, hiding Module addresses, a red error token or filled red dot, a dot per call kind and a stacked Totals layout; reasons in the PR body.
+[2026-10-18] VOI-93: critique of sign-in and reset fixed: email keyboard (type=email), no label colons, error border and alert role, 44px-ish link targets, Back to log in, link-less tab title; kept the stock Django error red-300 as the one non-palette colour.
+[2026-10-18] VOI-93: declined a ring or tick motif and larger H1 on the auth pages: DESIGN.md's type is settled and Turn belongs to the landing; quiet luxury says a form stays a form.
+[2026-10-18] VOI-93: declined a show-password toggle: it needs script on a page with none, and password managers cover typos for this audience.
+[2026-10-18] VOI-93: declined added copy (invite-only hint, check spam): wording that informs visitors is Petter's call; flagged for him.
+[2026-10-18] VOI-93: detector's six design-system-color findings (rgb(0,0,0), line 0) are false positives from rendering templates without the stylesheet.
