@@ -71,22 +71,20 @@ def test_the_example_calls_planned_hand_off_is_marked_planned_before_its_words(
     assert at(step) < at(line)
 
 
-def test_the_portal_showcase_is_the_portals_own_form_and_module_row_labelled_as_an_example(
+def test_the_portal_showcase_is_a_read_out_and_the_portals_own_module_row_labelled_as_an_example(
     settings: Any,
 ) -> None:
     settings.CONTACT_EMAIL = ""
     page = landing()
     assert "Example only, not real data" in page
-    # The Portal's own settings form fields, disabled so nothing can be sent.
-    for field in ('name="name"', 'name="facts"', 'name="languages"'):
-        assert field in page, field
-    assert 'name="website_domain"' not in page
-    assert "<fieldset disabled" in page
+    # The agent as a read-out, not a form: nothing a visitor could fill in or send.
+    assert "Example Salon" in page and ">Instructions</p>" in page
+    assert ">sv</span>" in page and ">en</span>" in page
+    assert "<form" not in page.split('id="portal"')[1].split("</section>")[0]
     # The Portal's own Module row, without its Remove button.
     assert "https://bookings.example.com/mcp" in page
     assert "What it offers" in page and "move_booking" in page
     assert "Remove" not in page
-
 
 def test_request_access_is_hidden_while_contact_email_is_empty(settings: Any) -> None:
     settings.CONTACT_EMAIL = ""
