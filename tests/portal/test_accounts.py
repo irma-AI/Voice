@@ -90,7 +90,7 @@ def test_the_login_refuses_a_wrong_password_and_the_dashboard_needs_a_login() ->
     invited_with_password(client)
     response = client.post("/login/", {"username": EMAIL, "password": "wrong"})
     assert response.status_code == 200
-    assert "Please enter a correct" in response.content.decode()
+    assert "That email and password do not match" in response.content.decode()
     assert client.get("/dashboard/").status_code == 302
 
 
