@@ -1,4 +1,5 @@
 [
   { "sha": "1111111111111111111111111111111111111111", "author": "Petter Annerwall <5909669+petterannerwall@users.noreply.github.com>", "committer": "Petter Annerwall <5909669+petterannerwall@users.noreply.github.com>", "message": "A clean commit" },
-  { "sha": "2222222222222222222222222222222222222222", "author": "Claude <noreply@anthropic.com>", "committer": "Claude <noreply@anthropic.com>", "message": "Authored by Claude\n\nCo-authored-by: Claude <noreply@anthropic.com>" }
+  { "sha": "2222222222222222222222222222222222222222", "author": "Claude <noreply@anthropic.com>", "committer": "Claude <noreply@anthropic.com>", "message": "Authored by Claude\n\nCo-authored-by: Claude <noreply@anthropic.com>" },
+  { "sha": "3333333333333333333333333333333333333333", "author": "Petter Annerwall <petter@example.com>", "committer": "Petter Annerwall <petter@example.com>", "message": "A person's other address, passed with -c user.email" }
 ]
