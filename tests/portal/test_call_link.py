@@ -166,6 +166,11 @@ def test_the_dashboard_shows_the_script_snippet_only_with_a_saved_website() -> N
     )
     assert bo.call_slug not in page
     assert f"/call/{anna.call_slug}/" not in page
+    # the Copy button copies the code block it names, and its script is loaded
+    assert (
+        '<pre id="call-button-code"' in page and 'data-copy="call-button-code"' in page
+    )
+    assert "portal/portal.js" in page
 
 
 def test_the_script_is_served_with_the_core_it_lets_the_microphone_into() -> None:

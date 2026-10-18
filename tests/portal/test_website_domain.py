@@ -89,9 +89,12 @@ def test_the_settings_page_shows_the_saved_domain() -> None:
 
 def test_the_dashboard_shows_the_domain_or_that_none_is_set() -> None:
     _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    assert "none set" in client.get("/dashboard/").content.decode()
+    assert "until you save your website" in client.get("/dashboard/").content.decode()
     save(client, "www.example.se")
-    assert "<strong>example.se</strong>" in client.get("/dashboard/").content.decode()
+    assert (
+        ">example.se</strong> and its subdomains"
+        in client.get("/dashboard/").content.decode()
+    )
 
 
 def test_the_core_is_not_told_the_domain(settings: Any) -> None:

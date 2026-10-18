@@ -25,7 +25,11 @@
   code, pre { font-variant-numeric: tabular-nums; }
 
   form div { @apply space-y-1.5; }
-  form label { @apply block text-sm font-medium text-foam-muted; }
+  form label, form legend { @apply block text-sm font-medium text-foam-muted; }
+  form fieldset { @apply m-0 min-w-0 border-0 p-0; }
+  form legend { @apply mb-1.5 p-0; }
+  /* A choice in a checkbox list (Languages) reads and taps like the other check rows. */
+  form fieldset label { @apply flex min-h-11 items-center text-base font-normal text-foam; }
   form input:not([type="hidden"], [type="checkbox"]), form textarea, form select {
     @apply w-full rounded-md border border-foam-faint bg-deep-sea/60 px-3 py-2.5 text-base text-foam;
     caret-color: var(--color-cable-light);
@@ -35,7 +39,7 @@
     border-color: var(--color-cable-light); outline-offset: 1px;
   }
   form input[type="checkbox"] { @apply mr-2 size-4 align-middle; accent-color: var(--color-cable-light); }
-  form label.check { @apply flex items-center text-base font-normal text-foam; }
+  form label.check { @apply flex min-h-11 items-center text-base font-normal text-foam; }
   form input[type="file"] { @apply cursor-pointer py-2 text-sm text-foam-muted; }
   form input[type="file"]::file-selector-button {
     @apply mr-3 cursor-pointer rounded-pill border-0 bg-foam px-4 py-1.5 text-sm font-medium text-deep-sea transition-colors;
@@ -53,10 +57,17 @@
 @layer components {
   /* The primary action: a Foam pill that warms to Cable light. */
   .pill {
-    @apply inline-block rounded-pill bg-foam px-5 py-3 text-[0.9375rem] font-medium text-deep-sea no-underline transition-colors;
+    @apply inline-flex min-h-11 items-center justify-center rounded-pill bg-foam px-5 py-2.5 text-[0.9375rem] font-medium text-deep-sea no-underline transition-colors;
   }
   .pill:hover { @apply bg-cable-light; }
   .pill:focus-visible { outline-offset: 4px; }
+  /* The Portal's secondary action: the ghost toggle of DESIGN.md. */
+  .ghost {
+    @apply inline-flex min-h-11 cursor-pointer items-center rounded-pill border border-foam-faint px-[1.125rem] text-sm text-foam-muted transition-colors;
+  }
+  .ghost:hover { @apply border-foam-muted text-foam; }
+  /* A link inside running text: underlined, the underline warms on hover. */
+  .link-inline { @apply text-foam-muted underline hover:text-foam; }
 }
 
 /* The landing page (accounts/home.html) and Turn, its example call (turn.js).
@@ -180,6 +191,17 @@
   /* Cable light marks what is live: the notice that a save went through carries the filled dot. */
   .status { @apply flex items-center gap-3 text-base text-foam; }
   .status::before { content: ""; @apply size-2.5 shrink-0 rounded-full bg-cable-light; }
+
+  /* The Call button code on the dashboard: wrapped so all of it shows on a phone, with a Copy button (portal.js). */
+  .snippet { @apply space-y-3; }
+  .snippet pre { @apply rounded-md border border-foam-faint bg-deep-sea/60 p-4 text-sm break-all whitespace-pre-wrap; }
+  .snippet-copied { @apply m-0 min-h-5 text-sm text-foam; }
+  .snippet-copied:empty { @apply hidden; }
+
+  /* Settings: the colour picker only shows while "Use an accent colour" is ticked; nothing is saved from it otherwise. */
+  .accent:has(#id_use_accent:not(:checked)) > :not(.check) { display: none; }
+  /* Save stays in reach on a phone: a bar held to the bottom of the screen, ruled off like the rows. */
+  .save-bar { @apply sticky bottom-0 -mx-gutter border-t border-granite bg-deep-sea px-gutter pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:static lg:mx-0 lg:border-t-0 lg:bg-transparent lg:p-0; }
 
   /* The call panel as a Business's Callers see it: a Foam panel (it sits on the Business's own site) with the logo,
      the ring mark and the button in the accent. Static: it shows the saved Theme, so no script carries the contrast rule. */

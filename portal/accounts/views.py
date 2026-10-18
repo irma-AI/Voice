@@ -301,6 +301,7 @@ class SettingsForm(forms.ModelForm):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.label_suffix = ""  # no colons, like the login and reset forms
         self.initial["use_accent"] = bool(self.instance.accent)
         self.initial["accent"] = self.instance.accent or DEEP_SEA
 
@@ -393,6 +394,7 @@ class ModuleForm(forms.Form):
 
     def __init__(self, *args: Any, business: Business, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.label_suffix = ""
         self.business = business
 
     def clean_name(self) -> str:
