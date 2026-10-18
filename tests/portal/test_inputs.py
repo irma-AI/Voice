@@ -148,6 +148,8 @@ def test_the_settings_fields_carry_their_limits_and_the_right_keyboards() -> Non
     instructions = re.search(r"<textarea[^>]*>", page)
     assert instructions and 'maxlength="5000"' in instructions.group(0)
     assert "Up to 5,000 characters." in page
+    # The counter names the textarea's own id, or it counts nothing.
+    assert 'id="id_instructions"' in instructions.group(0)
     assert 'data-count="id_instructions"' in page
     name = re.search(r'<input[^>]*name="name"[^>]*>', page)
     assert name and 'maxlength="200"' in name.group(0)
