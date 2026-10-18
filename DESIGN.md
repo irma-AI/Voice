@@ -201,7 +201,8 @@ Two corner shapes: the full pill for actions and toggles, and a gentle 0.5rem ra
 
 ### Buttons
 - **Primary pill:** Foam ground, Deep sea text, 500 weight, pill shape; warms to Cable light on hover; focus ring offset 4px. One primary action per band.
-- **Ghost toggle:** transparent pill with a 1px Foam faint border and Foam muted text, at least 2.75rem tall; on hover the text goes Foam and the border Foam muted. Used for the Pause/Play control and the Portal's secondary actions.
+- **Ghost toggle:** transparent pill with a 1px Foam faint border and Foam muted text, at least 2.75rem tall; on hover the text goes Foam and the border Foam muted. Used for the Pause/Play control and the Portal's secondary actions (`.ghost`, such as Copy code).
+- **Save bar:** on a long Portal form the primary pill sits in a bar held to the bottom of the screen below 1024px, Deep sea with a Granite hairline above; on wide screens it falls back into the page. Every Portal tap target (pills, check rows, header links) is at least 2.75rem tall.
 
 ### Links
 - **Text link:** Foam muted, underlined with a 0.3em offset and a Foam faint underline that turns Cable light on hover; text goes Foam on hover. "Open code · Self-host it" is the pattern.
@@ -217,8 +218,11 @@ A label with a small dot before it. Works today: Cable light text and filled dot
 ### Use list
 A borderless list ruled by Granite hairlines: serif row head, Foam muted description, status mark right-aligned.
 
+### Saved notice and call preview
+The saved notice is Foam text after a filled Cable light dot (it marks a live change). The settings page's call preview is the one bounded panel in the Portal: a Foam panel with Deep sea text holding the Business's logo, a ring mark and the button in the adjusted accent, because it stands in for a panel on the Business's own website. It shows the Theme as saved.
+
 ### Turn (signature)
-The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light progress arc filling clockwise over the loop, a hollow dot per step with a sans label and an italic serif note; a Planned step leaves by a dashed exit. Inside: a speaker line that is flat in silence, Foam for the Caller and Cable light for the Agent, with the current line and the previous one at 55% opacity. Phones: the rail described under Layout. It always has a Pause control, and under reduced motion it starts paused on one complete still frame. Steps and lines fade in over 1 to 1.2s on a soft ease-out.
+The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light progress arc filling clockwise over the loop, a hollow dot per step with a sans label and an italic serif note; a Planned step leaves by a dashed exit. Inside: a speaker line that is flat in silence, Foam for the Caller and Cable light for the Agent, with the current line and the previous one's words at 55% opacity (its speaker label stays Foam muted). Words spoken in a Planned step are Foam faint, never warm, and that step's dot shows before them. Ring labels are sized so they hold about 12px on screen at 1280px wide; at the loop's end only what the loop drew fades, while ticks and track stay. Phones: the rail described under Layout. It plays on load, phones included, and always has a Pause control; under reduced motion it still plays in turn (steps, lines and words appear as they come) but nothing sweeps or moves: the arc and rail step to each new line, and the speaker line holds one still shape. Steps and lines fade in over 1 to 1.2s on a soft ease-out.
 
 ## Do's and Don'ts
 
@@ -227,7 +231,7 @@ The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light pro
 - **Do** separate with 1px Granite hairlines and keep surfaces flat on the Deep sea ground.
 - **Do** bound controls with Foam faint, not Granite.
 - **Do** mark unbuilt capability with the dashed Planned treatment.
-- **Do** give any moving element a visible Pause control and a still frame under reduced motion.
+- **Do** give any moving element a visible Pause control, and under reduced motion keep its content changing in turn with no movement.
 
 ### Don't:
 - **Don't** add shadows, glows, cards or photos.
@@ -238,6 +242,6 @@ The call drawn as an instrument. Ring: Granite track, 120 ticks, Cable light pro
 ## Open
 
 - Final typefaces and their licences; Instrument Serif and Geist are stand-ins.
-- The light daylight variant of the palette for the Portal on phones (VOI-86).
+- The light daylight variant of the palette for the Portal on phones: declined in VOI-86 (see DECISIONS.md); needs a measured palette first.
 - WCAG 2.2 AA contrast has not been checked across the whole palette; only Granite as a control border was measured and ruled out.
 - Error and alert colours have no token yet.

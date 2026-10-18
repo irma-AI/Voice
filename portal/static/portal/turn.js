@@ -1,15 +1,16 @@
 // Turn: the landing page's example call. A ring on wide screens, a rail on phones (the switch is in CSS).
 // The call itself lives in the page as #turn-script, which screen readers read; this file only draws it.
-// Pause stops the motion (WCAG 2.2.2); reduced motion starts paused on one complete still frame.
+// It plays on load everywhere; Pause stops it (WCAG 2.2.2). Under reduced motion the call still plays in turn,
+// but nothing sweeps or moves: the arc and rail step from point to point and the speaker line holds still.
 (() => {
   const script = document.getElementById("turn-script");
   if (!script) return;
   const SVG = "http://www.w3.org/2000/svg";
   const LOOP = Number(script.dataset.loop);
-  const STILL = 30; // the booking moved and confirmed: what works today with a Module, never the planned Hand-off as live speech
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const num = (v) => Number(v);
   const LINES = [...script.querySelectorAll("[data-line]")].map((li) => ({
-    t: num(li.dataset.t), end: num(li.dataset.end), who: li.dataset.who,
+    t: num(li.dataset.t), end: num(li.dataset.end), who: li.dataset.who, planned: li.hasAttribute("data-planned"),
     say: li.textContent.slice(li.dataset.who.length + 2),
   }));
   const STEPS = [...script.querySelectorAll("[data-step]")].map((li) => ({
@@ -68,7 +69,9 @@
     const [who, say] = g.querySelectorAll("text");
     who.textContent = line ? line.who : "";
     say.textContent = "";
-    g.classList.toggle("agent", g === cur && !!line && line.who === "Agent"); // the previous line is never warm: only what is live is
+    // Only what is live is warm: never the previous line, and never words from a Planned step, which nothing does yet.
+    g.classList.toggle("agent", g === cur && !!line && line.who === "Agent" && !line.planned);
+    g.classList.toggle("planned", !!line && line.planned);
     g.classList.toggle("on", !!line);
     if (!line) return;
     const rows = [""];
@@ -85,7 +88,10 @@
   }
 
   // The speaker line: flat in silence, moving with the voice, warm when the Agent speaks.
+  // Under reduced motion the shape is frozen at one phase: it still shows who speaks, without moving.
   function wavePath(path, t, half, amp, tight) {
+    const line = amp && speaking(t);
+    if (reduce) t = 0.3;
     let d = "";
     for (let x = -half; x <= half; x += 4) {
       const env = Math.cos((x / half) * (Math.PI / 2)) ** 2;
@@ -93,26 +99,28 @@
       d += (x === -half ? "M" : "L") + x + " " + y.toFixed(2) + " ";
     }
     path.setAttribute("d", d);
-    path.setAttribute("class", "turn-wave " + (amp ? (speaking(t).who === "Agent" ? "agent" : "caller") : "quiet"));
+    path.setAttribute("class", "turn-wave " + (!line ? "quiet" : line.planned ? "planned" : line.who === "Agent" ? "agent" : "caller"));
   }
   const speaking = (t) => LINES.find((l) => t >= l.t && t <= l.end);
   const lastIndex = (t) => LINES.reduce((acc, l, i) => (t >= l.t ? i : acc), -1);
-  const envelope = (t, line, size) => (line ? size * Math.min(1, (t - line.t) * 3, (line.end - t) * 3) : 0);
+  const envelope = (t, line, size) => (!line ? 0 : reduce ? size : size * Math.min(1, (t - line.t) * 3, (line.end - t) * 3));
+  // The arc and rail fill: a steady sweep, or under reduced motion a step to each new line or step as it starts.
+  const marks = [...LINES.map((l) => l.t), ...STEPS.map((s) => s.t)].sort((a, b) => a - b);
+  const filled = (t) => Math.min((reduce ? marks.reduce((acc, m) => (t >= m ? m : acc), 0) : t) / FILL, 1);
 
-  const ring = el("ring"), cur = el("cur"), prev = el("prev"), exit = el("exit");
+  const ringLive = el("live"), cur = el("cur"), prev = el("prev"), exit = el("exit");
   const rail = document.querySelector(".turn-rail"), railFill = el("rail-fill");
   const live = {
     name: el("step-name"), note: el("step-note"), who: el("live-who"), say: el("live-say"), wave: el("wave-small"),
   };
   let shown = null;
 
-  // `stepsAt` lets the still frame draw every step (the Hand-off included) while its words stay at `t`.
-  function render(t, stepsAt = t) {
-    const frac = Math.min(t / FILL, 1), line = speaking(t), idx = lastIndex(t);
+  function render(t) {
+    const frac = filled(t), line = speaking(t), idx = lastIndex(t);
     // Ring
     progress.style.strokeDasharray = `${frac * C} ${C}`;
-    STEPS.forEach((s, i) => stepEls[i].classList.toggle("on", stepsAt >= s.t));
-    exit.classList.toggle("on", STEPS.some((s) => s.planned && stepsAt >= s.t));
+    STEPS.forEach((s, i) => stepEls[i].classList.toggle("on", t >= s.t));
+    exit.classList.toggle("on", STEPS.some((s) => s.planned && t >= s.t));
     if (idx !== shown) {
       shown = idx;
       setLine(prev, LINES[idx - 1]);
@@ -120,15 +128,16 @@
       const l = LINES[idx];
       live.who.textContent = l ? l.who : "";
       live.say.textContent = l ? l.say : "";
-      live.say.classList.toggle("agent", !!l && l.who === "Agent");
+      live.say.classList.toggle("agent", !!l && l.who === "Agent" && !l.planned);
+      live.say.classList.toggle("planned", !!l && l.planned);
     }
     wavePath(el("wave"), t, 210, envelope(t, line, 26), 1);
-    ring.style.opacity = t > LOOP - 2 ? Math.max(0, (LOOP - t) / 2) : Math.min(1, t * 2 + 0.2);
+    ringLive.style.opacity = reduce ? 1 : t > LOOP - 2 ? Math.max(0, (LOOP - t) / 2) : Math.min(1, t * 2 + 0.2);
     // Rail
     // The rail stretches to the hero's height, so each dot is drawn back to a 5px circle on screen.
     const box = rail.getBoundingClientRect(), kx = 40 / (box.width || 40), ky = 1000 / (box.height || 1000);
     railEls.forEach((dot, i) => {
-      dot.classList.toggle("on", stepsAt >= STEPS[i].t);
+      dot.classList.toggle("on", t >= STEPS[i].t);
       dot.setAttribute("rx", 5 * kx); dot.setAttribute("ry", 5 * ky);
     });
     railFill.setAttribute("y2", frac * 1000);
@@ -140,8 +149,7 @@
   }
 
   const toggles = document.querySelectorAll(".turn-toggle");
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let paused = reduce, held = reduce ? STILL : 0, start = performance.now(), raf = 0;
+  let paused = false, held = 0, start = performance.now(), raf = 0;
   function frame(now) {
     held = ((now - start) / 1000) % LOOP;
     render(held);
@@ -154,8 +162,7 @@
     if (paused) still();
     else { start = performance.now() - held * 1000; raf = requestAnimationFrame(frame); }
   }
-  // The reduced-motion frame is complete: every step on the ring, the words where the booking was moved.
-  const still = () => render(held, reduce && held === STILL ? LOOP : held);
+  const still = () => render(held);
   toggles.forEach((b) => { b.hidden = false; b.addEventListener("click", () => setPaused(!paused)); });
   addEventListener("resize", () => paused && still());
   setPaused(paused);

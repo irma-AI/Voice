@@ -21,7 +21,13 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import (
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    HttpResponseForbidden,
+    JsonResponse,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_datetime
@@ -32,7 +38,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from portal.accounts import modules as module_rules
 from portal.accounts import probe
-from portal.accounts.domain import parse_domain
+from portal.accounts.domain import parse_domain, shown_domain
 from portal.accounts.models import (
     CALL_KINDS,
     LANGUAGES,
@@ -42,6 +48,16 @@ from portal.accounts.models import (
     Module,
     clean_email,
 )
+from portal.accounts.theme import (
+    DEEP_SEA,
+    FOAM,
+    LOGO_MAX_BYTES,
+    LOGO_PROBLEM,
+    LOGO_SIGNATURES,
+    logo_type,
+    parse_accent,
+    size_problem,
+)
 from portal.accounts.ticket import mint
 
 log = logging.getLogger(__name__)
@@ -50,7 +66,39 @@ LOGIN_TRIES = 10
 LOGIN_WINDOW = 15 * 60
 
 
+def back_to(page: str) -> HttpResponse:
+    """A GET of an address that only acts on a POST: it does nothing and goes back to the page with the button. It is where the login sends a Business whose session ended as it pressed that button."""
+    return redirect(page)
+
+
+def csrf_failure(request: HttpRequest, reason: str = "") -> HttpResponse:
+    """A form refused by the CSRF check, usually one left open while the session ended or another tab logged in or out."""
+    log.warning("csrf refused: %s", reason)
+    # Back to the form's page; logout's address has no page of its own.
+    url_name = request.resolver_match and request.resolver_match.url_name
+    again = reverse("home") if url_name == "logout" else request.path
+    return render(request, "csrf_failure.html", {"again": again}, status=403)
+
+
 class LoginForm(AuthenticationForm):
+    error_messages = {  # noqa: RUF012 (Django reads it as a plain attribute)
+        **AuthenticationForm.error_messages,
+        # Django's own says both fields may be case-sensitive; the email is not.
+        "invalid_login": "That email and password do not match. Check both and try again.",
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.label_suffix = ""
+        # The username is an email address: a phone shows the email keyboard and leaves the text as typed.
+        widget = self.fields["username"].widget
+        widget.input_type = (
+            "email"  # not attrs["type"]: that would render a second type attribute
+        )
+        widget.attrs.update(
+            inputmode="email", autocapitalize="none", spellcheck="false"
+        )
+
     def clean_username(self) -> str:
         return clean_email(self.cleaned_data["username"])
 
@@ -84,6 +132,13 @@ class LoginForm(AuthenticationForm):
 
 
 class ResetForm(PasswordResetForm):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.label_suffix = ""
+        self.fields["email"].widget.attrs.update(
+            inputmode="email", autocapitalize="none", spellcheck="false"
+        )
+
     def get_users(self, email):
         # Django's form skips an account with no password yet, which would leave an invitee with an expired link stuck.
         return Account.objects.filter(email=clean_email(email), is_active=True)
@@ -112,9 +167,9 @@ def showcase() -> dict[str, Any]:
             "languages": ["sv", "en"],
         }
     )
-    del form.fields[
-        "website_domain"
-    ]  # the page shows the three things an agent is set up with
+    # the page shows the three things an agent is set up with, not the website or the Theme
+    for name in ("website_domain", "logo", "remove_logo", "use_accent", "accent"):
+        del form.fields[name]
     form.fields["facts"].widget.attrs["rows"] = 6
     module = {
         "name": "Bookings",
@@ -152,12 +207,13 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         {
             "business": business,
             "sees_totals": sees_totals(request.user),
+            "website": business and shown_domain(business.website_domain),
             "portal_origin": origin(settings.PORTAL_URL),
             "core_origin": origin(settings.CORE_URL),
             # The Business pastes this into its own website (VOI-73); only a saved domain makes it work, so only then is it shown.
             "button_html": business
             and business.website_domain
-            and f'<script async src="{settings.PORTAL_URL.rstrip("/")}{reverse("call_button_js")}" data-business="{business.call_slug}"></script>',
+            and f'<script async src="{settings.PORTAL_URL.rstrip("/")}{reverse("call_button_js")}?business={business.call_slug}"></script>',
         },
     )
 
@@ -235,10 +291,28 @@ def totals(request: HttpRequest) -> HttpResponse:
     )
 
 
+class Text(forms.CharField):
+    """A many-line text: a browser sends each line break as two characters, so they are made one before the length is counted, as the browser counted them."""
+
+    def to_python(self, value: Any) -> str:
+        return str(super().to_python(value)).replace("\r\n", "\n").replace("\r", "\n")
+
+
+FACTS_MAX: int = Business._meta.get_field("facts").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
+
+
 class SettingsForm(forms.ModelForm):
     # The editable settings, one for one with contract/business-settings.schema.json. The AI notice is not among them.
     languages = forms.MultipleChoiceField(
-        choices=list(LANGUAGES.items()), widget=forms.CheckboxSelectMultiple
+        choices=list(LANGUAGES.items()),
+        widget=forms.CheckboxSelectMultiple,
+        error_messages={"required": "Pick at least one language."},
+    )
+    facts = Text(
+        required=False,
+        max_length=FACTS_MAX,
+        widget=forms.Textarea(attrs={"rows": 12}),
+        help_text=f"Everything the agent should know about your business, in your own words: what you do, where, when you are open, what things cost. Up to {FACTS_MAX:,} characters.",
     )
 
     # Portal-only: the contract the core reads does not carry it. What was typed is reduced once here to the domain the database stores.
@@ -247,6 +321,14 @@ class SettingsForm(forms.ModelForm):
         required=False,
         max_length=2000,  # room for a pasted address; what is stored is at most DOMAIN_MAX
         help_text="The address of your website, for example www.example.se. Only the main domain (example.se) is kept. Leave it empty for none.",
+        widget=forms.TextInput(
+            attrs={
+                "inputmode": "url",
+                "autocomplete": "url",
+                "autocapitalize": "none",
+                "spellcheck": "false",
+            }
+        ),
     )
 
     def clean_website_domain(self) -> str:
@@ -255,39 +337,136 @@ class SettingsForm(forms.ModelForm):
         except ValueError as e:
             raise forms.ValidationError(str(e)) from None
 
+    # The Theme (theme.py), shown only to the Business's Callers. The contract carries it as `theme`.
+    logo = forms.FileField(
+        label="Logo",
+        required=False,
+        widget=forms.FileInput(attrs={"accept": ",".join(LOGO_SIGNATURES)}),
+        help_text=f"PNG, WebP or JPEG, at most {LOGO_MAX_BYTES // 1024} KB. Your Callers see it on the call page.",
+        error_messages={
+            "empty": "That file is empty. Choose your logo file and upload it again."
+        },
+    )
+    remove_logo = forms.BooleanField(label="Remove my logo", required=False)
+    use_accent = forms.BooleanField(label="Use an accent colour", required=False)
+    accent = forms.CharField(
+        label="Accent colour",
+        required=False,
+        max_length=20,
+        widget=forms.TextInput(attrs={"type": "color"}),
+        help_text="Your Callers see it on the call page and the Call button. Voice adjusts it when text on it would be hard to read.",
+    )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.label_suffix = ""  # no colons, like the login and reset forms
+        self.fields["name"].error_messages["required"] = "Give your business a name."
+        self.fields["name"].widget.attrs["autocomplete"] = "organization"
+        # The domain as its owner writes it (räksmörgås.se), not the punycode stored.
+        self.initial["website_domain"] = shown_domain(self.instance.website_domain)
+        self.initial["use_accent"] = bool(self.instance.accent)
+        self.initial["accent"] = self.instance.accent or DEEP_SEA
+
+    def clean_logo(self) -> bytes | None:
+        """The upload's bytes, or None when nothing was uploaded. Its type is read from the bytes, never the file name."""
+        upload = self.cleaned_data.get("logo")
+        if not upload:
+            return None
+        if upload.size > LOGO_MAX_BYTES:
+            raise forms.ValidationError(size_problem(upload.size))
+        data = upload.read(LOGO_MAX_BYTES + 1)
+        if len(data) > LOGO_MAX_BYTES:
+            raise forms.ValidationError(size_problem(len(data)))
+        if logo_type(data) is None:
+            raise forms.ValidationError(LOGO_PROBLEM)
+        return data
+
+    def clean_accent(self) -> str:
+        """The colour to store: "" when the box is unticked, so the colour input's own value is never saved by accident."""
+        if not self.data.get("use_accent"):
+            return ""
+        try:
+            return parse_accent(self.cleaned_data["accent"])
+        except ValueError as e:
+            raise forms.ValidationError(str(e)) from None
+
+    def save(self, commit: bool = True) -> Business:
+        business: Business = super().save(commit=False)
+        if self.cleaned_data["logo"] is not None:
+            business.set_logo(self.cleaned_data["logo"])
+        elif self.cleaned_data["remove_logo"]:
+            business.set_logo(None)
+        business.accent = self.cleaned_data["accent"]
+        if commit:
+            business.save()
+        return business
+
     class Meta:
         model = Business
         fields = ("name", "facts", "languages", "website_domain")
-        widgets = {  # noqa: RUF012 (Django reads Meta as plain attributes)
-            "facts": forms.Textarea(attrs={"rows": 12})
-        }
-        help_texts = {  # noqa: RUF012
-            "facts": "Everything the agent should know about your business, in your own words: what you do, where, when you are open, what things cost."
-        }
 
 
 @login_required
 def business_settings(request: HttpRequest) -> HttpResponse:
     business = get_object_or_404(Business, account=request.user)
-    form = SettingsForm(request.POST or None, instance=business)
+    form = SettingsForm(request.POST or None, request.FILES or None, instance=business)
     if request.method == "POST" and form.is_valid():
         form.save()
         return redirect(f"{reverse('business_settings')}?saved=1")
+    # A refused form leaves the Theme as saved: only save() writes the logo and the accent onto the instance.
     return render(
         request,
         "accounts/settings.html",
-        {"form": form, "saved": "saved" in request.GET},
+        {
+            "form": form,
+            "saved": "saved" in request.GET,
+            "theme": business.theme(),
+            "picked_accent": business.accent,
+        },
     )
+
+
+@require_GET
+def logo(request: HttpRequest, key: str) -> HttpResponse:
+    """A Business's logo, public on purpose: the core's call page loads it from here. The address is the hash of the bytes, so it names no Business."""
+    business = Business.objects.filter(logo_key=key).exclude(logo=None).first()
+    if business is None:
+        raise Http404
+    data = bytes(business.logo or b"")
+    response = HttpResponse(data, content_type=logo_type(data))
+    # The same address always holds the same bytes, so a browser may keep it for a year.
+    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Security-Policy"] = "default-src 'none'"
+    response["Cross-Origin-Resource-Policy"] = "cross-origin"
+    return response
 
 
 class ModuleForm(forms.Form):
     """Adding a Module: a name and an address. The address is parsed once here into what the database stores."""
 
-    name = forms.CharField(max_length=module_rules.NAME_MAX)
-    address = forms.CharField(max_length=module_rules.URL_MAX)
+    name = forms.CharField(
+        max_length=module_rules.NAME_MAX,
+        error_messages={"required": "Give the Module a name."},
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+    )
+    address = forms.CharField(
+        max_length=module_rules.URL_MAX,
+        error_messages={"required": "Give the Module's address."},
+        # Not type=url: a self-hosted Portal also takes a command line here.
+        widget=forms.TextInput(
+            attrs={
+                "inputmode": "url",
+                "autocomplete": "off",
+                "autocapitalize": "none",
+                "spellcheck": "false",
+            }
+        ),
+    )
 
     def __init__(self, *args: Any, business: Business, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.label_suffix = ""
         self.business = business
 
     def clean_name(self) -> str:
@@ -356,9 +535,10 @@ def modules(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
-@require_POST
 def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     """The one way a Module goes: only one of the logged-in Business's own."""
+    if request.method != "POST":
+        return back_to("modules")
     get_object_or_404(Module, pk=module_id, business__account=request.user).delete()
     return redirect("modules")
 
@@ -367,6 +547,16 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
 CALL_LINK_REFUSAL = (
     "This call can't be opened from here. Start it from the company's own website."
 )
+
+
+def call_link_refused(request: HttpRequest) -> HttpResponse:
+    """The refusal as a page with its language and a heading, in the Portal's look: it shows inside the Call button's panel."""
+    return render(
+        request,
+        "accounts/call_link_refused.html",
+        {"sentence": CALL_LINK_REFUSAL},
+        status=403,
+    )
 
 
 def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
@@ -379,9 +569,10 @@ def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
 
 
 @login_required
-@require_POST
 def test_call(request: HttpRequest) -> HttpResponse:
     """A logged-in Business's own test call; it takes no Business from the request."""
+    if request.method != "POST":
+        return back_to("dashboard")
     return to_core(get_object_or_404(Business, account=request.user), "test")
 
 
@@ -398,20 +589,31 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
         log.warning(
             "call link refused: Business %s opened outside a frame", business.pk
         )
-        return HttpResponseForbidden(CALL_LINK_REFUSAL)
+        return call_link_refused(request)
     if not business.website_domain:
         log.warning("call link refused: Business %s has no website domain", business.pk)
-        return HttpResponseForbidden(CALL_LINK_REFUSAL)
+        return call_link_refused(request)
     return to_core(business, "call_link", business.website_domain)
 
 
 @require_GET
 def call_button_js(request: HttpRequest) -> HttpResponse:
-    """The script a Business's website loads for its call button. The same for every Business; it learns which one from its own tag."""
+    """The script a Business's website loads for its call button. Its address names the Business (`?business=<call slug>`),
+    so the launcher carries that Business's adjusted accent; an unknown slug, or a tag pasted before VOI-89 that names it
+    in `data-business` instead, gets Voice's own look (the call link itself still decides whether a call opens)."""
+    business = Business.objects.filter(
+        call_slug=request.GET.get("business", "")
+    ).first()
+    theme = business.theme() if business else {}
     return render(
         request,
         "call_button.js",
-        {"core_origin": origin(settings.CORE_URL)},
+        {
+            "core_origin": origin(settings.CORE_URL),
+            # The launcher's fill and the ring and label on it: the Theme's pair reaches AA (theme.on_accent), and so does Voice's.
+            "fill": theme.get("accent", DEEP_SEA),
+            "ink": theme.get("accent_text", FOAM),
+        },
         content_type="text/javascript; charset=utf-8",  # without it the page's own encoding decides how "å" reads
     )
 

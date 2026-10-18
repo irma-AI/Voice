@@ -72,6 +72,8 @@ MIDDLEWARE = [
 ]
 if not DEBUG:  # a local run's runserver serves static files itself; the image serves the collected ones
     MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+# A refused form gets a Portal page that says what to do, not Django's own explanation of CSRF.
+CSRF_FAILURE_VIEW = "portal.accounts.views.csrf_failure"
 ROOT_URLCONF = "portal.urls"
 TEMPLATES = [
     {

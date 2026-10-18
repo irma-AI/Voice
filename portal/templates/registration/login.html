@@ -1,4 +1,6 @@
 {% extends "registration/form_page.html" %}
+{% block title %}Log in · Voice Portal{% endblock %}
 {% block heading %}Log in{% endblock %}
+{% block intro %}{% if next and not form.errors %}<p class="mt-3 text-lg text-foam-muted">You are logged out. Log in to go on.</p>{% endif %}{% endblock %}
 {% block button %}Log in{% endblock %}
-{% block after %}<p class="mt-8 text-sm"><a class="text-foam-muted underline hover:text-foam"href="{% url 'password_reset' %}">Forgot your password?</a></p>{% endblock %}
+{% block after %}<p class="mt-8 border-t border-granite pt-3 text-sm"><a class="inline-block py-3 text-foam-muted underline hover:text-foam" href="{% url 'password_reset' %}">Forgot your password?</a></p>{% endblock %}

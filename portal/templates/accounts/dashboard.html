@@ -1,32 +1,45 @@
 {% extends "base.html" %}
 {% block title %}Dashboard · Voice Portal{% endblock %}
 {% block content %}
-<h1 class="text-4xl">{{ business.name|default:"Your account" }}</h1>
-<p class="mt-4"><a href="{% url 'business_settings' %}" class="underline">Edit your agent's settings</a></p>
-<p class="mt-2"><a href="{% url 'modules' %}" class="underline">Your agent's Modules</a></p>
-<p class="mt-2"><a href="{% url 'calls' %}" class="underline">Your recent calls</a></p>
-{% if sees_totals %}
-<p class="mt-2"><a href="{% url 'totals' %}" class="underline">Totals for every Business</a></p>
-{% endif %}
+<div class="max-w-2xl">
+<h1 class="text-3xl break-words sm:text-4xl">{{ business.name|default:"Your account" }}</h1>
+
 {% if business %}
-<form method="post" action="{% url 'test_call' %}" class="mt-6">
+<form method="post" action="{% url 'test_call' %}" class="mt-8">
   {% csrf_token %}
-  <button type="submit" class="pill">Test call</button>
-  <p class="mt-2 text-sm">Talk to your agent with the settings you saved. It opens the call page in this tab.</p>
+  <button type="submit" class="pill w-full sm:w-auto">Test call</button>
+  <p class="mt-3 max-w-prose text-sm text-foam-muted">Talk to your agent with the settings you saved. It opens the call page in this tab.</p>
 </form>
-<p class="mt-6">Your website domain: {% if business.website_domain %}<strong>{{ business.website_domain }}</strong>{% else %}none set{% endif %}. <a href="{% url 'business_settings' %}" class="underline">Change it</a></p>
-<h2 class="mt-6 text-2xl">A call button for your website</h2>
-{% if button_html %}
-<p class="mt-2 text-sm">Paste this on every page of {{ business.website_domain }} (or a subdomain) where the button should appear, just before the closing &lt;/body&gt; tag. A button appears in the corner; pressing it opens the call in a panel on the page. Browsers are told to let only your website domain show it.</p>
-<pre class="mt-2 overflow-x-auto rounded border border-granite p-4 text-sm"><code>{{ button_html }}</code></pre>
-<p class="mt-4 text-sm">Only if your website sets a security policy (a <code>Content-Security-Policy</code> or <code>Permissions-Policy</code> header), the button can fail to show, with no message. The policy must allow:</p>
-<ul class="mt-2 list-disc pl-6 text-sm">
-  <li>scripts from <code>{{ portal_origin }}</code> (<code>script-src</code>)</li>
-  <li>frames from both <code>{{ portal_origin }}</code> and <code>{{ core_origin }}</code> (<code>frame-src</code>); the call panel moves from the first to the second, so naming only one blocks it</li>
-  <li>the microphone for your own site (<code>Permissions-Policy: microphone=(self)</code>, not <code>microphone=()</code>); otherwise the call starts and the microphone is then refused</li>
+{% endif %}
+
+<ul class="rows mt-10">
+  <li><a href="{% url 'business_settings' %}">Edit your agent's settings</a></li>
+  <li><a href="{% url 'modules' %}">Your agent's Modules</a></li>
+  <li><a href="{% url 'calls' %}">Your recent calls</a></li>
+  {% if sees_totals %}<li><a href="{% url 'totals' %}">Totals for every Business</a></li>{% endif %}
 </ul>
-{% else %}
-<p class="mt-2 text-sm">Your call button is closed: save your website domain in <a href="{% url 'business_settings' %}" class="underline">your settings</a> first, and the snippet to paste shows here.</p>
+
+{% if business %}
+<section class="mt-12 space-y-3" aria-labelledby="button-title">
+  <h2 id="button-title" class="text-2xl">A call button for your website</h2>
+  {% if button_html %}
+  <p class="max-w-prose text-sm text-foam-muted">For <strong class="font-medium text-foam">{{ website }}</strong> and its subdomains. <a href="{% url 'business_settings' %}" class="link-inline">Change your website</a></p>
+  <p class="max-w-prose text-sm text-foam-muted">Paste this code on every page where the button should appear, at the end of the page. A button shows in the corner; pressing it opens the call in a panel on the page. Browsers are told to let only your website show it.</p>
+  <div class="snippet mt-4">
+    <pre id="call-button-code" tabindex="0"><code>{{ button_html }}</code></pre>
+    <button type="button" class="ghost" data-copy="call-button-code" hidden>Copy code</button>
+    <p class="snippet-copied" role="status"></p>
+  </div>
+  <p class="max-w-prose text-sm text-foam-muted">Only if your website sets a security policy (a <code>Content-Security-Policy</code> or <code>Permissions-Policy</code> header), the button can fail to show, with no message. The policy must allow:</p>
+  <ul class="max-w-prose list-disc space-y-1 pl-6 text-sm text-foam-muted">
+    <li>scripts from <code>{{ portal_origin }}</code> (<code>script-src</code>)</li>
+    <li>frames from both <code>{{ portal_origin }}</code> and <code>{{ core_origin }}</code> (<code>frame-src</code>); the call panel moves from the first to the second, so naming only one blocks it</li>
+    <li>the microphone for your own site (<code>Permissions-Policy: microphone=(self)</code>, not <code>microphone=()</code>); otherwise the call starts and the microphone is then refused</li>
+  </ul>
+  {% else %}
+  <p class="max-w-prose text-sm text-foam-muted">Your call button is closed until you save your website in <a href="{% url 'business_settings' %}" class="link-inline">your settings</a>. Then the code to paste on your website shows here.</p>
+  {% endif %}
+</section>
 {% endif %}
-{% endif %}
+</div>
 {% endblock %}

@@ -213,7 +213,8 @@ def test_a_business_sees_and_removes_only_its_own_modules() -> None:
 def test_a_removal_must_be_a_post_behind_the_login() -> None:
     business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     module = Module.objects.create(business=business, name="a", url=PUBLIC)
-    assert client.get(f"/modules/{module.pk}/remove/").status_code == 405
+    # A link removes nothing; it goes back to the Modules page (where a login after an ended session lands).
+    assert client.get(f"/modules/{module.pk}/remove/")["Location"] == "/modules/"
     assert (
         Client().post(f"/modules/{module.pk}/remove/")["Location"].startswith("/login/")
     )

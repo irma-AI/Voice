@@ -5,7 +5,8 @@ from django.urls import NoReverseMatch, URLPattern, URLResolver, get_resolver, r
 
 # Open on purpose: the public page, the login, logout (POST only), the password steps a Business reaches before it has a session,
 # the settings and Call record addresses the core calls: they have no session and refuse without the shared secret (tests/portal/test_business_settings.py, tests/portal/test_call_records.py),
-# a Business's public call link, which anyone may open on purpose, and the script that link's button loads from the Business's website (tests/portal/test_call_link.py).
+# a Business's public call link, which anyone may open on purpose, and the script that link's button loads from the Business's website (tests/portal/test_call_link.py),
+# and a Business's logo, which the core's call page loads at an address that names no Business (tests/portal/test_theme.py).
 OPEN = {
     "home",
     "login",
@@ -18,6 +19,7 @@ OPEN = {
     "record_call",
     "call_link",
     "call_button_js",
+    "logo",
 }
 
 

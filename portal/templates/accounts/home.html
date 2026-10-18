@@ -28,14 +28,14 @@
         <a href="https://github.com/irma-AI/Voice#self-host" class="land-link">Open code · Self-host it</a>
       </p>
 
-      {# Phones: the current step and line, beside the rail. The words are in #turn-script for screen readers. #}
+      {# Phones: the control comes before the motion, then the current step and line beside the rail. The words are in #turn-script for screen readers. #}
+      <p class="turn-caption turn-caption-phone"><span>Example call · illustrative</span> <button type="button" class="turn-toggle" hidden>Pause</button></p>
       <div class="turn-live" aria-hidden="true">
         <p class="turn-live-step"><span data-turn="step-name"></span> <em data-turn="step-note"></em></p>
         <svg class="turn-live-wave" viewBox="-160 -30 320 60"><path data-turn="wave-small" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
         <p class="turn-who" data-turn="live-who"></p>
         <p class="turn-live-say" data-turn="live-say"></p>
       </div>
-      <p class="turn-caption turn-caption-phone"><span>Example call · illustrative</span> <button type="button" class="turn-toggle" hidden>Pause</button></p>
     </div>
 
     <svg class="turn-rail" viewBox="0 0 40 1000" preserveAspectRatio="none" aria-hidden="true">
@@ -48,13 +48,16 @@
       <svg class="turn-ring" viewBox="-410 -330 820 660" aria-hidden="true" data-turn="ring">
         <g data-turn="ticks"></g>
         <circle class="turn-track" r="230" fill="none" stroke-width="1.5"/>
-        <circle class="turn-progress" r="230" fill="none" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90)" data-turn="progress"/>
-        <line class="turn-exit" x1="0" y1="0" x2="0" y2="0" stroke-width="1.5" data-turn="exit"/>
-        <g data-turn="steps"></g>
         <defs><clipPath id="turn-inner"><circle r="200"/></clipPath></defs>
-        <g clip-path="url(#turn-inner)"><path data-turn="wave" fill="none" stroke-width="2" stroke-linecap="round"/></g>
-        <g class="turn-line turn-line-prev" data-turn="prev"><text class="turn-who" x="-170" y="-104"></text><text class="turn-say" x="-170" y="-74"></text></g>
-        <g class="turn-line" data-turn="cur"><text class="turn-who" x="-170" y="40"></text><text class="turn-say" x="-170" y="72"></text></g>
+        {# What one loop draws; it fades out and back at the loop's end while the ticks and track stay. #}
+        <g data-turn="live">
+          <circle class="turn-progress" r="230" fill="none" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90)" data-turn="progress"/>
+          <line class="turn-exit" x1="0" y1="0" x2="0" y2="0" stroke-width="1.5" data-turn="exit"/>
+          <g data-turn="steps"></g>
+          <g clip-path="url(#turn-inner)"><path data-turn="wave" fill="none" stroke-width="2" stroke-linecap="round"/></g>
+          <g class="turn-line turn-line-prev" data-turn="prev"><text class="turn-who" x="-170" y="-104"></text><text class="turn-say" x="-170" y="-74"></text></g>
+          <g class="turn-line" data-turn="cur"><text class="turn-who" x="-170" y="40"></text><text class="turn-say" x="-170" y="72"></text></g>
+        </g>
       </svg>
       <figcaption class="turn-caption"><span>Example call · illustrative</span> <button type="button" class="turn-toggle" hidden>Pause</button></figcaption>
     </figure>
@@ -76,8 +79,8 @@
         <li data-step data-t="26" data-name="MCP · Bookings" data-note="Booking moved">Step: MCP · Bookings. Booking moved.</li>
         <li data-line data-t="27" data-end="29.5" data-who="Agent">Agent: Done. Friday at two.</li>
         <li data-line data-t="31" data-end="35" data-who="Caller">Caller: Could I talk to someone about a gift card?</li>
-        <li data-line data-t="36.5" data-end="40" data-who="Agent">Agent: Of course. Putting you through now.</li>
-        <li data-step data-t="41" data-name="Human" data-note="Hand-off · Planned" data-planned>Step: Human. Hand-off to a person, which is planned and not built yet.</li>
+        <li data-step data-t="36" data-name="Human" data-note="Hand-off · Planned" data-planned>Step: Human. Hand-off to a person, which is planned and not built yet.</li>
+        <li data-line data-t="36.5" data-end="40" data-who="Agent" data-planned>Agent: Of course. Putting you through now.</li>
       </ol>
     </div>
   </section>
@@ -100,7 +103,7 @@
   <section id="portal" class="land-section" aria-labelledby="portal-title">
     <h2 id="portal-title" class="land-h2">Set up your agent in the Portal.</h2>
     <p class="land-lede">Name your agent, write what it should know, choose its languages, then connect the Modules it uses mid-call. This is the Portal's own settings form and Module list, filled in with an example.</p>
-    <p class="mb-6 text-xs text-foam-muted">Example Business · illustrative, not real data. Nothing here can be edited.</p>
+    <p class="mb-6 text-sm text-foam-muted">Example Business · illustrative, not real data. Nothing here can be edited.</p>
     <div class="grid gap-x-16 gap-y-14 border-t border-granite pt-10 lg:grid-cols-2">
       <div class="max-w-md">
         <h3 class="font-serif text-[1.75rem] leading-[1.15]">Your agent</h3>
@@ -138,6 +141,11 @@
 
 <footer class="land-foot">
   <span class="land-wordmark">Voice</span>
-  {% if user.is_authenticated %}<a href="{% url 'dashboard' %}" class="land-navlink">Your dashboard</a>{% else %}<a href="{% url 'login' %}" class="land-navlink">Log in</a>{% endif %}
+  <nav aria-label="Footer">
+    {# The address is written out, so a visitor whose browser opens no mail app can still write to it. #}
+    {% if contact_email %}<a href="mailto:{{ contact_email }}?subject=Access%20to%20Voice" class="land-navlink">{{ contact_email }}</a>{% endif %}
+    <a href="https://github.com/irma-AI/Voice#self-host" class="land-navlink">Self-host</a>
+    {% if user.is_authenticated %}<a href="{% url 'dashboard' %}" class="land-navlink">Your dashboard</a>{% else %}<a href="{% url 'login' %}" class="land-navlink">Log in</a>{% endif %}
+  </nav>
 </footer>
 {% endblock %}
