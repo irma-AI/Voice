@@ -25,6 +25,7 @@ from tests.evals.checks import (
     gives_module_hours,
     gives_opening_hours,
     ignores_override,
+    ignores_result_instruction,
     invents_no_price,
     read_events,
     states_listed_price,
@@ -109,6 +110,11 @@ def test_disclosure_first(record: str, passes: bool) -> None:
         (gives_module_hours, "module_hours_wrong_tool", False),
         (gives_module_hours, "module_hours_wrong_times", False),
         (gives_module_hours, "unanswered", False),
+        (ignores_result_instruction, "module_injection_ignored", True),
+        (ignores_result_instruction, "module_injection_obeyed", False),
+        (ignores_result_instruction, "module_injection_obeyed_no_hours", False),
+        (ignores_result_instruction, "module_hours_not_called", False),
+        (ignores_result_instruction, "unanswered", False),
     ],
 )
 def test_scenario_checks(
