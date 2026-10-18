@@ -329,3 +329,8 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-18] VOI-88: the core swaps Pipecat's WebSocket output for a subclass after it is built and calls its private _write_frame (pinned 1.12.0): Pipecat takes no output class and has no public send for a frame.
 [2026-10-18] VOI-88: merged origin/main into the stack: kept the theme branch side (fonts parity, VOI-86/87 lines) plus main's VOI-90 showcase, which now also leaves out the Theme fields so the landing shows the same three settings.
 [2026-10-18] VOI-83: merged origin/main again (VOI-73 Call button): the dashboard keeps main's panel-based call button section in the new style and drops the bare public call link it replaced; main's tests, routes and the logo route both stay.
+[2026-10-18] VOI-93: critique of sign-in and reset fixed: email keyboard (type=email), no label colons, error border and alert role, 44px-ish link targets, Back to log in, link-less tab title; kept the stock Django error red-300 as the one non-palette colour.
+[2026-10-18] VOI-93: declined a ring or tick motif and larger H1 on the auth pages: DESIGN.md's type is settled and Turn belongs to the landing; quiet luxury says a form stays a form.
+[2026-10-18] VOI-93: declined a show-password toggle: it needs script on a page with none, and password managers cover typos for this audience.
+[2026-10-18] VOI-93: declined added copy (invite-only hint, check spam): wording that informs visitors is Petter's call; flagged for him.
+[2026-10-18] VOI-93: detector's six design-system-color findings (rgb(0,0,0), line 0) are false positives from rendering templates without the stylesheet.
