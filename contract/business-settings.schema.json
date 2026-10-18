@@ -25,6 +25,12 @@
         "logo_url": { "type": "string", "pattern": "^https?://", "maxLength": 2000 }
       }
     },
+    "privacy_url": {
+      "description": "The address of the Business's own privacy notice for its Callers, optional: the call page links it beside the AI disclosure. https only, no whitespace (portal/accounts/models.py PRIVACY_URL_PATTERN, voice/settings.py). The Business is the controller toward its Callers (docs/privacy/README.md); absent for no link.",
+      "type": "string",
+      "pattern": "^https://\\S+$",
+      "maxLength": 2000
+    },
     "modules": {
       "description": "The Business's Modules (MCP servers), optional. A remote Module has a url; a local one a command, which the core runs only where self-hosting allows it (ALLOW_LOCAL_MODULES). The Portal's Modules page (VOI-28) fills it.",
       "type": "array",

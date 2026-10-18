@@ -46,6 +46,8 @@ OUT_RATE = 24000
 MAX_CALL_SECS = 600
 
 PAGE = (Path(__file__).parent / "page.html").read_text("utf-8")
+# Caller-facing wording, approved by Petter 2026-10-18 (CLAUDE.md § Stop and ask): a change here waits for his answer.
+PRIVACY_LINK = "Privacy notice"
 # The typefaces the call page uses: a copy of the Portal's, held equal by tests/test_design_tokens.py.
 FONTS = {
     p.name: p.read_bytes()
@@ -73,6 +75,14 @@ def render_page(settings: Settings | None) -> str:
             'onerror="this.hidden=true;this.nextElementSibling.hidden=false">'
             f'<span class="name" hidden>{name}</span>'
         )
+    privacy = ""
+    if (
+        settings and settings.privacy_url
+    ):  # the Business's own notice, beside the disclosure; it opens outside the call's frame
+        privacy = (
+            f'<p class="privacy"><a href="{html.escape(settings.privacy_url)}" '
+            f'target="_blank" rel="noopener">{PRIVACY_LINK}</a></p>'
+        )
     return (
         PAGE.replace("__IN_RATE__", str(IN_RATE))
         .replace("__OUT_RATE__", str(OUT_RATE))
@@ -80,6 +90,9 @@ def render_page(settings: Settings | None) -> str:
         .replace("__THEME__", css)
         .replace("__TITLE__", name)
         .replace("__BRAND__", brand)
+        .replace(
+            "__PRIVACY__", privacy
+        )  # last: the Business's address could spell another marker
     )
 
 
