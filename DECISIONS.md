@@ -417,3 +417,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-18] Strands rejected as the MCP server framework: it only consumes MCP servers and serves A2A, a different protocol (docs/research/mcp-server-framework.md).
 [2026-10-18] ESCALATED: which MCP framework: official SDK + django-stateless-mcp (recommended, already locked) or FastMCP 4 (moves the Portal to an async server) -> Petter
 [2026-10-18] ESCALATED: where the agent endpoint runs: its own Dokploy app from the Portal image (recommended, keeps agent traffic off call starts) or inside the Portal; a new app is a deploy setting -> Petter
+[2026-10-18] VOI-103: the gate trial ran in the thread that built it, not a fresh thread on a trial branch: a session reloads hooks from its working tree, so the same gate applied, and no extra thread was spent; the reset was simulated by recording past reset times.
