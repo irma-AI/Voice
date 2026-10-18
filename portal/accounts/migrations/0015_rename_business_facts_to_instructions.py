@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0012_business_theme'),
+        ('accounts', '0014_access_token_is_fixed'),
     ]
 
     operations = [

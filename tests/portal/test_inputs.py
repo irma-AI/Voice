@@ -225,6 +225,6 @@ def test_a_long_module_name_is_kept_whole_and_wraps() -> None:
 
 def test_every_page_loads_the_script_that_sends_a_form_once() -> None:
     _, client = business_with_login("anna.testsson@example.com", "Anna")
-    for path in ("/settings/", "/modules/", "/dashboard/"):
+    for path in ("/settings/", "/modules/", "/tokens/", "/dashboard/"):
         assert "portal/portal.js" in client.get(path).content.decode(), path
     assert "portal/portal.js" in Client().get("/login/").content.decode()
