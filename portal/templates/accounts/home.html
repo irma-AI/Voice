@@ -93,7 +93,7 @@
   <section id="use-cases" class="land-section" aria-labelledby="use-cases-title">
     <div class="land-head">
       <h2 id="use-cases-title" class="land-h2">Answers, acts, connects.</h2>
-      <p class="land-lede">It answers from what you tell it, right on your website. Add Modules and it acts while the caller is on the line. Here is what works today, what a Module adds, and what comes next.</p>
+      <p class="land-lede">Your agent answers callers on your website, from your instructions. Add Modules and the agent acts while the caller is still on the line. Here is what works today, what a Module adds, and what comes next.</p>
     </div>
     {# Grouped by what it takes: the status is each group's head, drawn as a dot on a hairline like a step on the ring. Each use still carries its mark for screen readers. #}
     <div class="use-groups">
@@ -126,13 +126,13 @@
   <section id="portal" class="land-section" aria-labelledby="portal-title">
     <div class="land-head">
       <h2 id="portal-title" class="land-h2">Set up your Voice.</h2>
-      <p class="land-lede">Tell it about your business, pick its languages, and connect what it should be able to do. This is the real Portal, filled in for an example salon.</p>
+      <p class="land-lede">Write instructions, choose languages and connect Modules. This is the real Portal, filled in for an example salon.</p>
     </div>
     {# The setup as the sequence it is: a rail with a dot per step, like Turn's phone rail. Each step's words sit beside a read-out drawn like the Portal's Module row. #}
     <p class="land-note">Example only, not real data. Nothing here can be edited.</p>
     <ol class="setup-steps">
       <li class="setup-step">
-        <div class="setup-text"><h3>Name it and brief it</h3><p>Write its instructions the way you would brief a new colleague: hours, services, prices, how to treat callers. Changes apply from the next call.</p></div>
+        <div class="setup-text"><h3>Write instructions</h3><p>Brief your agent the way you would brief a new colleague: hours, services, prices, how to treat callers. Changes apply from the next call.</p></div>
         <div class="setup-body">
           <p class="text-lg font-medium">{{ example_agent.name }}</p>
           <p class="readout-label">Instructions</p>
@@ -140,14 +140,14 @@
         </div>
       </li>
       <li class="setup-step">
-        <div class="setup-text"><h3>Choose its languages</h3><p>Swedish, English or both.</p></div>
+        <div class="setup-text"><h3>Choose languages</h3><p>Swedish, English or both.</p></div>
         <div class="setup-body">
           <p class="readout-label">Languages</p>
           <ul class="readout-list">{% for code, label in example_agent.languages %}<li><span class="font-mono">{{ code }}</span> <span class="text-foam-muted">{{ label }}</span></li>{% endfor %}</ul>
         </div>
       </li>
       <li class="setup-step">
-        <div class="setup-text"><h3>Connect its Modules</h3><p>Each Module gives your agent something to do during a call, like booking a time.</p></div>
+        <div class="setup-text"><h3>Connect Modules</h3><p>Each Module gives your agent something to do during a call, like booking a time.</p></div>
         <div class="setup-body"><ul><li>{% include "accounts/_module_row.html" with module=example_module offered=example_offer example=True %}</li></ul></div>
       </li>
     </ol>
