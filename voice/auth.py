@@ -27,8 +27,8 @@ REFUSAL_PAGE = (
     "<style>body{margin:0;min-height:100dvh;display:grid;place-items:center;padding:1.5rem 1.25rem;box-sizing:border-box;"
     "background:var(--color-deep-sea) radial-gradient(120% 90% at 70% 0%,var(--color-blue-hour) 0%,var(--color-deep-sea) 78%) fixed;"
     "color:var(--color-foam);font-family:var(--font-serif);-webkit-font-smoothing:antialiased}"
-    "p{margin:0;max-width:22ch;text-align:center;font-size:var(--text-xl);line-height:var(--text-xl--line-height);text-wrap:balance}</style>"
-    f"<p>{REFUSAL}</p></html>"
+    "h1{margin:0;max-width:22ch;text-align:center;font-weight:400;font-size:var(--text-xl);line-height:var(--text-xl--line-height);text-wrap:balance}</style>"
+    f"<main><h1>{REFUSAL}</h1></main></html>"
 ).encode()
 
 

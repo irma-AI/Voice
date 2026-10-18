@@ -542,6 +542,16 @@ CALL_LINK_REFUSAL = (
 )
 
 
+def call_link_refused(request: HttpRequest) -> HttpResponse:
+    """The refusal as a page with its language and a heading, in the Portal's look: it shows inside the Call button's panel."""
+    return render(
+        request,
+        "accounts/call_link_refused.html",
+        {"sentence": CALL_LINK_REFUSAL},
+        status=403,
+    )
+
+
 def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
     """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call."""
     # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
@@ -572,10 +582,10 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
         log.warning(
             "call link refused: Business %s opened outside a frame", business.pk
         )
-        return HttpResponseForbidden(CALL_LINK_REFUSAL)
+        return call_link_refused(request)
     if not business.website_domain:
         log.warning("call link refused: Business %s has no website domain", business.pk)
-        return HttpResponseForbidden(CALL_LINK_REFUSAL)
+        return call_link_refused(request)
     return to_core(business, "call_link", business.website_domain)
 
 

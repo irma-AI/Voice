@@ -216,7 +216,11 @@ def test_without_settings_the_call_page_shows_voices_own_look(
     for env in ({}, portal_env("http://127.0.0.1:1")):  # no source; the Portal down
         page = call_page(monkeypatch, env)
         assert "<style></style>" in page  # no Theme
-        assert '<span class="name">Voice</span>' in page
+        # The name is the page's one heading, so a screen reader's heading list says who the Caller is talking to.
+        assert '<h1 class="brand"><span class="name">Voice</span></h1>' in page
+        assert page.count("<h1") == 1
+        # Connecting marks the button aria-disabled and keeps it focusable: disabling it would drop the keyboard focus.
+        assert 'go.setAttribute("aria-disabled"' in page and "go.disabled" not in page
         assert "<img" not in page
         assert DISCLOSURE in page
         # A screen reader finds the Live transcript as a log it can read, not announced over the agent's voice.
