@@ -197,6 +197,7 @@ def test_no_theme_is_voices_own_look_and_the_core_is_told_none(settings: Any) ->
         ),  # the name does not decide the type
         (b"GIF89a" + b"\x00" * 40, "logo.gif", "not a PNG, WebP or JPEG"),
         (PNG + b"\x00" * LOGO_MAX_BYTES, "logo.png", "the largest is 256 KB"),
+        (b"", "logo.png", "That file is empty"),
     ],
 )
 @pytest.mark.db

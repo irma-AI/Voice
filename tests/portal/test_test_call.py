@@ -66,9 +66,8 @@ def test_a_visitor_gets_no_ticket_and_a_page_visit_starts_nothing() -> None:
     assert "ticket" not in response["Location"]
 
     _, client = business_with_login("bo.testsson@example.com", "Bo's Bikes")
-    assert (
-        client.get("/test-call/").status_code == 405
-    )  # a link or an image cannot start a call
+    # A link or an image cannot start a call: it goes back to the dashboard, where a login after an ended session lands.
+    assert client.get("/test-call/")["Location"] == "/dashboard/"
 
 
 def test_a_cross_site_post_is_refused_by_the_csrf_check() -> None:

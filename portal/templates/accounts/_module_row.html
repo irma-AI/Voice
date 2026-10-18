@@ -3,7 +3,7 @@
     <div class="flex min-w-0 gap-3">
       <span aria-hidden="true" class="mt-[0.45rem] size-2.5 shrink-0 rounded-full border {% if offered is None %}border-foam-faint{% elif offered.problem %}border-red-300{% else %}border-cable-light bg-cable-light{% endif %}"></span>
       <div class="min-w-0">
-        <p class="text-lg font-medium">{{ module.name }}</p>
+        <p class="text-lg font-medium break-words">{{ module.name }}</p>
         <p class="mt-0.5 break-all font-mono text-sm text-foam-muted">{% if module.command %}{{ module.command }} {{ module.args|join:" " }}{% else %}{{ module.url }}{% endif %}</p>
       </div>
     </div>

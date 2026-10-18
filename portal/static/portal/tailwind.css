@@ -49,7 +49,9 @@
   /* A form shown as an example (the landing page) is disabled but keeps full-strength text. */
   fieldset:disabled input, fieldset:disabled textarea { color: var(--color-foam); -webkit-text-fill-color: var(--color-foam); opacity: 1; cursor: default; }
   fieldset:disabled input:hover, fieldset:disabled textarea:hover { border-color: var(--color-foam-faint); }
-  form input[aria-invalid="true"] { border-color: var(--color-red-300); }
+  form input[aria-invalid="true"], form textarea[aria-invalid="true"] { border-color: var(--color-red-300); }
+  /* A form on its way (portal.js): its buttons wait, and say so by the cursor and a dimmer fill. */
+  form button:disabled { cursor: progress; opacity: 0.7; }
   form .errorlist { @apply text-sm text-red-300; }
   form .helptext { @apply text-sm text-foam-muted; }
 }
@@ -191,6 +193,11 @@
   /* Cable light marks what is live: the notice that a save went through carries the filled dot. */
   .status { @apply flex items-center gap-3 text-base text-foam; }
   .status::before { content: ""; @apply size-2.5 shrink-0 rounded-full bg-cable-light; }
+  /* A refused save says so at the top, with a link to each field to fix: the fields can sit far down a phone's screen. */
+  .error-summary { @apply space-y-2 rounded-md border border-red-300 px-4 py-3 text-red-300; }
+  .error-summary:focus { outline: none; }
+  .error-summary ul { @apply m-0 list-none space-y-1 p-0 text-sm; }
+  .error-summary a { @apply text-red-300 underline underline-offset-[0.2em]; }
 
   /* The Call button code on the dashboard: wrapped so all of it shows on a phone, with a Copy button (portal.js). */
   .snippet { @apply space-y-3; }

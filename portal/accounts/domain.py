@@ -48,3 +48,11 @@ def parse_domain(text: str) -> str:
     if not host or not (domain := registrable_domain(host)):
         raise ValueError(PROBLEM)
     return domain
+
+
+def shown_domain(domain: str) -> str:
+    """A stored domain as its owner writes it: `xn--rksmrgs-5wao1o.se` is shown as `räksmörgås.se`."""
+    try:
+        return idna.decode(domain)
+    except (idna.IDNAError, UnicodeError):
+        return domain

@@ -6,7 +6,8 @@
 <form method="post" class="mt-8 space-y-5">
   {% csrf_token %}
   <div role="alert">{{ form.non_field_errors }}</div>
-  {{ form.as_div }}
+  {# Field by field: as_div would show the form's own errors a second time. #}
+  {% for field in form %}<div>{{ field.as_field_group }}</div>{% endfor %}
   <button class="pill mt-2 w-full sm:w-auto">{% block button %}Save{% endblock %}</button>
 </form>
 {% block after %}{% endblock %}
