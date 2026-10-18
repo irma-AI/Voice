@@ -66,8 +66,9 @@ def test_each_month_is_by_call_start_on_the_portal_clock_and_kinds_stay_apart(
     assert "Test calls" in page and "Call links" in page
 
     settings.TIME_ZONE = "UTC"  # on the UTC clock the 23:30 call is October
-    page = petter.get("/totals/").content.decode()
-    assert page.count("2026-10") == 1 and "$0.5000" in page[page.index("2026-10") :]
+    rows = petter.get("/totals/").context["rows"]
+    october = [cells for month, _, cells in rows if month == "2026-10"]
+    assert len(october) == 1 and "0.5000" in [c[2] for c in october[0]]
 
 
 def test_calls_without_a_cost_are_counted_and_add_no_dollars(settings: Any) -> None:
@@ -97,3 +98,35 @@ def test_the_table_scrolls_by_keyboard_and_says_what_it_is(settings: Any) -> Non
     _, client = business_with_login(EMAIL, "Petter's Business")
     page = client.get("/totals/").content.decode()
     assert 'role="region"' in page and 'tabindex="0"' in page
+
+
+def test_phones_get_every_figure_without_the_wide_table(settings: Any) -> None:
+    """Below the md breakpoint the wide table is hidden; each month and Business is a block of its own with the same figures."""
+    settings.SUPER_ADMIN_EMAIL = EMAIL
+    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, petter = business_with_login(EMAIL, "Petter's Business")
+    a_call(
+        anna,
+        "priced-000000001",
+        datetime(2026, 10, 17, 5, 0, tzinfo=UTC),
+        cost_usd="0.25",
+    )
+    page = petter.get("/totals/").content.decode()
+    phone = page[
+        page.index('class="mt-8 border-b border-granite md:hidden"') : page.index(
+            "</ul>"
+        )
+    ]
+    wide = page[page.index('role="region"') :]
+    assert "hidden overflow-x-auto md:block" in page
+    for part in (phone, wide):
+        for figure in (
+            "2026-10",
+            "Anna&#x27;s Salon",
+            "Test calls",
+            "Call links",
+            "3.1",
+            "$0.2500",
+            "$0.0000",
+        ):
+            assert figure in part, (figure, part[:80])

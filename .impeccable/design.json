@@ -152,7 +152,7 @@
       {
         "name": "turn-loop",
         "value": "46s",
-        "purpose": "One Turn loop; 40s or longer, Pause always present, one still frame under reduced motion."
+        "purpose": "One Turn loop; 40s or longer, plays on load, Pause always present; under reduced motion it plays in turn without movement."
       }
     ],
     "breakpoints": [
@@ -272,7 +272,7 @@
       "**Do** separate with 1px Granite hairlines and keep surfaces flat on the Deep sea ground.",
       "**Do** bound controls with Foam faint, not Granite.",
       "**Do** mark unbuilt capability with the dashed Planned treatment.",
-      "**Do** give any moving element a visible Pause control and a still frame under reduced motion."
+      "**Do** give any moving element a visible Pause control, and under reduced motion keep its content changing in turn with no movement."
     ],
     "donts": [
       "**Don't** add shadows, glows, cards or photos.",
