@@ -1,236 +1,41 @@
 {
-  "_note": "Synthetic: Google's catalogue shape (cloudbilling v1 services.skus.list) with prices from docs/research/gemini-live-pricing.md. Not a real reply; the real entry names are read on the first live call (VOI-42).",
+  "_note": "Synthetic: the shape of Google's documented public Cloud Billing Catalog replies (v2beta skus list, v1beta sku price) with prices from docs/research/gemini-live-pricing.md. Not a real reply; the real entry names are read on the first live call (VOI-42).",
   "skus": [
     {
-      "name": "services/AEFD-7695-64FA/skus/X",
-      "skuId": "X",
-      "description": "Gemini 2.5 Flash Live audio input tokens",
-      "category": {
-        "serviceDisplayName": "Generative Language API",
-        "resourceFamily": "ApplicationServices",
-        "resourceGroup": "GenAI",
-        "usageType": "OnDemand"
-      },
-      "pricingInfo": [
-        {
-          "effectiveTime": "2026-08-01T00:00:00Z",
-          "pricingExpression": {
-            "usageUnit": "count",
-            "displayQuantity": 1000000,
-            "baseUnit": "count",
-            "baseUnitConversionFactor": 1000000,
-            "tieredRates": [
-              {
-                "startUsageAmount": 0,
-                "unitPrice": {
-                  "currencyCode": "USD",
-                  "units": "9",
-                  "nanos": 0
-                }
-              }
-            ]
-          },
-          "currencyConversionRate": 1
-        }
-      ]
+      "name": "skus/AAAA-0001",
+      "skuId": "AAAA-0001",
+      "displayName": "Gemini 2.5 Flash Live audio input tokens",
+      "service": "AEFD-7695-64FA"
     },
     {
-      "name": "services/AEFD-7695-64FA/skus/X",
-      "skuId": "X",
-      "description": "Gemini 3.8 Live audio input tokens",
-      "category": {
-        "serviceDisplayName": "Generative Language API",
-        "resourceFamily": "ApplicationServices",
-        "resourceGroup": "GenAI",
-        "usageType": "OnDemand"
-      },
-      "pricingInfo": [
-        {
-          "effectiveTime": "2026-09-01T00:00:00Z",
-          "pricingExpression": {
-            "usageUnit": "count",
-            "displayQuantity": 1000000,
-            "baseUnit": "count",
-            "baseUnitConversionFactor": 1000000,
-            "tieredRates": [
-              {
-                "startUsageAmount": 0,
-                "unitPrice": {
-                  "currencyCode": "USD",
-                  "units": "3",
-                  "nanos": 0
-                }
-              }
-            ]
-          },
-          "currencyConversionRate": 1
-        }
-      ]
+      "name": "skus/AAAA-0002",
+      "skuId": "AAAA-0002",
+      "displayName": "Gemini 3.8 Live audio input tokens",
+      "service": "AEFD-7695-64FA"
     },
     {
-      "name": "services/AEFD-7695-64FA/skus/X",
-      "skuId": "X",
-      "description": "Gemini 3.8 Live text input tokens",
-      "category": {
-        "serviceDisplayName": "Generative Language API",
-        "resourceFamily": "ApplicationServices",
-        "resourceGroup": "GenAI",
-        "usageType": "OnDemand"
-      },
-      "pricingInfo": [
-        {
-          "effectiveTime": "2026-09-01T00:00:00Z",
-          "pricingExpression": {
-            "usageUnit": "count",
-            "displayQuantity": 1000000,
-            "baseUnit": "count",
-            "baseUnitConversionFactor": 1,
-            "tieredRates": [
-              {
-                "startUsageAmount": 0,
-                "unitPrice": {
-                  "currencyCode": "USD",
-                  "units": "0",
-                  "nanos": 750
-                }
-              }
-            ]
-          },
-          "currencyConversionRate": 1
-        }
-      ]
+      "name": "skus/AAAA-0003",
+      "skuId": "AAAA-0003",
+      "displayName": "Gemini 3.8 Live text input tokens",
+      "service": "AEFD-7695-64FA"
     },
     {
-      "name": "services/AEFD-7695-64FA/skus/X",
-      "skuId": "X",
-      "description": "Gemini 3.8 Live video input tokens",
-      "category": {
-        "serviceDisplayName": "Generative Language API",
-        "resourceFamily": "ApplicationServices",
-        "resourceGroup": "GenAI",
-        "usageType": "OnDemand"
-      },
-      "pricingInfo": [
-        {
-          "effectiveTime": "2026-09-01T00:00:00Z",
-          "pricingExpression": {
-            "usageUnit": "count",
-            "displayQuantity": 1000000,
-            "baseUnit": "count",
-            "baseUnitConversionFactor": 1000000,
-            "tieredRates": [
-              {
-                "startUsageAmount": 0,
-                "unitPrice": {
-                  "currencyCode": "USD",
-                  "units": "1",
-                  "nanos": 0
-                }
-              }
-            ]
-          },
-          "currencyConversionRate": 1
-        }
-      ]
+      "name": "skus/AAAA-0004",
+      "skuId": "AAAA-0004",
+      "displayName": "Gemini 3.8 Live video input tokens",
+      "service": "AEFD-7695-64FA"
     },
     {
-      "name": "services/AEFD-7695-64FA/skus/X",
-      "skuId": "X",
-      "description": "Gemini 3.8 Live audio input tokens committed use",
-      "category": {
-        "serviceDisplayName": "Generative Language API",
-        "resourceFamily": "ApplicationServices",
-        "resourceGroup": "GenAI",
-        "usageType": "Commit1Yr"
-      },
-      "pricingInfo": [
-        {
-          "effectiveTime": "2026-09-01T00:00:00Z",
-          "pricingExpression": {
-            "usageUnit": "count",
-            "displayQuantity": 1000000,
-            "baseUnit": "count",
-            "baseUnitConversionFactor": 1000000,
-            "tieredRates": [
-              {
-                "startUsageAmount": 0,
-                "unitPrice": {
-                  "currencyCode": "USD",
-                  "units": "2",
-                  "nanos": 0
-                }
-              }
-            ]
-          },
-          "currencyConversionRate": 1
-        }
-      ]
+      "name": "skus/AAAA-0005",
+      "skuId": "AAAA-0005",
+      "displayName": "Gemini 3.8 Live audio output tokens",
+      "service": "AEFD-7695-64FA"
     },
     {
-      "name": "services/AEFD-7695-64FA/skus/X",
-      "skuId": "X",
-      "description": "Gemini 3.8 Live audio output tokens",
-      "category": {
-        "serviceDisplayName": "Generative Language API",
-        "resourceFamily": "ApplicationServices",
-        "resourceGroup": "GenAI",
-        "usageType": "OnDemand"
-      },
-      "pricingInfo": [
-        {
-          "effectiveTime": "2026-10-01T00:00:00Z",
-          "pricingExpression": {
-            "usageUnit": "count",
-            "displayQuantity": 1000000,
-            "baseUnit": "count",
-            "baseUnitConversionFactor": 1000000,
-            "tieredRates": [
-              {
-                "startUsageAmount": 0,
-                "unitPrice": {
-                  "currencyCode": "USD",
-                  "units": "12",
-                  "nanos": 0
-                }
-              }
-            ]
-          },
-          "currencyConversionRate": 1
-        }
-      ]
-    },
-    {
-      "name": "services/AEFD-7695-64FA/skus/X",
-      "skuId": "X",
-      "description": "Gemini 3.8 Live text output tokens",
-      "category": {
-        "serviceDisplayName": "Generative Language API",
-        "resourceFamily": "ApplicationServices",
-        "resourceGroup": "GenAI",
-        "usageType": "OnDemand"
-      },
-      "pricingInfo": [
-        {
-          "effectiveTime": "2026-09-15T00:00:00Z",
-          "pricingExpression": {
-            "usageUnit": "count",
-            "displayQuantity": 1000000,
-            "baseUnit": "count",
-            "baseUnitConversionFactor": 1,
-            "tieredRates": [
-              {
-                "startUsageAmount": 0,
-                "unitPrice": {
-                  "currencyCode": "USD",
-                  "units": "0",
-                  "nanos": 4500
-                }
-              }
-            ]
-          },
-          "currencyConversionRate": 1
-        }
-      ]
+      "name": "skus/AAAA-0006",
+      "skuId": "AAAA-0006",
+      "displayName": "Gemini 3.8 Live text output tokens",
+      "service": "AEFD-7695-64FA"
     }
   ]
 }
