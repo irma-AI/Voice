@@ -138,6 +138,11 @@ def sees_totals(account: Any) -> bool:
     )
 
 
+def origin(url: str) -> str:
+    """`https://host` of an address: the form a Content-Security-Policy names."""
+    return "{0.scheme}://{0.netloc}".format(urlsplit(url))
+
+
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
     business = Business.objects.filter(account=request.user).first()
@@ -147,6 +152,8 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         {
             "business": business,
             "sees_totals": sees_totals(request.user),
+            "portal_origin": origin(settings.PORTAL_URL),
+            "core_origin": origin(settings.CORE_URL),
             # The Business pastes this into its own website (VOI-73); only a saved domain makes it work, so only then is it shown.
             "button_html": business
             and business.website_domain
@@ -404,7 +411,7 @@ def call_button_js(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "call_button.js",
-        {"core_origin": "{0.scheme}://{0.netloc}".format(urlsplit(settings.CORE_URL))},
+        {"core_origin": origin(settings.CORE_URL)},
         content_type="text/javascript; charset=utf-8",  # without it the page's own encoding decides how "å" reads
     )
 
