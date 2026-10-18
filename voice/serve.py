@@ -7,6 +7,7 @@ import asyncio
 import html
 import json
 import os
+import socket
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -188,10 +189,31 @@ class OneCallPerBusiness:
     def release(self, business: int) -> None:
         self._open.discard(business)
 
+    def any_open(self) -> bool:
+        return bool(self._open)
+
+
+class DrainingServer(uvicorn.Server):
+    """uvicorn, except that a stop (a deploy) waits for the open calls to end before it hangs up on anyone.
+
+    uvicorn closes every open WebSocket with code 1012 when it is told to stop. Calls end by themselves within MAX_CALL_SECS, and the platform's stop wait must be longer than that (see the Dockerfile).
+    """
+
+    def __init__(self, config: uvicorn.Config, calls: OneCallPerBusiness) -> None:
+        super().__init__(config)
+        self.calls = calls
+
+    async def shutdown(self, sockets: list[socket.socket] | None = None) -> None:
+        for server in self.servers:
+            server.close()  # no new call; the open ones keep their connections
+        while self.calls.any_open():
+            await asyncio.sleep(1)
+        await super().shutdown(sockets)
+
 
 def create_app(ticket_secret: str) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-    one_call = OneCallPerBusiness()
+    one_call = app.state.one_call = OneCallPerBusiness()
     app.add_middleware(TicketGate, ticket_secret=ticket_secret)
 
     @app.get("/")
@@ -285,12 +307,13 @@ def main() -> None:
         describe_source()
     )  # a core with no settings source starts, and refuses every call
     app = create_app(secret)
-    uvicorn.run(
+    config = uvicorn.Config(
         app,
         host=os.environ.get("HOST", "127.0.0.1"),
         port=int(os.environ.get("PORT", "7860")),
         access_log=False,  # a call ticket is in the request address: it must not reach the logs
     )
+    DrainingServer(config, app.state.one_call).run()
 
 
 if __name__ == "__main__":
