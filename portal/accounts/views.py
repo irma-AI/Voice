@@ -6,6 +6,7 @@ import json
 import logging
 import unicodedata
 from collections import defaultdict
+from datetime import datetime, time
 from decimal import Decimal
 from typing import Any
 from urllib.parse import urlsplit
@@ -610,14 +611,34 @@ CALL_LINK_REFUSAL = (
 )
 
 
-def call_link_refused(request: HttpRequest) -> HttpResponse:
+# What a Caller reads when the Business's daily budget is spent (English; Petter asked for a generic "can't take calls right now" on 2026-10-18, VOI-123).
+BUDGET_SPENT_REFUSAL = "Something went wrong. We can't take calls right now."
+# US dollars per minute for a Call link call the core could not price, when today's spend is added up (DECISIONS.md 2026-10-18, VOI-123).
+FALLBACK_USD_PER_MINUTE = Decimal("0.30")
+
+
+def call_link_refused(
+    request: HttpRequest, sentence: str = CALL_LINK_REFUSAL
+) -> HttpResponse:
     """The refusal as a page with its language and a heading, in the Portal's look: it shows inside the Call button's panel."""
     return render(
-        request,
-        "accounts/call_link_refused.html",
-        {"sentence": CALL_LINK_REFUSAL},
-        status=403,
+        request, "accounts/call_link_refused.html", {"sentence": sentence}, status=403
     )
+
+
+def spent_today(business: Business) -> Decimal:
+    """Today's Call link spend in dollars, the day on TIME_ZONE like the totals page: priced records as priced, unpriced ones at FALLBACK_USD_PER_MINUTE. Test calls do not count, and neither does a call still open (Petter, 2026-10-18: a call may run over, the next one is refused)."""
+    zone = ZoneInfo(settings.TIME_ZONE)
+    today = datetime.combine(datetime.now(zone).date(), time.min, tzinfo=zone)
+    sums = CallRecord.objects.filter(
+        business=business, kind="call_link", started_at__gte=today
+    ).aggregate(
+        priced=Sum("cost_usd"),
+        unpriced_seconds=Sum("length_seconds", filter=Q(cost_usd__isnull=True)),
+    )
+    return (sums["priced"] or Decimal(0)) + FALLBACK_USD_PER_MINUTE * (
+        sums["unpriced_seconds"] or 0
+    ) / 60
 
 
 def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
@@ -643,7 +664,7 @@ def test_call(request: HttpRequest) -> HttpResponse:
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     """A Business's public call link, opened in the panel the Call button script builds on the Business's website (VOI-73).
 
-    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too.
+    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too. Once the Business's daily budget is spent (VOI-123), no ticket until the next day.
     """
     business = get_object_or_404(Business, call_slug=slug)
     if request.headers.get("Sec-Fetch-Dest") != "iframe":
@@ -654,6 +675,11 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     if not business.website_domain:
         log.warning("call link refused: Business %s has no website domain", business.pk)
         return call_link_refused(request)
+    if spent_today(business) >= business.daily_budget_usd:
+        log.warning(
+            "call link refused: Business %s has spent its daily budget", business.pk
+        )
+        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
     return to_core(business, "call_link", business.website_domain)
 
 

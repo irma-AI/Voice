@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
+from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
@@ -58,6 +59,10 @@ def _hash_of_the_logo() -> models.Func:
         function="ENCODE",
         output_field=models.CharField(),
     )
+
+
+# Every new Business's daily budget (Petter, 2026-10-18, VOI-123; DECISIONS.md).
+DAILY_BUDGET_USD = Decimal(10)
 
 
 def swedish_only() -> list[str]:
@@ -118,6 +123,14 @@ class Business(models.Model):
     call_slug = models.CharField(max_length=40, unique=True, default=new_call_slug)
     # The registrable domain of the Business's own website, or empty for none (domain.py). Portal-only: the settings contract does not carry it.
     website_domain = models.CharField(max_length=DOMAIN_MAX, blank=True, default="")
+    # US dollars of Call link calls per day (on TIME_ZONE) before the call link refuses (views.spent_today). No Portal page sets it, so a Business cannot raise it (VOI-123). db_default: the previous Portal copy still invites while the migration runs (.claude/rules/data.md).
+    # shortcut: the operator changes it from a Django shell on the Portal host, add a management command when a second Business needs its own budget
+    daily_budget_usd = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=DAILY_BUDGET_USD,
+        db_default=DAILY_BUDGET_USD,
+    )
     # The Theme (theme.py): shown only to the Business's Callers. Empty or NULL is Voice's own look.
     logo = models.BinaryField(null=True, blank=True)
     # The logo's public address is /logo/<logo_key>/: the SHA-256 of its bytes, so it names no Business and a new logo is a new address.
@@ -157,6 +170,10 @@ class Business(models.Model):
             models.CheckConstraint(
                 condition=models.Q(name__regex=r"\S"),
                 name="business_name_must_not_be_blank",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(daily_budget_usd__gte=0),
+                name="business_daily_budget_must_not_be_negative",
             ),
             models.CheckConstraint(
                 condition=models.Q(languages__len__gte=1)
