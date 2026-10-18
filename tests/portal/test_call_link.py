@@ -159,22 +159,42 @@ def test_a_spent_daily_budget_refuses_with_no_ticket(
     assert link(bo).status_code == 403
 
 
-def test_a_call_with_no_cost_counts_at_the_fallback_rate() -> None:
+def test_a_call_with_no_cost_counts_at_the_rate_google_charged_the_priced_ones() -> (
+    None
+):
     anna = a_business_with_a_budget("1.00")
     unpriced = {
         "cost_usd": None,
         "price_date": None,
         "cost_reason": "price_unavailable",
     }
-    # 199 s at $0.30 a minute is $0.995; one more second makes the dollar.
-    a_call(anna, "unpriced-00000001", timezone.now(), length_seconds=199, **unpriced)
+    # Before the first priced call there is no rate: an unpriced call counts nothing.
+    a_call(anna, "unpriced-00000001", timezone.now(), length_seconds=6000, **unpriced)
     assert link(anna).status_code == 302
-    a_call(anna, "unpriced-00000002", timezone.now(), length_seconds=1, **unpriced)
-    assert link(anna).status_code == 403
+    # 100 s for $0.50 yesterday: half a cent a second, so 99 more unpriced seconds make $0.995 today.
+    a_call(
+        anna,
+        "priced-000000001",
+        timezone.now() - timedelta(days=1),
+        length_seconds=100,
+        cost_usd="0.50",
+    )
+    Business.objects.filter(pk=anna.pk).update(daily_budget_usd="30.50")
+    assert link(anna).status_code == 302  # 6000 s at the rate is $30, under
+    Business.objects.filter(pk=anna.pk).update(daily_budget_usd="30.00")
+    assert link(anna).status_code == 403  # at
     # A call priced at nothing (its usage reports never came) counts like an unpriced one, not as free.
     bo = a_business_with_a_budget("1.00")
-    a_call(bo, "free-00000000001", timezone.now(), length_seconds=200, cost_usd="0")
-    assert link(bo).status_code == 403
+    a_call(bo, "priced-000000002", timezone.now(), length_seconds=100, cost_usd="0.50")
+    a_call(bo, "free-00000000001", timezone.now(), length_seconds=99, cost_usd="0")
+    assert link(bo).status_code == 302  # $0.995
+    a_call(bo, "free-00000000002", timezone.now(), length_seconds=1, cost_usd="0")
+    assert link(bo).status_code == 403  # $1.00
+    # A rate that does not terminate ($1.00 over 300 s) still lands exactly on the budget.
+    cem = a_business_with_a_budget("2.00")
+    a_call(cem, "priced-000000003", timezone.now(), length_seconds=300, cost_usd="1.00")
+    a_call(cem, "unpriced-00000003", timezone.now(), length_seconds=300, **unpriced)
+    assert link(cem).status_code == 403
 
 
 def test_a_test_call_neither_counts_nor_is_refused() -> None:

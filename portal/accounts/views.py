@@ -613,8 +613,6 @@ CALL_LINK_REFUSAL = (
 
 # What a Caller reads when the Business's daily budget is spent (English; Petter asked for a generic "can't take calls right now" on 2026-10-18, VOI-123).
 BUDGET_SPENT_REFUSAL = "Something went wrong. We can't take calls right now."
-# US dollars per minute for a Call link call the core could not price, when today's spend is added up (DECISIONS.md 2026-10-18, VOI-123).
-FALLBACK_USD_PER_MINUTE = Decimal("0.30")
 
 
 def call_link_refused(
@@ -627,20 +625,23 @@ def call_link_refused(
 
 
 def spent_today(business: Business) -> Decimal:
-    """Today's Call link spend in dollars, the day on TIME_ZONE like the totals page: priced records as priced; unpriced ones, and ones priced at nothing (a call whose usage reports never came), at FALLBACK_USD_PER_MINUTE. Test calls do not count, and neither does a call still open (Petter, 2026-10-18: a call may run over, the next one is refused). A budget of 0 refuses every call."""
+    """Today's Call link spend in dollars, the day on TIME_ZONE like the totals page. A priced record counts as priced; one the core could not price, or priced at nothing (its usage reports never came), counts its seconds at the rate Google charged this Business's priced calls so far, and at nothing before the first priced call (Petter, 2026-10-18: no invented rate). Test calls do not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
     zone = ZoneInfo(settings.TIME_ZONE)
     today = datetime.combine(datetime.now(zone).date(), time.min, tzinfo=zone)
-    sums = CallRecord.objects.filter(
-        business=business, kind="call_link", started_at__gte=today
-    ).aggregate(
-        priced=Sum("cost_usd"),
-        unpriced_seconds=Sum(
-            "length_seconds", filter=Q(cost_usd__isnull=True) | Q(cost_usd=0)
-        ),
+    records = CallRecord.objects.filter(business=business, kind="call_link")
+    priced = Q(cost_usd__gt=0)
+    charged = records.filter(priced).aggregate(
+        usd=Sum("cost_usd"), seconds=Sum("length_seconds")
     )
-    return (sums["priced"] or Decimal(0)) + FALLBACK_USD_PER_MINUTE * (
-        sums["unpriced_seconds"] or 0
-    ) / 60
+    sums = records.filter(started_at__gte=today).aggregate(
+        priced=Sum("cost_usd", filter=priced),
+        unpriced_seconds=Sum("length_seconds", filter=~priced),
+    )
+    spent = sums["priced"] or Decimal(0)
+    if charged["seconds"] and sums["unpriced_seconds"]:
+        # Multiply before dividing: a rate rounded to 28 digits (1.00 / 300) would land just under the budget.
+        spent += charged["usd"] * sums["unpriced_seconds"] / charged["seconds"]
+    return spent
 
 
 def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
