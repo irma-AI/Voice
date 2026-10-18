@@ -10,8 +10,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const STOP = 0.07; // VOI-103 trial only: reverted before merge (main: 0.95)
-const WARN = 0.06; // VOI-103 trial only: reverted before merge (main: 0.9)
+const STOP = 0.95;
+const WARN = 0.9;
 const MAX_AGE_S = 120;
 
 const SHARED = process.env.PROJECT_FILES || '/mnt/project-files';
