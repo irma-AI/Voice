@@ -1,5 +1,6 @@
-# Dependabot (VOI-134): weekly grouped update PRs for the Python lock and the pinned Actions. Security updates are a
-# repository setting, on since 2026-10-18 (docs/agents/guardrails.md). Each PR goes through CI like any other.
+# Dependabot (VOI-134): weekly grouped update PRs for the Python lock and the pinned Actions; security updates are a
+# repository setting (docs/agents/guardrails.md). Our guards refuse a PR by Dependabot (author, ticket, eval receipt),
+# so each one is a signal: an agent redoes it under a ticket (DECISIONS.md, 2026-10-19).
 version: 2
 updates:
   - package-ecosystem: uv  # uv.lock; Dependabot's pip ecosystem does not read it
