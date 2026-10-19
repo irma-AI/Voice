@@ -145,6 +145,45 @@ def test_a_stop_lets_the_open_call_end_before_the_server_hangs_up() -> None:
     asyncio.run(scenario())
 
 
+def test_a_call_that_never_ends_lets_the_stop_finish_after_the_ceiling_and_says_so() -> (
+    None
+):
+    """A call whose slot is never released (its finally never ran) must not hold the old copy until Docker kills it."""
+
+    async def scenario() -> list[str]:
+        calls, lines = OneCallPerBusiness(), list[str]()
+        sink = logger.add(lambda m: lines.append(m.record["message"]), level="WARNING")
+
+        async def app(scope: Scope, receive: Receive, send: Send) -> None:
+            if scope["type"] != "websocket":
+                return
+            await receive()
+            await send({"type": "websocket.accept"})
+            assert calls.take(3)
+            await asyncio.Event().wait()  # never releases
+
+        config = uvicorn.Config(
+            app, host="127.0.0.1", port=0, lifespan="off", log_level="warning"
+        )
+        server = DrainingServer(config, calls, ceiling_s=0.5)
+        serving = asyncio.create_task(server.serve())
+        while not server.started:
+            await asyncio.sleep(0.05)
+        port = server.servers[0].sockets[0].getsockname()[1]
+        async with websockets.connect(f"ws://127.0.0.1:{port}/"):
+            while not calls.any_open():
+                await asyncio.sleep(0.05)
+            server.should_exit = True
+            await asyncio.wait_for(
+                serving, 10
+            )  # the ceiling, then uvicorn's 5 s to cancel the stuck call
+        logger.remove(sink)
+        return lines
+
+    lines = asyncio.run(scenario())
+    assert any("gave up" in line and "[3]" in line for line in lines), lines
+
+
 def test_the_call_page_opens_with_a_portal_ticket_and_refuses_everyone_else() -> None:
     client = TestClient(
         create_app("portal-secret"), base_url="https://voice.example.se"
