@@ -179,7 +179,14 @@ def test_delivery_tries_again_while_the_portal_fails() -> None:
     seen: list[Any] = []
     with fake_portal([503, 503], seen) as portal, log_lines() as lines:
         assert (
-            post("/api/calls/", a_record(), "record", portal_env(portal), 5, 0.01)
+            post(
+                "/api/calls/",
+                a_record(),
+                "record",
+                portal_env(portal),
+                window_s=5,
+                pause_s=0.01,
+            )
             is True
         )
     assert len(seen) == 3
@@ -191,7 +198,14 @@ def test_delivery_gives_up_when_the_window_ends_and_says_so() -> None:
     with fake_portal([503] * 1000, seen) as portal, log_lines() as lines:
         started = time.monotonic()
         assert (
-            post("/api/calls/", a_record(), "record", portal_env(portal), 0.3, 0.05)
+            post(
+                "/api/calls/",
+                a_record(),
+                "record",
+                portal_env(portal),
+                window_s=0.3,
+                pause_s=0.05,
+            )
             is False
         )
         assert time.monotonic() - started < 3  # the window, not forever
@@ -205,7 +219,14 @@ def test_a_portal_that_is_down_is_the_same_as_one_that_fails() -> None:
         pass  # the server is closed again: nothing listens on this address
     with log_lines() as lines:
         assert (
-            post("/api/calls/", a_record(), "record", portal_env(portal), 0.2, 0.05)
+            post(
+                "/api/calls/",
+                a_record(),
+                "record",
+                portal_env(portal),
+                window_s=0.2,
+                pause_s=0.05,
+            )
             is False
         )
     assert "gave up" in lines[-1] and portal not in "".join(lines)
@@ -387,8 +408,8 @@ def test_a_call_log_the_portal_never_takes_is_given_up_and_said() -> None:
                 {"call_id": "c0ffee0123456789"},
                 "Call log",
                 portal_env(portal),
-                0.2,
-                0.05,
+                window_s=0.2,
+                pause_s=0.05,
             )
             is False
         )

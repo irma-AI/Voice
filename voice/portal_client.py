@@ -1,6 +1,7 @@
 """The Portal client: the one way the core reaches the Portal (VOI-168).
 
-It alone reads the Portal's address (`SETTINGS_URL`) and the shared secret (`CORE_SECRET`), and holds the rules every
+It alone reads the shared secret (`CORE_SECRET`) and builds requests from the Portal's address (`SETTINGS_URL`;
+voice/settings.py reads that only to choose its source), and holds the rules every
 Portal request keeps: the secret goes as a Bearer token, a redirect is never followed (it would carry the secret
 along), and a log line or error names the Portal's host and the kind of failure only (the address could hold a
 password, an error message the secret). `get` tries once and fails closed (the settings fetch); `post` tries again
@@ -18,7 +19,7 @@ from urllib.parse import urlsplit
 
 from loguru import logger
 
-# ponytail: a call waits this long in silence for the Portal before it is refused; make it a setting if the Portal is slow in practice.
+# ponytail: each request waits this long (a call starting waits in silence, then is refused); make it a setting if the Portal is slow in practice.
 TIMEOUT_S = 5
 # ponytail: a fixed pause between tries; back off if the Portal is ever seen struggling under them.
 RETRY_WINDOW_S = 60

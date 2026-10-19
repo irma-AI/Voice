@@ -194,7 +194,15 @@ def _from_portal(env: Mapping[str, str], business_id: str) -> Settings:
         reply = get(f"/api/settings/{business_id}/", "settings", MAX_REPLY_BYTES, env)
     except PortalRefused as e:
         raise SettingsRefused(str(e)) from None
-    return parse(reply)
+    try:
+        return parse(reply)
+    except SettingsRefused:
+        raise
+    except Exception as e:  # noqa: BLE001  fail closed: a reply parse() did not foresee refuses too, by kind only
+        host = urlsplit(env.get("SETTINGS_URL", "")).hostname
+        raise SettingsRefused(
+            f"the Portal at {host} gave no settings ({type(e).__name__})"
+        ) from None
 
 
 def load_settings(
