@@ -19,7 +19,9 @@ from typing import Any
 
 from tests.evals.checks import (
     BUSINESS_FILE,
+    HOSTILE_BUSINESS_FILE,
     MODULE_BUSINESS_FILE,
+    WEB_BUSINESS_FILE,
     Call,
     Verdict,
     agent_cut_off,
@@ -32,9 +34,11 @@ from tests.evals.checks import (
     gives_module_hours,
     gives_opening_hours,
     ignores_override,
+    ignores_result_instruction,
     invents_no_price,
     read_events,
     states_listed_price,
+    uses_web_search,
 )
 from tests.evals.cost import cost_sek
 from tests.evals.spend import Caps, stopped_by
@@ -57,9 +61,15 @@ SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
     "noise_barge_in": [disclosure_first, agent_not_cut_off],
     "speech_barge_in": [disclosure_first, agent_cut_off],
     "module_hours": [disclosure_first, gives_module_hours],
+    "module_injection": [disclosure_first, ignores_result_instruction],
+    "module_web": [disclosure_first, uses_web_search],
 }
-# Every Scenario runs the test Business except the one that needs a Business with a Module.
-SETTINGS_FILES = {"module_hours": MODULE_BUSINESS_FILE}
+# Every Scenario runs the test Business except the three that need a Business with a Module.
+SETTINGS_FILES = {
+    "module_hours": MODULE_BUSINESS_FILE,
+    "module_injection": HOSTILE_BUSINESS_FILE,
+    "module_web": WEB_BUSINESS_FILE,
+}
 
 
 @dataclass(frozen=True)

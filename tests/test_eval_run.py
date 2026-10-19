@@ -5,12 +5,18 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
-from tests.evals.checks import Verdict
+from tests.evals.checks import (
+    HOSTILE_BUSINESS_FILE,
+    MODULE_BUSINESS_FILE,
+    WEB_BUSINESS_FILE,
+    Verdict,
+)
 from tests.evals.render_audio import LINES
 from tests.evals.run import (
     MAX_REPEATS,
     ROOT,
     SCENARIOS,
+    SETTINGS_FILES,
     Row,
     main,
     missing_audio,
@@ -71,6 +77,17 @@ def test_every_scenario_is_in_the_runner_the_manifest_and_the_audio_list() -> No
             assert audio in LINES or licence.exists(), (
                 f"{f} plays {audio}: make eval-audio does not render it and {licence.name} is missing"
             )
+
+
+def test_the_module_scenarios_each_play_their_own_business() -> None:
+    # the hostile and the plain Module answer the same Action name, so only the Business file tells them apart
+    assert SETTINGS_FILES == {
+        "module_hours": MODULE_BUSINESS_FILE,
+        "module_injection": HOSTILE_BUSINESS_FILE,
+        "module_web": WEB_BUSINESS_FILE,
+    }
+    assert "example_hostile" in HOSTILE_BUSINESS_FILE.read_text("utf-8")
+    assert "example_hostile" not in MODULE_BUSINESS_FILE.read_text("utf-8")
 
 
 def test_missing_audio_is_found_before_any_scenario_is_played(tmp_path: Path) -> None:

@@ -1,4 +1,5 @@
 {
-  "fenced": { "label": "evals-approved", "paths": ["tests/evals/**"] },
-  "no_ticket": ["docs/**", "DECISIONS.md", "GLOSSARY.md"]
+  "fenced": {"label": "evals-approved", "paths": ["tests/evals/**"]},
+  "no_ticket": ["docs/**", "DECISIONS.md", "GLOSSARY.md"],
+  "frozen": ["portal/static/portal/call-button.v1.js", "portal/call-button.v1.integrity"]
 }

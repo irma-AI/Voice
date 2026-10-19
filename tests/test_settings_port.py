@@ -29,6 +29,8 @@ from voice.settings import (
     MODULE_URL_MAX,
     MODULES_MAX,
     NAME_MAX,
+    PRIVACY_URL_MAX,
+    PRIVACY_URL_PATTERN,
     Module,
     Settings,
     SettingsRefused,
@@ -116,6 +118,12 @@ def test_the_cores_limits_match_the_schema() -> None:
     assert LOGO_URL_MAX == theme["logo_url"]["maxLength"], (
         "edit LOGO_URL_MAX or the schema's logo_url maxLength"
     )
+    assert props["privacy_url"]["pattern"] == f"^{PRIVACY_URL_PATTERN}$", (
+        "edit PRIVACY_URL_PATTERN in voice/settings.py or the schema's privacy_url pattern"
+    )
+    assert PRIVACY_URL_MAX == props["privacy_url"]["maxLength"], (
+        "edit PRIVACY_URL_MAX or the schema's privacy_url maxLength"
+    )
 
 
 THEME_CASES: list[Any] = [
@@ -139,6 +147,22 @@ THEME_CASES: list[Any] = [
     {"logo_url": None},
     {"logo": "https://x"},
     "not an object",
+]
+
+
+PRIVACY_URL_CASES: list[Any] = [
+    "https://example.se/integritet",
+    "https://example.se/privacy?lang=sv#callers",
+    "https://" + "x" * (PRIVACY_URL_MAX - len("https://")),
+    "https://" + "x" * (PRIVACY_URL_MAX - len("https://") + 1),
+    "http://example.se/privacy",
+    "https://example.se/privacy policy",
+    "https://example.se/privacy\r\nSet-Cookie: x=1",
+    "https://",
+    "javascript:alert(1)",
+    "",
+    None,
+    5,
 ]
 
 
@@ -183,6 +207,7 @@ MODULE_CASES: list[Any] = [
         {**GOOD, "extra": 1},
         *({**GOOD, "modules": modules} for modules in MODULE_CASES),
         *({**GOOD, "theme": theme} for theme in THEME_CASES),
+        *({**GOOD, "privacy_url": url} for url in PRIVACY_URL_CASES),
         {"name": "A", "instructions": ""},
         ["not", "an", "object"],
     ],
@@ -265,6 +290,18 @@ def test_the_theme_comes_through_from_the_portal() -> None:
     assert got.theme == Theme("#1a2a44", "#ffffff", "https://portal.example/logo/abc/")
     with fake_portal() as url:  # no theme: Voice's own look
         assert load_settings(portal_env(url), "7").theme == Theme()
+
+
+def test_the_privacy_notice_address_comes_through_from_the_portal() -> None:
+    with fake_portal(
+        body={**GOOD, "privacy_url": "https://example.se/integritet"}
+    ) as url:
+        assert (
+            load_settings(portal_env(url), "7").privacy_url
+            == "https://example.se/integritet"
+        )
+    with fake_portal() as url:  # none given: no link
+        assert load_settings(portal_env(url), "7").privacy_url is None
 
 
 def test_a_missing_or_broken_file_refuses(tmp_path: Path) -> None:
@@ -390,7 +427,7 @@ def test_a_single_language_business_is_not_told_to_switch() -> None:
     assert "Speak English." in prompt and "last spoke" not in prompt
 
 
-def test_a_refused_call_says_the_disclosure_then_the_reason_and_holds_no_instructions() -> (
+def test_a_refused_call_says_the_disclosure_then_the_reason_and_holds_no_facts() -> (
     None
 ):
     prompt = refusal_instruction()

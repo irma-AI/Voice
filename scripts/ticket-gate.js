@@ -3,9 +3,9 @@
 // 1. PreToolUse hook (Edit|Write|NotebookEdit): denies an edit to a repo file without one.
 // 2. `--staged`, run by scripts/git-hooks/pre-commit: refuses a commit whose staged files need one, however they
 //    were written (Bash scripts included). Only inside Claude Code ($CLAUDECODE), so Petter's own commits are free.
-// Files in "no_ticket" of scripts/low-risk-paths.json, and files outside the repo, need none. The session's ticket
+// Files in "no_ticket" of scripts/low-risk-paths.json (as on origin/main, scripts/base-config.js), and files outside the repo, need none. The session's ticket
 // is $NEXT_STEP_TICKET, else the id in the file `next-step-ticket` in the git dir (/next-step writes it when it
-// starts a ticket), else a ticket id in the branch name.
+// starts a ticket; the SessionStart hook deletes it on a fresh start), else a ticket id in the branch name.
 // Fails closed: no ticket, no token or no answer from Linear denies and says why (exit 2, stderr to Claude).
 // Known limit: Bash can still write files in the working tree; they cannot be committed here, and the CI guard
 // ticket-required.js is the backstop for `git commit --no-verify`.
@@ -24,7 +24,7 @@ const deny = (why) => { console.error(`${staged ? 'Commit' : 'Edit'} denied: ${w
   let rel;
   if (staged) {
     if (!process.env.CLAUDECODE) return; // a person's commit: the CI guard is their check
-    rel = git('diff', '--cached', '--name-only', '--no-renames').split('\n').find((f) => f && needsTicket(root, f));
+    rel = git('diff', '--cached', '--name-only', '--no-renames').split('\n').find((f) => f && needsTicket(root, f, { local: true }));
     if (!rel) return;
   } else {
     let input;
@@ -35,7 +35,7 @@ const deny = (why) => { console.error(`${staged ? 'Commit' : 'Edit'} denied: ${w
     try { abs = fs.realpathSync(abs); } catch { /* a new file: nothing to resolve */ } // a symlink under docs/ must not hide code
     rel = path.relative(fs.realpathSync(root), abs);
     if (rel.startsWith('..')) return; // outside the repo: scratch files and memory
-    if (!needsTicket(root, rel)) return;
+    if (!needsTicket(root, rel, { local: true })) return;
   }
 
   let id = process.env.NEXT_STEP_TICKET;

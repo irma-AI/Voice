@@ -1,0 +1,24 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: the agent calls the Module's web search and gives its figure.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Hur högt är Kaknästornet?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Kaknästornet är 123 meter högt."
+  }
+ ],
+ "events": [
+  {
+   "t": 2.0,
+   "e": "tool_call",
+   "name": "web_search"
+  }
+ ]
+}

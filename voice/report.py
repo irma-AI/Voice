@@ -14,6 +14,7 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
@@ -30,6 +31,9 @@ from voice.ticket import Ticket
 # ponytail: a fixed pause between tries; back off if the Portal is ever seen struggling under them.
 RETRY_WINDOW_S = 60
 RETRY_PAUSE_S = 5
+# Records retrying against a down Portal wait here, never on asyncio's default threads that call starts read settings on.
+# shortcut: a fifth record waits for a free thread, raise max_workers if the give-up line is ever seen for a queued record.
+SENDER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="call-record")
 # Record field <- Pipecat's usage report field. Both sides name the same count; the contract is the record's one definition.
 TOKEN_FIELDS = {
     "prompt_tokens": "prompt_tokens",
@@ -40,7 +44,7 @@ TOKEN_FIELDS = {
     "cached_tokens": "cache_read_input_tokens",
 }
 # Held so a send in flight is not collected before it finishes.
-sending: set[asyncio.Task[bool]] = set()
+sending: set[asyncio.Future[bool]] = set()
 
 
 class UsageTally(FrameProcessor):
@@ -165,10 +169,8 @@ def report_call(
     env: Mapping[str, str] = os.environ,
 ) -> None:
     """Starts pricing, logging and sending the call's record and returns: the caller never waits on Google or the Portal. Needs a running loop."""
-    task = asyncio.get_running_loop().create_task(
-        asyncio.to_thread(
-            finish, call_id, ticket, started_at, length_seconds, totals, env
-        )
+    task = asyncio.get_running_loop().run_in_executor(
+        SENDER, finish, call_id, ticket, started_at, length_seconds, totals, env
     )
     sending.add(task)
     task.add_done_callback(sending.discard)

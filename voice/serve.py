@@ -7,6 +7,7 @@ import asyncio
 import html
 import json
 import os
+import socket
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -32,6 +33,7 @@ from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
     FastAPIWebsocketTransport,
 )
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from voice.agent import run_call
 from voice.auth import FONTS_PATH, REFUSAL_PAGE, TicketGate
@@ -45,6 +47,8 @@ OUT_RATE = 24000
 MAX_CALL_SECS = 600
 
 PAGE = (Path(__file__).parent / "page.html").read_text("utf-8")
+# Caller-facing wording, approved by Petter 2026-10-18 (CLAUDE.md § Stop and ask): a change here waits for his answer.
+PRIVACY_LINK = "Privacy notice"
 # The typefaces the call page uses: a copy of the Portal's, held equal by tests/test_design_tokens.py.
 FONTS = {
     p.name: p.read_bytes()
@@ -72,6 +76,14 @@ def render_page(settings: Settings | None) -> str:
             'onerror="this.hidden=true;this.nextElementSibling.hidden=false">'
             f'<span class="name" hidden>{name}</span>'
         )
+    privacy = ""
+    if (
+        settings and settings.privacy_url
+    ):  # the Business's own notice, beside the disclosure; it opens outside the call's frame
+        privacy = (
+            f'<p class="privacy"><a href="{html.escape(settings.privacy_url)}" '
+            f'target="_blank" rel="noopener">{PRIVACY_LINK}</a></p>'
+        )
     return (
         PAGE.replace("__IN_RATE__", str(IN_RATE))
         .replace("__OUT_RATE__", str(OUT_RATE))
@@ -79,6 +91,9 @@ def render_page(settings: Settings | None) -> str:
         .replace("__THEME__", css)
         .replace("__TITLE__", name)
         .replace("__BRAND__", brand)
+        .replace(
+            "__PRIVACY__", privacy
+        )  # last: the Business's address could spell another marker
     )
 
 
@@ -188,11 +203,55 @@ class OneCallPerBusiness:
     def release(self, business: int) -> None:
         self._open.discard(business)
 
+    def any_open(self) -> bool:
+        return bool(self._open)
+
+
+class DrainingServer(uvicorn.Server):
+    """uvicorn, except that a stop (a deploy) waits for the open calls to end before it hangs up on anyone.
+
+    uvicorn closes every open WebSocket with code 1012 when it is told to stop. Calls end by themselves within MAX_CALL_SECS, and the platform's stop wait must be longer than that (see the Dockerfile).
+    """
+
+    def __init__(self, config: uvicorn.Config, calls: OneCallPerBusiness) -> None:
+        super().__init__(config)
+        self.calls = calls
+
+    async def shutdown(self, sockets: list[socket.socket] | None = None) -> None:
+        for server in self.servers:
+            server.close()  # no new call; the open ones keep their connections
+        while self.calls.any_open():
+            await asyncio.sleep(1)
+        await super().shutdown(sockets)
+
+
+SECURITY_HEADERS = [
+    (b"strict-transport-security", b"max-age=2592000"),
+    (b"x-content-type-options", b"nosniff"),
+    (b"referrer-policy", b"same-origin"),
+]
+
+
+class SecurityHeaders:
+    """ASGI middleware: every HTTP response, the gate's refusal included, says HTTPS only, no sniffing, no referrer off the site."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        async def with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                message["headers"] = [*message.get("headers", []), *SECURITY_HEADERS]
+            await send(message)
+
+        await self.app(scope, receive, with_headers)
+
 
 def create_app(ticket_secret: str) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-    one_call = OneCallPerBusiness()
+    one_call = app.state.one_call = OneCallPerBusiness()
     app.add_middleware(TicketGate, ticket_secret=ticket_secret)
+    app.add_middleware(SecurityHeaders)  # added last, so it wraps the gate
 
     @app.get("/")
     async def page(request: Request) -> HTMLResponse:  # pyright: ignore[reportUnusedFunction]
@@ -285,12 +344,13 @@ def main() -> None:
         describe_source()
     )  # a core with no settings source starts, and refuses every call
     app = create_app(secret)
-    uvicorn.run(
+    config = uvicorn.Config(
         app,
         host=os.environ.get("HOST", "127.0.0.1"),
         port=int(os.environ.get("PORT", "7860")),
         access_log=False,  # a call ticket is in the request address: it must not reach the logs
     )
+    DrainingServer(config, app.state.one_call).run()
 
 
 if __name__ == "__main__":

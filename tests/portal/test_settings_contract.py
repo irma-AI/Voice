@@ -7,7 +7,14 @@ from jsonschema import Draft202012Validator
 
 from portal.accounts import modules as module_rules
 from portal.accounts import theme
-from portal.accounts.models import LANGUAGES, Account, Business, Module
+from portal.accounts.models import (
+    LANGUAGES,
+    PRIVACY_URL_MAX,
+    PRIVACY_URL_PATTERN,
+    Account,
+    Business,
+    Module,
+)
 from portal.accounts.views import SettingsForm
 from tests.portal.contract import SCHEMA, schema_errors
 
@@ -81,6 +88,17 @@ def test_the_accent_is_the_same_colour_rule_in_the_database_and_the_schema() -> 
         "set the schema's theme accent patterns and ACCENT_PATTERN in portal/accounts/theme.py to one rule"
     )
     assert Business._meta.get_field("accent").max_length == len("#000000")  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+
+
+def test_the_privacy_notice_address_is_the_same_rule_in_the_database_and_the_schema() -> (
+    None
+):
+    assert PROPERTIES["privacy_url"]["pattern"] == PRIVACY_URL_PATTERN, (
+        "set the schema's privacy_url pattern and PRIVACY_URL_PATTERN in portal/accounts/models.py to one rule"
+    )
+    assert PROPERTIES["privacy_url"]["maxLength"] == PRIVACY_URL_MAX, (
+        "set the schema's privacy_url maxLength and PRIVACY_URL_MAX in portal/accounts/models.py to one number"
+    )
 
 
 def test_what_the_portal_serves_for_modules_matches_the_schema() -> None:

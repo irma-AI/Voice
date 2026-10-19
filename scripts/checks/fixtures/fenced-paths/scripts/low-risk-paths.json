@@ -1,1 +1,1 @@
-{ "fenced": { "label": "evals-approved", "paths": ["tests/evals/**"] } }
+{ "fenced": { "label": "evals-approved", "paths": [] } }

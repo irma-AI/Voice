@@ -4,8 +4,10 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import unicodedata
 from collections import defaultdict
+from datetime import datetime, time
 from decimal import Decimal
 from typing import Any
 from urllib.parse import urlsplit
@@ -29,10 +31,12 @@ from django.http import (
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
+from django.views.decorators.csp import csp_override
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
@@ -43,6 +47,8 @@ from portal.accounts.domain import parse_domain, shown_domain
 from portal.accounts.models import (
     CALL_KINDS,
     LANGUAGES,
+    PRIVACY_URL_MAX,
+    PRIVACY_URL_PATTERN,
     AccessToken,
     Account,
     Business,
@@ -209,7 +215,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             # The Business pastes this into its own website (VOI-73); only a saved domain makes it work, so only then is it shown.
             "button_html": business
             and business.website_domain
-            and f'<script async src="{settings.PORTAL_URL.rstrip("/")}{reverse("call_button_js")}?business={business.call_slug}"></script>',
+            and call_button_tag(business),
         },
     )
 
@@ -308,7 +314,7 @@ class SettingsForm(forms.ModelForm):
         required=False,
         max_length=INSTRUCTIONS_MAX,
         widget=forms.Textarea(attrs={"rows": 12}),
-        help_text=f"What the agent should know about your business and how it should act, in your own words: what you do, where, when you are open, what things cost. Up to {INSTRUCTIONS_MAX:,} characters.",
+        help_text=f"Everything the agent should know about your business, in your own words: what you do, where, when you are open, what things cost. Up to {INSTRUCTIONS_MAX:,} characters.",
     )
 
     # Portal-only: the contract the core reads does not carry it. What was typed is reduced once here to the domain the database stores.
@@ -332,6 +338,30 @@ class SettingsForm(forms.ModelForm):
             return parse_domain(self.cleaned_data["website_domain"])
         except ValueError as e:
             raise forms.ValidationError(str(e)) from None
+
+    # The Business's own privacy notice: the call page links it beside the AI disclosure (the Business is the controller toward its Callers).
+    privacy_url = forms.URLField(
+        label="Your privacy notice",
+        required=False,
+        max_length=PRIVACY_URL_MAX,
+        assume_scheme="https",
+        help_text="The address of your privacy notice for callers, for example https://www.example.se/privacy. Your Callers see a link to it on the call page. Leave it empty for none.",
+        widget=forms.URLInput(
+            attrs={
+                "autocomplete": "url",
+                "autocapitalize": "none",
+                "spellcheck": "false",
+            }
+        ),
+    )
+
+    def clean_privacy_url(self) -> str:
+        url: str = self.cleaned_data["privacy_url"]
+        if url and not re.fullmatch(PRIVACY_URL_PATTERN, url):
+            raise forms.ValidationError(
+                "That is not an https address. Type the address of your privacy notice, starting with https://."
+            )
+        return url
 
     # The Theme (theme.py), shown only to the Business's Callers. The contract carries it as `theme`.
     logo = forms.FileField(
@@ -399,7 +429,7 @@ class SettingsForm(forms.ModelForm):
 
     class Meta:
         model = Business
-        fields = ("name", "instructions", "languages", "website_domain")
+        fields = ("name", "instructions", "languages", "website_domain", "privacy_url")
 
 
 @login_required
@@ -610,14 +640,37 @@ CALL_LINK_REFUSAL = (
 )
 
 
-def call_link_refused(request: HttpRequest) -> HttpResponse:
+# What a Caller reads when the Business's daily budget is spent (English; Petter approved the words on 2026-10-18, VOI-123).
+BUDGET_SPENT_REFUSAL = "Something went wrong. We can't take calls right now."
+
+
+def call_link_refused(
+    request: HttpRequest, sentence: str = CALL_LINK_REFUSAL
+) -> HttpResponse:
     """The refusal as a page with its language and a heading, in the Portal's look: it shows inside the Call button's panel."""
     return render(
-        request,
-        "accounts/call_link_refused.html",
-        {"sentence": CALL_LINK_REFUSAL},
-        status=403,
+        request, "accounts/call_link_refused.html", {"sentence": sentence}, status=403
     )
+
+
+def spent_today(business: Business) -> Decimal:
+    """Today's Call link spend in dollars, the day on TIME_ZONE like the totals page. A priced record counts as priced; one the core could not price, or priced at nothing (its usage reports never came), counts its seconds at the rate Google charged this Business's priced calls so far, and at nothing before the first priced call (Petter, 2026-10-18: no invented rate). Test calls do not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
+    zone = ZoneInfo(settings.TIME_ZONE)
+    today = datetime.combine(datetime.now(zone).date(), time.min, tzinfo=zone)
+    records = CallRecord.objects.filter(business=business, kind="call_link")
+    priced = Q(cost_usd__gt=0)
+    charged = records.filter(priced).aggregate(
+        usd=Sum("cost_usd"), seconds=Sum("length_seconds")
+    )
+    sums = records.filter(started_at__gte=today).aggregate(
+        priced=Sum("cost_usd", filter=priced),
+        unpriced_seconds=Sum("length_seconds", filter=~priced),
+    )
+    spent = sums["priced"] or Decimal(0)
+    if charged["seconds"] and sums["unpriced_seconds"]:
+        # Multiply before dividing: a rate rounded to 28 digits (1.00 / 300) would land just under the budget.
+        spent += charged["usd"] * sums["unpriced_seconds"] / charged["seconds"]
+    return spent
 
 
 def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
@@ -640,10 +693,11 @@ def test_call(request: HttpRequest) -> HttpResponse:
 @require_GET
 @never_cache
 @xframe_options_exempt  # the panel on the Business's website frames this route (VOI-73); the core's frame-ancestors keeps every other site out
+@csp_override({k: v for k, v in settings.SECURE_CSP.items() if k != "frame-ancestors"})
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     """A Business's public call link, opened in the panel the Call button script builds on the Business's website (VOI-73).
 
-    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too.
+    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too. Once the Business's daily budget is spent (VOI-123), no ticket until the next day.
     """
     business = get_object_or_404(Business, call_slug=slug)
     if request.headers.get("Sec-Fetch-Dest") != "iframe":
@@ -654,27 +708,58 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     if not business.website_domain:
         log.warning("call link refused: Business %s has no website domain", business.pk)
         return call_link_refused(request)
+    if spent_today(business) >= business.daily_budget_usd:
+        log.warning(
+            "call link refused: Business %s has spent its daily budget", business.pk
+        )
+        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
     return to_core(business, "call_link", business.website_domain)
+
+
+# The Call button script a Business's website loads, and the hash of its bytes that the pasted tag names (VOI-135):
+# `make generate` writes the hash, and `make generate-check` fails when the file changed without it.
+CALL_BUTTON_FILE = settings.BASE_DIR / "static" / "portal" / "call-button.v1.js"
+CALL_BUTTON_INTEGRITY = (
+    (settings.BASE_DIR / "call-button.v1.integrity").read_text().strip()
+)
+# A tag with a malformed hash (a `make generate` with no openssl writes a bare "sha384-") would be run unchecked by browsers, so the Portal refuses to start on one.
+assert re.fullmatch(r"sha384-[A-Za-z0-9+/]{64}", CALL_BUTTON_INTEGRITY), (
+    "portal/call-button.v1.integrity is not a sha384 hash: run make generate (it needs openssl)"
+)
+
+
+def tag_attributes(business: Business | None) -> dict[str, str]:
+    """What the tag tells the script (its data- attributes): the core's origin, and the launcher's fill and the ring and label on it (the Theme's pair reaches AA, theme.on_accent; Voice's own for no accent or no Business)."""
+    theme = business.theme() if business else {}
+    return {
+        "core": origin(settings.CORE_URL),
+        "fill": theme.get("accent", DEEP_SEA),
+        "ink": theme.get("accent_text", FOAM),
+    }
+
+
+def call_button_tag(business: Business) -> str:
+    """The script tag the Business pastes: the versioned file with its hash, so a browser runs only that exact file (and asks for it with CORS, which WhiteNoise's `Access-Control-Allow-Origin: *` answers), and the attributes the file reads."""
+    data = " ".join(f'data-{k}="{v}"' for k, v in tag_attributes(business).items())
+    return (
+        f'<script async src="{settings.PORTAL_URL.rstrip("/")}{static("portal/call-button.v1.js")}?business={business.call_slug}"'
+        f' {data} integrity="{CALL_BUTTON_INTEGRITY}" crossorigin="anonymous"></script>'
+    )
 
 
 @require_GET
 def call_button_js(request: HttpRequest) -> HttpResponse:
-    """The script a Business's website loads for its call button. Its address names the Business (`?business=<call slug>`),
-    so the launcher carries that Business's adjusted accent; an unknown slug, or a tag pasted before VOI-89 that names it
-    in `data-business` instead, gets Voice's own look (the call link itself still decides whether a call opens)."""
+    """The script for a tag pasted before VOI-135, which carries no data attributes: the Portal writes them onto the tag in
+    front of the versioned file. Its address names the Business (`?business=<call slug>`), so the launcher carries that
+    Business's adjusted accent; an unknown slug, or a tag pasted before VOI-89 that names it in `data-business` instead,
+    gets Voice's own look (the call link itself still decides whether a call opens)."""
     business = Business.objects.filter(
         call_slug=request.GET.get("business", "")
     ).first()
-    theme = business.theme() if business else {}
-    return render(
-        request,
-        "call_button.js",
-        {
-            "core_origin": origin(settings.CORE_URL),
-            # The launcher's fill and the ring and label on it: the Theme's pair reaches AA (theme.on_accent), and so does Voice's.
-            "fill": theme.get("accent", DEEP_SEA),
-            "ink": theme.get("accent_text", FOAM),
-        },
+    # `?? {}`: no current script (not a classic script tag) draws nothing, as the file itself then returns.
+    prelude = f"Object.assign(document.currentScript?.dataset ?? {{}}, {json.dumps(tag_attributes(business))});\n"
+    return HttpResponse(
+        prelude.encode() + CALL_BUTTON_FILE.read_bytes(),
         content_type="text/javascript; charset=utf-8",  # without it the page's own encoding decides how "å" reads
     )
 

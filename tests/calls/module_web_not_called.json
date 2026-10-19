@@ -1,0 +1,18 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad: the agent declines without searching (what Petter heard with Exa).",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Hur högt är Kaknästornet?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Det vet jag tyvärr inte, men jag svarar gärna på andra frågor."
+  }
+ ],
+ "events": []
+}

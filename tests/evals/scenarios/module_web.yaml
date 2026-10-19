@@ -1,0 +1,23 @@
+# The Business's instructions have no tower heights; its Module is a web search that has one. The Caller asks a question outside the instructions and the agent must search and give the Module's figure. The checks read the call record.
+user:
+  modality: audio
+judge:
+  modality: audio
+  transcription:  # the format requires it; only built for `response` expectations, which we don't use
+    service: moonshine
+name: module_web
+scenarios:
+  - name: module_web
+    turns:
+      - expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+          - event: bot_stopped_speaking
+            within_ms: 30000
+      - user: "Hur högt är Kaknästornet?"
+        audio: ../audio/tower_height_sv.wav
+        expect:
+          - event: bot_started_speaking
+            within_ms: 15000
+          - event: bot_stopped_speaking  # the whole reply, not its first word
+            within_ms: 30000

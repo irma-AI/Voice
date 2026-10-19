@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.csp import CSP
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -56,6 +57,7 @@ SUPER_ADMIN_EMAIL = os.environ.get("SUPER_ADMIN_EMAIL", "").strip().lower()
 CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "").strip()
 
 INSTALLED_APPS = [
+    "whitenoise.runserver_nostatic",  # a local run serves static files through WhiteNoise too, with the CORS header the Call button's integrity check needs
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.postgres",
@@ -69,9 +71,18 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
 ]
-if not DEBUG:  # a local run's runserver serves static files itself; the image serves the collected ones
-    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+# A backstop against a template slip: scripts only from our own files, inline styles for the settings page's preview.
+# The logo sets its own; the call link drops frame-ancestors (portal.accounts.views.call_link).
+SECURE_CSP = {
+    "default-src": [CSP.SELF],
+    "img-src": [CSP.SELF, "data:"],
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
+    "frame-ancestors": [CSP.NONE],
+}
+# WhiteNoise serves the static files, the collected ones in the image and the source ones on a local run (its finders mode), each with `Access-Control-Allow-Origin: *`.
+MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 # A refused form gets a Portal page that says what to do, not Django's own explanation of CSRF.
 CSRF_FAILURE_VIEW = "portal.accounts.views.csrf_failure"
 ROOT_URLCONF = "portal.urls"
@@ -116,9 +127,10 @@ PASSWORD_RESET_TIMEOUT = (
 
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = not DEBUG
 if not DEBUG:
-    # Behind the host's proxy, which ends TLS and says so in this header. HSTS is 30 days for now, without subdomains.
+    # Behind the host's proxy, which ends TLS and says so in this header. HSTS is 30 days for now, subdomains included.
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_HSTS_SECONDS = 30 * 24 * 3600
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
 if os.environ.get("EMAIL_HOST"):
     MAILERS = {

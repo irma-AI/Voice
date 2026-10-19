@@ -5,10 +5,14 @@ The Live transcript runs through a real Pipecat pipeline and socket, with a stan
 """
 
 import asyncio
+import contextlib
 import json
+import re
 import time
 
 import pytest
+import uvicorn
+import websockets
 from fastapi import FastAPI, WebSocket
 from loguru import logger
 from pipecat.frames.frames import (
@@ -28,12 +32,19 @@ from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams
 from pipecat.utils.text.base_text_aggregator import AggregationType
 from pipecat.workers.runner import WorkerRunner
 from starlette.testclient import TestClient
+from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketDisconnect
 
 from tests.test_settings_port import GOOD, fake_portal, portal_env
 from voice import serve
 from voice.auth import FONTS_PATH, REFUSAL, TICKET_PATHS
-from voice.serve import OneCallPerBusiness, RawPcmSerializer, create_app, same_site
+from voice.serve import (
+    DrainingServer,
+    OneCallPerBusiness,
+    RawPcmSerializer,
+    create_app,
+    same_site,
+)
 from voice.ticket import sign
 
 
@@ -93,6 +104,47 @@ def test_a_business_has_one_call_at_a_time_and_other_businesses_are_unaffected()
     calls.release(7)  # releasing twice is harmless
 
 
+def test_a_stop_lets_the_open_call_end_before_the_server_hangs_up() -> None:
+    """A deploy stops the old copy with SIGTERM: a real server and a real WebSocket."""
+
+    async def scenario() -> None:
+        calls, over = OneCallPerBusiness(), asyncio.Event()
+
+        async def app(scope: Scope, receive: Receive, send: Send) -> None:
+            if scope["type"] != "websocket":
+                return
+            await receive()
+            await send({"type": "websocket.accept"})
+            assert calls.take(1)
+            await over.wait()
+            calls.release(1)
+            await send({"type": "websocket.close", "code": 1000})
+
+        config = uvicorn.Config(
+            app, host="127.0.0.1", port=0, lifespan="off", log_level="warning"
+        )
+        server = DrainingServer(config, calls)
+        serving = asyncio.create_task(server.serve())
+        while not server.started:
+            await asyncio.sleep(0.05)
+        port = server.servers[0].sockets[0].getsockname()[1]
+        async with websockets.connect(f"ws://127.0.0.1:{port}/") as call:
+            while not calls.any_open():
+                await asyncio.sleep(0.05)
+            server.should_exit = True  # what uvicorn's SIGTERM handler sets; calling the handler would re-raise the signal at pytest
+            await asyncio.sleep(1.5)
+            assert not serving.done()
+            await call.ping()  # still open: a hang-up would raise here
+            with pytest.raises(OSError):  # and no new call gets in
+                await websockets.connect(f"ws://127.0.0.1:{port}/")
+            over.set()
+            with pytest.raises(websockets.ConnectionClosedOK):
+                await call.recv()
+        await asyncio.wait_for(serving, 5)
+
+    asyncio.run(scenario())
+
+
 def test_the_call_page_opens_with_a_portal_ticket_and_refuses_everyone_else() -> None:
     client = TestClient(
         create_app("portal-secret"), base_url="https://voice.example.se"
@@ -101,6 +153,21 @@ def test_the_call_page_opens_with_a_portal_ticket_and_refuses_everyone_else() ->
     assert client.get(page).status_code == 200
     refused = client.get("/")
     assert refused.status_code == 403 and REFUSAL in refused.text
+
+
+def test_every_response_says_https_only_no_sniffing_and_no_referrer_off_site() -> None:
+    client = TestClient(
+        create_app("portal-secret"), base_url="https://voice.example.se"
+    )
+    page = f"/?ticket={sign('portal-secret', 7, 'test', int(time.time()) + 60)}"
+    for response in (
+        client.get(page),
+        client.get("/fonts/SchibstedGrotesk-Variable.woff2"),
+        client.get("/"),  # the 403 refusal
+    ):
+        assert response.headers["strict-transport-security"] == "max-age=2592000"
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["referrer-policy"] == "same-origin"
 
 
 def test_the_call_page_says_which_site_may_frame_it() -> None:
@@ -210,6 +277,29 @@ def test_the_call_page_wears_the_business_theme_and_says_it_is_an_ai(
     assert DISCLOSURE in page
 
 
+def test_the_call_page_links_the_business_privacy_notice_only_when_it_has_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    given = {**GOOD, "privacy_url": 'https://example.se/integritet?a=1&b="2"'}
+    with fake_portal(body=given) as url:
+        page = call_page(monkeypatch, portal_env(url))
+    link = re.search(
+        r'<p class="privacy"><a href="([^"]*)" ([^>]*)>Privacy notice</a>', page
+    )  # the words were approved by Petter 2026-10-18
+    assert link and link[1] == "https://example.se/integritet?a=1&amp;b=&quot;2&quot;"
+    # The page is often framed in the Business's own website: the notice opens outside the call, which goes on.
+    assert link[2] == 'target="_blank" rel="noopener"'
+    assert page.index(DISCLOSURE) < page.index(
+        'class="privacy"'
+    )  # beside the disclosure, after it
+    with fake_portal() as url:  # no notice given: no link at all
+        assert 'class="privacy"' not in call_page(monkeypatch, portal_env(url))
+    # An address that spells another page marker is filled in last, so it stays an address.
+    with fake_portal(body={**GOOD, "privacy_url": "https://x.se/__BRAND__"}) as url:
+        page = call_page(monkeypatch, portal_env(url))
+    assert 'href="https://x.se/__BRAND__"' in page and page.count("<h1") == 1
+
+
 def test_without_settings_the_call_page_shows_voices_own_look(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -304,7 +394,9 @@ def test_the_live_transcript_reaches_the_page_with_its_speaker_and_no_log() -> N
         async def _gone(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
             await runner.cancel()
 
-        await runner.run()
+        # The TestClient cancels the app right after its disconnect, mid-teardown: the normal end here.
+        with contextlib.suppress(asyncio.CancelledError):
+            await runner.run()
 
     try:
         with TestClient(app).websocket_connect("/ws") as ws:
