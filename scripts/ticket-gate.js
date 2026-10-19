@@ -5,7 +5,7 @@
 //    were written (Bash scripts included). Only inside Claude Code ($CLAUDECODE), so Petter's own commits are free.
 // Files in "no_ticket" of scripts/low-risk-paths.json (as on origin/main, scripts/base-config.js), and files outside the repo, need none. The session's ticket
 // is $NEXT_STEP_TICKET, else the id in the file `next-step-ticket` in the git dir (/next-step writes it when it
-// starts a ticket), else a ticket id in the branch name.
+// starts a ticket; the SessionStart hook deletes it on a fresh start), else a ticket id in the branch name.
 // Fails closed: no ticket, no token or no answer from Linear denies and says why (exit 2, stderr to Claude).
 // Known limit: Bash can still write files in the working tree; they cannot be committed here, and the CI guard
 // ticket-required.js is the backstop for `git commit --no-verify`.
