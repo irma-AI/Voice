@@ -1,6 +1,6 @@
 // The Portal's one script, on every page. Each part only adds to a page that already works without it.
 
-// Copy buttons: a button with data-copy="<id>" copies that element's text and says so in the status line beside it.
+// Copy buttons: a button with data-copy="<id>" copies that element's text and says so in the status line beside it (data-copied, if set, is what it says).
 // Without script (or without clipboard access) the button stays hidden and the code can still be selected by hand.
 document.querySelectorAll("[data-copy]").forEach((button) => {
   const source = document.getElementById(button.dataset.copy);
@@ -10,7 +10,7 @@ document.querySelectorAll("[data-copy]").forEach((button) => {
   button.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(source.textContent.trim());
-      status.textContent = "Copied. Paste it on your website.";
+      status.textContent = button.dataset.copied || "Copied. Paste it on your website.";
     } catch {
       status.textContent = "Could not copy. Select the code and copy it by hand.";
     }

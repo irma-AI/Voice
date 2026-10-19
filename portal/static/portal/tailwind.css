@@ -29,15 +29,15 @@
   form legend { @apply mb-1.5 p-0; }
   /* A choice in a checkbox list (Languages) reads and taps like the other check rows. */
   form fieldset label { @apply flex min-h-11 items-center text-base font-normal text-foam; }
-  form input:not([type="hidden"], [type="checkbox"]), form textarea, form select {
+  form input:not([type="hidden"], [type="checkbox"], [type="radio"]), form textarea, form select {
     @apply w-full rounded-md border border-foam-faint bg-deep-sea/60 px-3 py-2.5 text-base text-foam;
     caret-color: var(--color-cable-light);
   }
-  form input:not([type="hidden"], [type="checkbox"]):hover, form textarea:hover { border-color: var(--color-foam-muted); }
-  form input:not([type="hidden"], [type="checkbox"]):focus-visible, form textarea:focus-visible {
+  form input:not([type="hidden"], [type="checkbox"], [type="radio"]):hover, form textarea:hover { border-color: var(--color-foam-muted); }
+  form input:not([type="hidden"], [type="checkbox"], [type="radio"]):focus-visible, form textarea:focus-visible {
     border-color: var(--color-cable-light); outline-offset: 1px;
   }
-  form input[type="checkbox"] { @apply mr-2 size-4 align-middle; accent-color: var(--color-cable-light); }
+  form input:is([type="checkbox"], [type="radio"]) { @apply mr-2 size-4 align-middle; accent-color: var(--color-cable-light); }
   form label.check { @apply flex min-h-11 items-center text-base font-normal text-foam; }
   form input[type="file"] { @apply cursor-pointer py-2 text-sm text-foam-muted; }
   form input[type="file"]::file-selector-button {
@@ -255,6 +255,15 @@
   .snippet pre { @apply rounded-md border border-foam-faint bg-deep-sea/60 p-4 text-sm break-all whitespace-pre-wrap; }
   .snippet-copied { @apply m-0 min-h-5 text-sm text-foam; }
   .snippet-copied:empty { @apply hidden; }
+  /* Revoke asks once, in place: the first press opens the second, so one slip ends nothing. Works without script. */
+  .revoke { @apply shrink-0 text-right; }
+  .revoke summary { @apply inline-flex min-h-11 cursor-pointer list-none items-center rounded-pill px-3 text-sm text-foam-muted underline decoration-foam-faint underline-offset-[0.3em] hover:text-foam hover:decoration-cable-light; }
+  .revoke summary::-webkit-details-marker { display: none; }
+  .revoke[open] summary { @apply text-foam; }
+  .revoke form { @apply mt-1 grid justify-items-end gap-2; }
+  .revoke p { @apply m-0 max-w-[14rem] text-sm text-foam-muted; }
+  /* On a phone the open step takes its own row, so the token's label keeps its width. */
+  @media (max-width: 39.99rem) { .revoke[open] { flex-basis: 100%; } }
 
   /* Settings: the colour picker only shows while "Use an accent colour" is ticked; nothing is saved from it otherwise. */
   .accent:has(#id_use_accent:not(:checked)) > :not(.check) { display: none; }
