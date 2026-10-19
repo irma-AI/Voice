@@ -36,6 +36,7 @@ from django.urls import reverse
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
+from django.views.decorators.csp import csp_override
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
@@ -692,6 +693,7 @@ def test_call(request: HttpRequest) -> HttpResponse:
 @require_GET
 @never_cache
 @xframe_options_exempt  # the panel on the Business's website frames this route (VOI-73); the core's frame-ancestors keeps every other site out
+@csp_override({k: v for k, v in settings.SECURE_CSP.items() if k != "frame-ancestors"})
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     """A Business's public call link, opened in the panel the Call button script builds on the Business's website (VOI-73).
 
