@@ -9,6 +9,7 @@ import json
 import os
 import socket
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -45,6 +46,8 @@ IN_RATE = 16000
 OUT_RATE = 24000
 # ponytail: a hard cap so a forgotten tab can't spend Gemini credit all night; make it a setting if calls legitimately run longer.
 MAX_CALL_SECS = 600
+# A stop waits this long at most for open calls: every call ends within MAX_CALL_SECS, and Dokploy kills at 660 s.
+DRAIN_CEILING_S = MAX_CALL_SECS + 30
 
 PAGE = (Path(__file__).parent / "page.html").read_text("utf-8")
 # Caller-facing wording, approved by Petter 2026-10-18 (CLAUDE.md § Stop and ask): a change here waits for his answer.
@@ -206,22 +209,42 @@ class OneCallPerBusiness:
     def any_open(self) -> bool:
         return bool(self._open)
 
+    def open_ones(self) -> list[int]:
+        return sorted(self._open)
+
 
 class DrainingServer(uvicorn.Server):
     """uvicorn, except that a stop (a deploy) waits for the open calls to end before it hangs up on anyone.
 
     uvicorn closes every open WebSocket with code 1012 when it is told to stop. Calls end by themselves within MAX_CALL_SECS, and the platform's stop wait must be longer than that (see the Dockerfile).
+    A call still open after DRAIN_CEILING_S never released its slot (a bug): the stop gives up on it and says which Business.
     """
 
-    def __init__(self, config: uvicorn.Config, calls: OneCallPerBusiness) -> None:
+    def __init__(
+        self,
+        config: uvicorn.Config,
+        calls: OneCallPerBusiness,
+        ceiling_s: float = DRAIN_CEILING_S,
+    ) -> None:
         super().__init__(config)
-        self.calls = calls
+        self.calls, self.ceiling_s = calls, ceiling_s
 
     async def shutdown(self, sockets: list[socket.socket] | None = None) -> None:
         for server in self.servers:
             server.close()  # no new call; the open ones keep their connections
+        give_up = time.monotonic() + self.ceiling_s
         while self.calls.any_open():
-            await asyncio.sleep(1)
+            if time.monotonic() >= give_up:
+                logger.error(
+                    "stop: gave up after {} s waiting for the calls of Businesses {}; they are cut now",
+                    self.ceiling_s,
+                    self.calls.open_ones(),
+                )
+                self.config.timeout_graceful_shutdown = (
+                    5  # else uvicorn waits on the stuck call's task for ever
+                )
+                break
+            await asyncio.sleep(min(1, self.ceiling_s))
         await super().shutdown(sockets)
 
 

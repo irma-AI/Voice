@@ -12,5 +12,6 @@ EXPOSE 8000
 # GOOGLE_API_KEY and CORE_SECRET come from the environment (Dokploy); the app refuses to start without them. CORE_SECRET checks the Portal's call tickets, the only way into a call. SETTINGS_URL tells it where the Portal's settings are; without it the app starts and refuses every call.
 # Healthy once the server accepts connections (TCP only: every page here asks for a call ticket). With the update order start-first, Dokploy keeps the old copy until the new one passes this (VOI-121).
 HEALTHCHECK --interval=5s --timeout=3s --start-period=20s --retries=3 CMD ["python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 2)"]
-# A stop (SIGTERM, a deploy) waits for open calls to end (voice.serve.DrainingServer), at most MAX_CALL_SECS (600 s): the stop wait on Dokploy (Swarm settings) must be longer, 660 s.
+# A stop (SIGTERM, a deploy) waits for open calls to end (voice.serve.DrainingServer), at most DRAIN_CEILING_S (MAX_CALL_SECS + 30 = 630 s,
+# then it logs the Businesses still open and cuts them): the stop wait on Dokploy (Swarm settings) must be longer, 660 s.
 CMD ["python", "-m", "voice.serve"]
