@@ -26,7 +26,6 @@ try { frozen = readBaseJson(ROOT, 'scripts/low-risk-paths.json').frozen || []; }
   process.exit(1);
 }
 
-
 let changed;
 try { changed = changedFiles(ROOT); } catch (e) { console.log('#scanned 1'); console.log(`base\t${e.message}`); process.exit(1); }
 console.log(`#scanned ${changed.length + 1}`); // +1: the change set itself, which may be empty

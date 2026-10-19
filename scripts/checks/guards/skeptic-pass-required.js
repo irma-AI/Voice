@@ -40,7 +40,6 @@ if (!Array.isArray(listed) || !listed.length) {
   process.exit(1);
 }
 
-
 // The body of the "Skeptic pass" heading, up to the next heading, or null.
 function section(text) {
   const m = String(text || '').match(/^#{1,6}[ \t]*skeptic pass[ \t]*\n([\s\S]*?)(?=^#{1,6}[ \t]|(?![\s\S]))/im);

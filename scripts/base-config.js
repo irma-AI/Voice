@@ -24,9 +24,9 @@ function readBaseJson(root, rel, { local = false, optional = false } = {}) {
     let text;
     try { text = git(root, 'show', `${base}:${rel}`); } catch (e) {
       // The base is there and lacks the file: absent, not unreadable. A missing base still throws.
-      let baseThere = false;
-      if (optional) try { git(root, 'rev-parse', '--verify', '--quiet', `${base}^{commit}`); baseThere = true; } catch { /* no base: throw below */ }
-      if (!baseThere) throw new Error(`cannot read ${rel} from ${base} (${firstLine(e)}): fetch the base branch (CI checks out with fetch-depth 0)`);
+      let absent = false;
+      if (optional) try { absent = git(root, 'ls-tree', '--full-tree', '--name-only', `${base}^{commit}`, '--', rel) === ''; } catch { /* no base: throw below */ }
+      if (!absent) throw new Error(`cannot read ${rel} from ${base} (${firstLine(e)}): fetch the base branch (CI checks out with fetch-depth 0)`);
       if (fs.existsSync(path.join(root, rel))) console.error(`note: ${base} has no ${rel} yet, so this PR's copy decides`);
     }
     if (text !== undefined) return JSON.parse(text);

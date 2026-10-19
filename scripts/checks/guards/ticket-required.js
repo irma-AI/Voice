@@ -27,7 +27,6 @@ if (!fixture && !process.env.GUARD_BASE) {
   process.exit(process.exitCode || 0);
 }
 
-
 (async () => {
   let changed;
   try { changed = changedFiles(ROOT); } catch (e) { console.log('#scanned 1'); console.log(`base\t${e.message}`); process.exitCode = 1; return; }
