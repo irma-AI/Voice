@@ -68,7 +68,7 @@ A change is done when all of these hold; iterate until they do:
 - **ADR** (`docs/adr/`, via `/domain-modeling`): a choice that is hard to reverse, surprising without context and a real trade-off.
 - **`DECISIONS.md` line** (format in its header; the `decisions-format` guard checks it) for every other non-obvious choice: picked A over B, declined a dependency or a review finding, stopped because a rule forbade something, diverged from the issue's proposal. The detail goes in the PR body.
 
-Grep both before reopening a past choice. A question parked for a person gets an `ESCALATED` line, and a `RESOLVED` line once answered; `grep ESCALATED DECISIONS.md` shows what is waiting.
+Grep both before reopening a past choice; `DECISIONS.md` holds the last week and the open questions, and `make archive-decisions` moves older lines to `docs/decisions/<yyyy-mm>.md` (grep there too). A question parked for a person gets an `ESCALATED` line, and a `RESOLVED` line once answered; `grep ESCALATED DECISIONS.md` shows what is waiting.
 
 ## Rules
 
@@ -99,7 +99,7 @@ This file holds what every session needs; keep it under about 120 lines. A rule 
 
 ## Where the skills come from
 
-Everything under `.claude/skills/`, `.claude/vendor-licenses/`, `.claude/agents/impeccable-*` and `.claude/hooks/ponytail-*` is vendored by `scripts/vendor-skills.sh` (see `skills-lock.json`); never edit those files, since a re-run replaces them. The hand-written skills are the folders `skills-lock.json` doesn't list, among them `next-step` (model-invoked on purpose so the agent can pick a flow itself); a re-vendor leaves them alone. A source that also exists as a claude.ai plugin is switched off in `.claude/settings.json` `enabledPlugins` (`<name>@synced`: false), so each skill and hook loads once and the repo copy wins; a repository can only do this per plugin, never `syncClaudeAiPlugins` or `syncClaudeAiSkills`.
+Everything under `.claude/skills/`, `.claude/vendor-licenses/`, `.claude/agents/impeccable-*` and `.claude/hooks/ponytail-*` is vendored by `scripts/vendor-skills.sh` (see `skills-lock.json`); never edit those files, since a re-run replaces them. The hand-written skills are the folders `skills-lock.json` doesn't list, among them `next-step` (model-invoked on purpose so the agent can pick a flow itself); a re-vendor leaves them alone. A source that also exists as a claude.ai plugin is switched off in `.claude/settings.json` `enabledPlugins` (`<name>@synced`: false, and `ponytail@ponytail`, the marketplace copy, which printed ponytail's block a second time), so each skill and hook loads once and the repo copy wins; a repository can only do this per plugin, never `syncClaudeAiPlugins` or `syncClaudeAiSkills`.
 
 <!-- UI repos: "UI work follows DESIGN.md and PRODUCT.md", once Impeccable has written them. -->
 

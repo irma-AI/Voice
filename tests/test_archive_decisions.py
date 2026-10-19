@@ -45,4 +45,6 @@ def test_a_second_run_moves_nothing_more_and_still_sees_the_archived_answers(
     env = {**os.environ, "ARCHIVE_ROOT": str(tmp_path), "ARCHIVE_TODAY": "2026-10-19"}
     subprocess.run(["node", str(SCRIPT)], env=env, check=True, capture_output=True)
     assert (tmp_path / "DECISIONS.md").read_text() == first
-    assert (tmp_path / "docs/decisions/2026-09.md").read_text().count("Old decision") == 1
+    assert (tmp_path / "docs/decisions/2026-09.md").read_text().count(
+        "Old decision"
+    ) == 1
