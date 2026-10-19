@@ -10,29 +10,11 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
 const ROOT = process.env.GUARD_ROOT || process.cwd();
 const { fingerprint, readConfig } = require(path.join(__dirname, '..', '..', 'eval-receipt.js'));
+const { changedFiles } = require(path.join(__dirname, '..', '..', 'base-config.js'));
 
 const fail = (id, msg) => { console.log(`${id}\t${msg}`); process.exitCode = 1; };
-
-function changedFiles() {
-  const listed = path.join(ROOT, '.guard-changed-files'); // fixtures list their "changed" files here
-  if (fs.existsSync(listed)) return fs.readFileSync(listed, 'utf8').split('\n').filter(Boolean);
-  const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  const base = process.env.GUARD_BASE || 'origin/main';
-  let from;
-  try { from = git('merge-base', base, 'HEAD'); } catch {
-    // CI named a base it cannot reach: refuse. Only the unset local default may pass, with its note.
-    if (process.env.GUARD_BASE) { fail('base', `cannot compare with ${process.env.GUARD_BASE}: fetch it (CI checks out with fetch-depth 0)`); return []; }
-    console.error(`no ${base} to compare with; nothing checked (CI sets GUARD_BASE on pull requests)`);
-    return [];
-  }
-  // No diff filter and no renames: a deleted or moved listed file counts too.
-  const committed = git('diff', '--name-only', '--no-renames', from, 'HEAD').split('\n');
-  const working = git('diff', '--name-only', '--no-renames', 'HEAD').split('\n');
-  return [...new Set([...committed, ...working])].filter(Boolean);
-}
 
 let cfg;
 try { cfg = readConfig(ROOT); } catch (e) {
@@ -41,7 +23,8 @@ try { cfg = readConfig(ROOT); } catch (e) {
   process.exit();
 }
 const listed = [...cfg.paths, ...Object.keys(cfg.lines)];
-const changed = changedFiles();
+let changed;
+try { changed = changedFiles(ROOT); } catch (e) { console.log('#scanned 1'); fail('base', e.message); process.exit(); }
 console.log(`#scanned ${changed.length + 1}`); // +1: the change set itself, which may be empty
 if (!changed.some((f) => listed.includes(f))) process.exit();
 
