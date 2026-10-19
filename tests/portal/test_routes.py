@@ -17,6 +17,7 @@ OPEN = {
     "password_reset_complete",
     "settings_for_core",
     "record_call",
+    "record_call_log",
     "call_link",
     "call_button_js",
     "logo",

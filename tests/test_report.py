@@ -1,6 +1,6 @@
-"""Seam 2: the call reports port, free. The Call record the core builds after a call, and its delivery to a real HTTP server on localhost standing in for the Portal.
+"""Seam 2: the call reports port, free. The Call record and Call log the core builds after a call, and their delivery to a real HTTP server on localhost standing in for the Portal.
 
-Nothing of ours is mocked. The record's shape is the contract file's (contract/call-record.schema.json).
+Nothing of ours is mocked. The shapes are the contract files' (contract/call-record.schema.json, contract/call-log.schema.json).
 """
 
 import asyncio
@@ -24,12 +24,16 @@ from pipecat.pipeline.worker import PipelineWorker
 from pipecat.workers.runner import WorkerRunner
 
 from voice import report
+from voice.bargein import BargeInRecorder
 from voice.report import UsageTally, build_record, deliver, report_call
 from voice.ticket import Ticket
 
 ROOT = Path(__file__).parents[1]
 SCHEMA: dict[str, Any] = json.loads(
     (ROOT / "contract/call-record.schema.json").read_text()
+)
+LOG_SCHEMA: dict[str, Any] = json.loads(
+    (ROOT / "contract/call-log.schema.json").read_text()
 )
 SECRET = "s3cret"
 STARTED = datetime(2026, 10, 17, 7, 30, 5, 123456, tzinfo=UTC)
@@ -214,8 +218,8 @@ def test_the_record_is_logged_before_any_send_and_the_call_never_waits_on_it() -
     assert took < 0.1  # the Portal held its answer; the call did not
     assert lines[0] == "call record " + json.dumps(a_record())
     assert logged_before_send == 1  # the line was written when the send had not started
-    assert [s[2] for s in seen] == [a_record()]
-    assert any("delivered" in line for line in lines)
+    assert [s[2] for s in seen if s[0] == "/api/calls/"] == [a_record()]
+    assert any("record delivered" in line for line in lines)
 
 
 def test_records_stuck_on_a_down_portal_leave_the_default_threads_to_call_starts() -> (
@@ -254,7 +258,8 @@ def test_no_portal_to_send_to_is_logged_not_ignored() -> None:
 
     with log_lines() as lines:
         asyncio.run(end_of_call())
-    assert lines[0].startswith("call record ") and "not sent" in lines[1]
+    assert any(line.startswith("call record ") for line in lines)
+    assert sum("not sent" in line for line in lines) == 2  # the record and the Call log
 
 
 def test_the_security_rule_lists_every_field_a_production_log_line_may_hold() -> None:
@@ -264,3 +269,112 @@ def test_the_security_rule_lists_every_field_a_production_log_line_may_hold() ->
         assert f"`{field}`" in rule, (
             f"add `{field}` to the Call record line in .claude/rules/security.md"
         )
+
+
+def test_a_call_s_barge_in_lines_reach_the_portal_as_its_call_log_and_the_call_never_waits() -> (
+    None
+):
+    """The lines are in the server log first; the Portal holds its answer, and the call's end does not wait for it."""
+    call = "c0ffee0123456789"
+    seen: list[Any] = []
+    hold = threading.Event()
+    with fake_portal([], seen, hold) as portal, log_lines() as lines:
+        env = {"SETTINGS_URL": portal, "CORE_SECRET": SECRET}
+
+        async def a_call_ends() -> float:
+            worker = PipelineWorker(Pipeline([BargeInRecorder(call)]))
+            await worker.queue_frames([EndFrame()])
+            runner = WorkerRunner()
+            await runner.add_workers(worker)
+            await runner.run()
+            began = time.monotonic()
+            report_call(call, TICKET, STARTED, 2, TOTALS, env)
+            took = time.monotonic() - began
+            await asyncio.sleep(0.2)
+            hold.set()
+            await asyncio.gather(*report.sending)
+            return took
+
+        took = asyncio.run(a_call_ends())
+
+    assert took < 0.1
+    logged = [
+        json.loads(line.removeprefix("barge-in "))
+        for line in lines
+        if line.startswith("barge-in ")
+    ]
+    assert [e["e"] for e in logged] == ["config", "end"]
+    [(_, auth, log)] = [s for s in seen if s[0] == "/api/call-logs/"]
+    assert auth == f"Bearer {SECRET}"
+    assert log == {
+        "call_id": call,
+        "business": 7,
+        "kind": "call_link",
+        "started_at": "2026-10-17T07:30:05.123456Z",
+        "events": logged,
+    }
+    validator: Any = Draft202012Validator(LOG_SCHEMA)
+    assert list(validator.iter_errors(log)) == []
+    assert call not in report.EVENTS  # taken out at the call's end, not kept
+
+
+def test_a_hung_up_call_keeps_its_end_line_and_ends_at_once_while_the_portal_hangs() -> (
+    None
+):
+    """The Caller hangs up (the runner is cancelled, as the web Channel does) while the Portal answers nothing."""
+    call = "deadbeef01234567"
+    seen: list[Any] = []
+    hold = threading.Event()
+    with fake_portal([], seen, hold) as portal, log_lines() as lines:
+        env = {"SETTINGS_URL": portal, "CORE_SECRET": SECRET}
+
+        async def a_call_is_hung_up() -> float:
+            worker = PipelineWorker(Pipeline([BargeInRecorder(call)]))
+            runner = WorkerRunner()
+            await runner.add_workers(worker)
+
+            async def hang_up() -> None:
+                await asyncio.sleep(0.2)
+                await runner.cancel()
+
+            caller = asyncio.create_task(hang_up())
+            await runner.run()
+            await caller
+            began = time.monotonic()
+            report_call(call, TICKET, STARTED, 1, TOTALS, env)
+            took = time.monotonic() - began
+            await asyncio.sleep(0.2)
+            hold.set()
+            await asyncio.gather(*report.sending)
+            return took
+
+        took = asyncio.run(a_call_is_hung_up())
+    assert took < 0.1
+    logged = [
+        json.loads(line.removeprefix("barge-in "))
+        for line in lines
+        if line.startswith("barge-in ")
+    ]
+    assert [e["e"] for e in logged] == ["config", "end"]
+    assert logged[-1]["reason"] == "cancel"
+    [(_, _, log)] = [s for s in seen if s[0] == "/api/call-logs/"]
+    assert log["events"] == logged
+
+
+def test_a_call_log_the_portal_never_takes_is_given_up_and_said() -> None:
+    with fake_portal([], []) as portal:
+        pass  # nothing listens here any more
+    with log_lines() as lines:
+        assert (
+            deliver(
+                {"call_id": "c0ffee0123456789"},
+                portal,
+                SECRET,
+                window_s=0.2,
+                pause_s=0.05,
+                path="/api/call-logs/",
+                what="Call log",
+            )
+            is False
+        )
+    assert "gave up sending the Call log" in lines[-1]
