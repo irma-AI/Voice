@@ -8,14 +8,14 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
 const ROOT = process.env.GUARD_ROOT || process.cwd();
+const { changedFiles, inFixture } = require(path.join(__dirname, '..', '..', 'base-config.js'));
 const { ticketIds, fetchIssue, problem, needsTicket, FIX, TEAM } = require(path.join(__dirname, '..', '..', 'ticket-check.js'));
 
 // A fixture has `.guard-changed-files`, `.guard-pr-text` and `.guard-tickets.json` (id to Linear issue) in place of
 // a git diff, the CI env and Linear.
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-const fixture = fs.existsSync(path.join(ROOT, '.guard-changed-files'));
+const fixture = inFixture(ROOT) && fs.existsSync(path.join(ROOT, '.guard-changed-files'));
 
 // The team key lives in ticket-check.js and in docs/agents/issue-tracker.md: name the side to edit when they differ.
 const tracker = fs.existsSync(path.join(ROOT, 'docs/agents/issue-tracker.md')) ? read('docs/agents/issue-tracker.md') : '';
@@ -27,15 +27,9 @@ if (!fixture && !process.env.GUARD_BASE) {
   process.exit(process.exitCode || 0);
 }
 
-function changedFiles() {
-  if (fixture) return read('.guard-changed-files').split('\n').filter(Boolean);
-  const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).trim();
-  const from = git('merge-base', process.env.GUARD_BASE, 'HEAD');
-  return git('diff', '--name-only', '--no-renames', from, 'HEAD').split('\n').filter(Boolean);
-}
-
 (async () => {
-  const changed = changedFiles();
+  let changed;
+  try { changed = changedFiles(ROOT); } catch (e) { console.log('#scanned 1'); console.log(`base\t${e.message}`); process.exitCode = 1; return; }
   console.log(`#scanned ${changed.length + 1}`); // +1: the change set itself, which may be empty
   if (teamDrift) { console.log(`team\t${teamDrift}`); process.exitCode = 1; }
   let needed;
