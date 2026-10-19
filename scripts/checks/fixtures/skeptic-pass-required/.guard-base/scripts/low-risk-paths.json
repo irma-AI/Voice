@@ -1,1 +1,1 @@
-{ "skeptic_pass": ["voice/auth.py", "portal/accounts/views.py"] }
+{ "skeptic_pass": ["voice/auth.py", "portal/accounts/views.py", "portal/accounts/migrations/**"] }
