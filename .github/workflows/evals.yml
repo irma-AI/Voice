@@ -43,5 +43,7 @@ jobs:
         run: |
           # shortcut: results go to the log, not an artifact; add upload-artifact when they are needed after the log expires
           for f in eval-runs/*/*.transcript.txt; do [ -e "$f" ] && { echo "== $f"; cat "$f"; }; done || true
+          # The bot's own log (the suite keeps it under logs/): the only place a bot that never starts says why.
+          find eval-runs -path '*/logs/*.log' 2>/dev/null | while read -r f; do echo "== $f"; tail -n 200 "$f"; done || true
           # A full pass writes the receipt (make eval); an agent compares this with a local recompute before committing it.
           if [ -e eval-receipt.json ]; then echo "== eval-receipt.json at $GITHUB_SHA"; cat eval-receipt.json; fi
