@@ -166,6 +166,7 @@ BAD: dict[str, dict[str, Any]] = {
     "a detector setting with an odd name": {
         "events": [{**EVENTS[0], "vad": {"Start Sensitivity": 1}}]
     },
+    "a code holding a NUL": {"events": [{**EVENTS[1], "phase": "a\u0000b"}]},
 }
 
 

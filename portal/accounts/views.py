@@ -20,7 +20,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import DataError, IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.http import (
@@ -817,17 +817,12 @@ def settings_for_core(request: HttpRequest, business_id: int) -> HttpResponse:
     return JsonResponse(business.as_settings())
 
 
-class CallRecordForm(forms.ModelForm):  # pyright: ignore[reportMissingTypeArgument]
-    """A Call record as the core sends it (contract/call-record.schema.json). The strict spellings are here because the form's defaults accept more than the contract does."""
+class CoreReportForm(forms.ModelForm):  # pyright: ignore[reportMissingTypeArgument]
+    """What every report from the core shares: a UTC start spelled as the contracts spell it, and a call id that may repeat."""
 
     started_at = forms.RegexField(
         regex=r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,6})?Z$"
     )  # UTC only
-    price_date = forms.DateField(input_formats=["%Y-%m-%d"], required=False)
-
-    class Meta:
-        model = CallRecord
-        fields = "__all__"
 
     def clean_started_at(self) -> Any:
         try:
@@ -836,7 +831,17 @@ class CallRecordForm(forms.ModelForm):  # pyright: ignore[reportMissingTypeArgum
             raise ValidationError("not a real moment") from None
 
     def validate_unique(self) -> None:
-        """A repeated call id is the core retrying, not a mistake: record_call answers it with the stored row."""
+        """A repeated call id is the core retrying, not a mistake: the view answers it with the stored row."""
+
+
+class CallRecordForm(CoreReportForm):
+    """A Call record as the core sends it (contract/call-record.schema.json). The strict spellings are here because the form's defaults accept more than the contract does."""
+
+    price_date = forms.DateField(input_formats=["%Y-%m-%d"], required=False)
+
+    class Meta:
+        model = CallRecord
+        fields = "__all__"
 
 
 @csrf_exempt  # the shared secret gates it, not a session
@@ -866,12 +871,10 @@ def record_call(request: HttpRequest) -> HttpResponse:
     return JsonResponse({"stored": True}, status=201 if created else 200)
 
 
-class CallLogForm(CallRecordForm):
-    """A Call log's call fields as the core sends them (contract/call-log.schema.json), spelled as strictly as a Call record's. Its events are the database's to check."""
+class CallLogForm(CoreReportForm):
+    """A Call log's call fields as the core sends them (contract/call-log.schema.json). Its events are the database's to check."""
 
-    price_date = None  # pyright: ignore[reportAssignmentType, reportIncompatibleVariableOverride]  # not a Call log field
-
-    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+    class Meta:
         model = CallLog
         exclude = ("events",)
 
@@ -905,9 +908,13 @@ def record_call_log(request: HttpRequest) -> HttpResponse:
                 call_id=values.pop("call_id"),
                 defaults={**values, "events": body["events"]},
             )
-    except IntegrityError as e:
-        # The database is what checks an event (call_log_events_hold_only_listed_fields); this only says so.
-        if "call_log_events_hold_only_listed_fields" not in str(e):
+    except (IntegrityError, DataError) as e:
+        # The database is what checks an event (call_log_events_hold_only_listed_fields), or refuses text jsonb can't hold (a NUL); this only says so.
+        refused = getattr(getattr(e.__cause__, "diag", None), "constraint_name", None)
+        if (
+            isinstance(e, IntegrityError)
+            and refused != "call_log_events_hold_only_listed_fields"
+        ):
             raise
         return JsonResponse(
             {"error": "malformed Call log", "fields": ["events"]}, status=400
