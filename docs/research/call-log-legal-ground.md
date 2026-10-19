@@ -70,7 +70,7 @@ Brottsbalken 4 kap. 9 a § punishes recording "i hemlighet" (in secret) speech i
 
 The right to object (Art. 21(1)) then applies: Voice must stop unless it shows compelling grounds. A plain way to honour that is to delete a kept test call on request, or to let the tester start a test call that keeps nothing. Which one is a product choice for Petter.
 
-**Proposed (Petter confirms, Aref checks): legitimate interest, with a written assessment before VOI-160 ships, the notice before the call, and a way to object.**
+**Proposed (Petter confirms, after a legal check): legitimate interest, with a written assessment before VOI-160 ships, the notice before the call, and a way to object.**
 
 ## 5. What must hold to keep a test call's words and audio for 30 days
 
@@ -98,7 +98,7 @@ Listed so the cost is visible; nothing here is built or proposed for building (V
 
 ## 7. Proposed test call notice (PROPOSAL, awaiting Petter)
 
-Caller-facing wording: CLAUDE.md § Stop and ask, Legal wording. Not to be used until Petter approves it on a card in VOI-160, and Aref has checked it.
+Caller-facing wording: CLAUDE.md § Stop and ask, Legal wording. Not to be used until Petter approves it on a card in VOI-160 and a legal check has been done.
 
 Swedish:
 
@@ -120,7 +120,7 @@ English:
 
 ## 8. Open points
 
-- Jobylon routes legal questions to Aref Abedi (CEO): the controller analysis (§ 2), the choice of legitimate interest (§ 4) and the notice (§ 7) should get his check before VOI-160 ships. This file is research, not legal advice.
+- A legal check is needed: the controller analysis (§ 2), the choice of legitimate interest (§ 4) and the notice (§ 7) should get one before VOI-160 ships. This file is research, not legal advice.
 - The legal person behind Voice, for the notice and the privacy policy: not checked.
 - A Voice privacy notice (Art. 13 in full) for Business staff and test callers: does not exist.
 - The legitimate interest assessment in writing (§ 4): not written.
