@@ -1,7 +1,7 @@
 {
   "import_patterns": { ".py": ["^\\s*from\\s+([\\w.]+)\\s+import", "^\\s*import\\s+([\\w.]+)"] },
   "layers": [
-    { "name": "models", "paths": ["**/models.py"], "modules": ["\\.models$"], "may_import": [] },
+    { "name": "models", "paths": ["**/models.py"], "modules": ["\\.models$"], "may_import": ["api"] },
     { "name": "api", "paths": ["**/views.py"], "modules": ["\\.views$"], "may_import": ["models"] }
   ]
 }
