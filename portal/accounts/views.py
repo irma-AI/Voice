@@ -24,7 +24,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import DataError, IntegrityError, connection, transaction
 from django.db.models import Count, Q, Sum
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import Now, TruncMonth
 from django.http import (
     Http404,
     HttpRequest,
@@ -705,10 +705,12 @@ def modules(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
-    """The one way a Module goes: only one of the logged-in Business's own."""
+    """Remove on the Modules page: only one of the logged-in Business's own, through Module.remove."""
     if request.method != "POST":
         return back_to("modules")
-    get_object_or_404(Module, pk=module_id, business__account=request.user).delete()
+    mine = Module.objects.filter(pk=module_id, business__account=request.user)
+    if not Module.remove(mine):
+        raise Http404
     return redirect("modules")
 
 
@@ -987,11 +989,26 @@ def store_core_report(
             {"error": f"malformed {name}", "fields": sorted(form.errors)}, status=400
         )
     values = dict(form.cleaned_data)
-    with transaction.atomic():  # a refusal from the database leaves the connection usable for the caller's answer
-        _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
-            call_id=values.pop("call_id"),
-            defaults={**values, **{key: body[key] for key in stored_as_sent}},
+    call_id = values.pop("call_id")
+    defaults = {**values, **{key: body[key] for key in stored_as_sent}}
+    try:
+        with transaction.atomic():  # a refusal from the database leaves the connection usable for the caller's answer
+            _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
+                call_id=call_id, defaults=defaults
+            )
+    except IntegrityError as e:
+        # The database refuses a Call record that starts in the future (migration 0021). Refusing the call would drop its
+        # cost from the daily budget (fail open), so it is stored at the database's clock instead, and the core's clock is logged as off.
+        if "call_record_must_not_start_in_the_future" not in str(e):
+            raise
+        log.warning(
+            "call record %s started in the future by the core's clock: stored at the database's",
+            call_id,
         )
+        with transaction.atomic():
+            _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
+                call_id=call_id, defaults={**defaults, "started_at": Now()}
+            )
     return JsonResponse({"stored": True}, status=201 if created else 200)
 
 
