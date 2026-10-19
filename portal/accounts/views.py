@@ -22,7 +22,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import DataError, IntegrityError, transaction
 from django.db.models import Count, Q, Sum
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import Now, TruncMonth
 from django.http import (
     Http404,
     HttpRequest,
@@ -33,7 +33,6 @@ from django.http import (
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
@@ -876,15 +875,15 @@ def record_call(request: HttpRequest) -> HttpResponse:
             )
     except IntegrityError as e:
         # The database refuses a start in the future (migration 0021). Refusing the call would drop its cost from the
-        # daily budget (fail open), so it is stored at the Portal's clock instead, and the core's clock is logged as off.
+        # daily budget (fail open), so it is stored at the database's clock instead, and the core's clock is logged as off.
         if "call_record_must_not_start_in_the_future" not in str(e):
             raise
         log.warning(
-            "call record %s started in the future by the core's clock: stored at the Portal's",
+            "call record %s started in the future by the core's clock: stored at the database's",
             call_id,
         )
         _, created = CallRecord.objects.get_or_create(
-            call_id=call_id, defaults={**values, "started_at": timezone.now()}
+            call_id=call_id, defaults={**values, "started_at": Now()}
         )
     return JsonResponse({"stored": True}, status=201 if created else 200)
 
