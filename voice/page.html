@@ -321,20 +321,21 @@ async function browserFacts(stream, ctx) {
   for (const [key, name] of [["echoCancellation", "echo_cancellation"], ["noiseSuppression", "noise_suppression"], ["autoGainControl", "auto_gain_control"]]) {
     if (s[key] !== undefined) facts[name] = s[key];
   }
-  if (ctx.baseLatency !== undefined) facts.base_latency_ms = Math.round(ctx.baseLatency * 10000) / 10;
-  if (ctx.outputLatency !== undefined) facts.output_latency_ms = Math.round(ctx.outputLatency * 10000) / 10;
+  // Whole milliseconds: enough to judge an echo delay, too coarse to tell one audio device from another.
+  if (ctx.baseLatency !== undefined) facts.base_latency_ms = Math.round(ctx.baseLatency * 1000);
+  if (ctx.outputLatency !== undefined) facts.output_latency_ms = Math.round(ctx.outputLatency * 1000);
   const ua = navigator.userAgent;
   facts.browser = /SamsungBrowser/.test(ua) ? "samsung" : /Edg(A|iOS)?\//.test(ua) ? "edge" : /Firefox|FxiOS/.test(ua) ? "firefox"
     : /Chrome|CriOS/.test(ua) ? "chrome" : /Safari/.test(ua) ? "safari" : "other";
   facts.os = /iPhone|iPad|iPod/.test(ua) ? "ios" : /Android/.test(ua) ? "android" : /CrOS/.test(ua) ? "chromeos"
     : /Macintosh/.test(ua) ? "macos" : /Windows/.test(ua) ? "windows" : /Linux/.test(ua) ? "linux" : "other";
   // The OS's major version only where it is not frozen: Chromium's own, iOS Safari's and Firefox's Android number
-  // (Chrome reports Android 10, macOS 10 and Windows NT 10 whatever runs), never on Windows, whose platformVersion
-  // is not the Windows number. A failed lookup loses the version only. shortcut: whether Safari freezes the
-  // iOS number too is not checked; drop it if a call shows a stale one.
+  // (Chrome reports Android 10, macOS 10 and Windows NT 10 whatever runs). Chromium's only on Android and macOS: on
+  // Windows and Linux its platformVersion is not the OS number. A failed lookup loses the version only.
+  // shortcut: whether Safari freezes the iOS number too is not checked; drop it if a call shows a stale one.
   let version = null;
   if (navigator.userAgentData) {
-    if (facts.os !== "windows") {
+    if (facts.os === "android" || facts.os === "macos") {
       try {
         version = (await navigator.userAgentData.getHighEntropyValues(["platformVersion"])).platformVersion?.split(".")[0];
       } catch (e) {}

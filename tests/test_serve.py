@@ -569,18 +569,19 @@ def test_the_page_count_of_playback_gaps_is_passed_on_and_anything_else_ignored(
     )
     assert isinstance(frame, InputTransportMessageFrame)
     assert frame.message == {"type": "playback_gaps", "count": 3}
+    page = RawPcmSerializer()  # one call's
     with warnings() as logged:
         for message in (
             '{"type": "playback_gaps", "count": -1}',
             '{"type": "playback_gaps", "count": 2, "note": "hej"}',
-            '{"type": "browser"}',  # facts come once, first
-            "x" * (serve.PAGE_MESSAGE_MAX + 1),
+            '{"type": "browser"}',  # facts come once, first: these missed the wait
+            *["x" * (serve.PAGE_MESSAGE_MAX + 1)] * 50,  # a page sending junk in a loop
         ):
-            assert asyncio.run(RawPcmSerializer().deserialize(message)) is None
+            assert asyncio.run(page.deserialize(message)) is None
+    # Once per kind and call, so a loop cannot flood the log.
     assert logged == [
         "ignored a message from the call page: bad_playback_gaps",
-        "ignored a message from the call page: bad_playback_gaps",
-        "ignored a message from the call page: bad_browser",
+        "ignored a message from the call page: late_browser",
         "ignored a message from the call page: oversized",
     ]
 

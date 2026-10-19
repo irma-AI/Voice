@@ -225,6 +225,12 @@ class RawPcmSerializer(FrameSerializer):
             )
         return None
 
+    def __init__(self) -> None:
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]  # untyped kwargs upstream
+        self._warned: set[str] = (
+            set()
+        )  # kinds of page message already logged on this call
+
     async def deserialize(self, data: str | bytes) -> Frame | None:
         if isinstance(data, bytes):
             return InputAudioRawFrame(audio=data, sample_rate=IN_RATE, num_channels=1)
@@ -240,7 +246,16 @@ class RawPcmSerializer(FrameSerializer):
             return InputTransportMessageFrame(
                 message={"type": "playback_gaps", "count": message["count"]}
             )
-        logger.warning("ignored a message from the call page: {}", _kind(message))
+        kind = _kind(message)
+        if kind == "bad_browser":
+            kind = (
+                "late_browser"  # facts come first or not at all; these missed the wait
+            )
+        if (
+            kind not in self._warned
+        ):  # once per kind and call: a page sending junk in a loop must not flood the log
+            self._warned.add(kind)
+            logger.warning("ignored a message from the call page: {}", kind)
         return None
 
 

@@ -211,6 +211,8 @@ async def _run(
         pipeline,
         params=PipelineParams(enable_metrics=True, enable_usage_metrics=True),
         idle_timeout_secs=idle_timeout_secs,
+        # No page speaks Pipecat's RTVI protocol, and its processor logs every page message (a gap count) as a warning.
+        enable_rtvi=False,
     )
     runner = WorkerRunner(handle_sigint=handle_sigint)
     await runner.add_workers(worker)
