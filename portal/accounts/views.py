@@ -954,31 +954,47 @@ class CallRecordForm(CoreReportForm):
         fields = "__all__"
 
 
+def store_core_report(
+    request: HttpRequest,
+    form_class: type[CoreReportForm],
+    name: str,
+    stored_as_sent: dict[str, type] | None = None,
+) -> JsonResponse:
+    """The one opening for every report the core sends: the secret before any lookup, then the body parsed once and stored once per call id. `stored_as_sent` names the keys the form leaves out and the type each must be."""
+    if not core_secret_sent(request):
+        return JsonResponse({"error": "missing or wrong secret"}, status=401)
+    stored_as_sent = stored_as_sent or {}
+    try:
+        body = json.loads(request.body)
+    except ValueError:
+        body = None
+    if (
+        not isinstance(body, dict)
+        or body.keys() != {*form_class.base_fields, *stored_as_sent}  # pyright: ignore[reportUnknownMemberType]
+        or not all(isinstance(body[key], kind) for key, kind in stored_as_sent.items())
+    ):
+        return JsonResponse({"error": f"not a {name}"}, status=400)
+    form = form_class(body)
+    if not form.is_valid():
+        # Field names only: a refused value never goes back out.
+        return JsonResponse(
+            {"error": f"malformed {name}", "fields": sorted(form.errors)}, status=400
+        )
+    values = dict(form.cleaned_data)
+    with transaction.atomic():  # a refusal from the database leaves the connection usable for the caller's answer
+        _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
+            call_id=values.pop("call_id"),
+            defaults={**values, **{key: body[key] for key in stored_as_sent}},
+        )
+    return JsonResponse({"stored": True}, status=201 if created else 200)
+
+
 @csrf_exempt  # the shared secret gates it, not a session
 @require_POST
 @never_cache
 def record_call(request: HttpRequest) -> HttpResponse:
     """The one address the core sends a finished call's record to. Stores it once per call id; the database refuses every later change."""
-    if not core_secret_sent(request):
-        return JsonResponse({"error": "missing or wrong secret"}, status=401)
-    try:
-        body = json.loads(request.body)
-    except ValueError:
-        body = None
-    if not isinstance(body, dict) or body.keys() != CallRecordForm.base_fields.keys():  # pyright: ignore[reportUnknownMemberType]
-        return JsonResponse({"error": "not a Call record"}, status=400)
-    form = CallRecordForm(body)
-    if not form.is_valid():
-        # Field names only: a refused value never goes back out.
-        return JsonResponse(
-            {"error": "malformed Call record", "fields": sorted(form.errors)},
-            status=400,
-        )
-    values = dict(form.cleaned_data)
-    _, created = CallRecord.objects.get_or_create(
-        call_id=values.pop("call_id"), defaults=values
-    )
-    return JsonResponse({"stored": True}, status=201 if created else 200)
+    return store_core_report(request, CallRecordForm, "Call record")
 
 
 class CallLogForm(CoreReportForm):
@@ -989,39 +1005,13 @@ class CallLogForm(CoreReportForm):
         exclude = ("events",)
 
 
-CALL_LOG_FIELDS = {*CallLogForm.base_fields, "events"}  # pyright: ignore[reportUnknownMemberType]
-
-
 @csrf_exempt  # the shared secret gates it, not a session
 @require_POST
 @never_cache
 def record_call_log(request: HttpRequest) -> HttpResponse:
     """The one address the core sends a finished call's Call log to. Stores it once per call id; the database refuses every later change, and a delete before its expiry."""
-    if not core_secret_sent(request):
-        return JsonResponse({"error": "missing or wrong secret"}, status=401)
     try:
-        body = json.loads(request.body)
-    except ValueError:
-        body = None
-    if (
-        not isinstance(body, dict)
-        or body.keys() != CALL_LOG_FIELDS
-        or not isinstance(body["events"], list)
-    ):
-        return JsonResponse({"error": "not a Call log"}, status=400)
-    form = CallLogForm(body)
-    if not form.is_valid():
-        # Field names only: a refused value never goes back out.
-        return JsonResponse(
-            {"error": "malformed Call log", "fields": sorted(form.errors)}, status=400
-        )
-    values = dict(form.cleaned_data)
-    try:
-        with transaction.atomic():
-            _, created = CallLog.objects.get_or_create(
-                call_id=values.pop("call_id"),
-                defaults={**values, "events": body["events"]},
-            )
+        return store_core_report(request, CallLogForm, "Call log", {"events": list})
     except (IntegrityError, DataError) as e:
         # The database is what checks the events and the start (migration 0020), or refuses text jsonb can't hold (a NUL); this only says so.
         if isinstance(e, DataError) or "call_log_events_hold_only_listed_fields" in str(
@@ -1035,4 +1025,3 @@ def record_call_log(request: HttpRequest) -> HttpResponse:
         return JsonResponse(
             {"error": "malformed Call log", "fields": [field]}, status=400
         )
-    return JsonResponse({"stored": True}, status=201 if created else 200)

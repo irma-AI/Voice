@@ -4,19 +4,28 @@
 //   import_patterns: { "<file extension>": ["<regex whose group 1 is the imported module>"] }
 //   layers: [{ "name", "paths": [globs of files in the layer], "modules": [regexes matching
 //            module names that belong to the layer], "may_import": [layer names] }]
+// The config is read from the base branch (scripts/base-config.js): a PR cannot loosen or delete the layers that check it.
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { readBaseJson } = require(path.join(__dirname, '..', '..', 'base-config.js'));
 const ROOT = process.env.GUARD_ROOT || process.cwd();
 const CONFIG = 'scripts/checks/layers.json';
 
-if (!fs.existsSync(path.join(ROOT, CONFIG))) {
+let cfg;
+try {
+  cfg = readBaseJson(ROOT, CONFIG, { optional: true });
+} catch (e) {
+  console.log('#scanned 1');
+  console.log(`config\t${e.message}`);
+  process.exit(1);
+}
+if (cfg === null) {
   console.log('#scanned 1');
   console.error(`not adopted: add ${CONFIG} to enforce the dependency direction in ARCHITECTURE.md`);
   process.exit(0);
 }
-const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, CONFIG), 'utf8'));
 const layers = cfg.layers.map((l) => ({ ...l, modRes: (l.modules || []).map((m) => new RegExp(m)) }));
 const layerOfFile = (f) => layers.find((l) => (l.paths || []).some((g) => path.matchesGlob(f, g)));
 const layerOfModule = (m) => layers.find((l) => l.modRes.some((r) => r.test(m)));
