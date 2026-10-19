@@ -19,7 +19,7 @@ from tests.portal.contract import SCHEMA, schema_errors
 from voice.agent import DISCLOSURE, REFUSAL, refusal_instruction, system_instruction
 from voice.settings import (
     COLOUR_PATTERN,
-    FACTS_MAX,
+    INSTRUCTIONS_MAX,
     LANGUAGES,
     LOGO_URL_MAX,
     MODULE_ARG_MAX,
@@ -42,7 +42,7 @@ from voice.settings import (
 
 GOOD: dict[str, Any] = {
     "name": "Anna's Salon",
-    "facts": "Öppet 8-17.",
+    "instructions": "Öppet 8-17.",
     "languages": ["sv", "en"],
 }
 
@@ -94,10 +94,10 @@ def test_the_cores_limits_match_the_schema() -> None:
     assert NAME_MAX == props["name"]["maxLength"], (
         "edit NAME_MAX or the schema's name maxLength"
     )
-    assert FACTS_MAX == props["facts"]["maxLength"], (
-        "edit FACTS_MAX or the schema's facts maxLength"
+    assert INSTRUCTIONS_MAX == props["instructions"]["maxLength"], (
+        "edit INSTRUCTIONS_MAX or the schema's instructions maxLength"
     )
-    assert set(SCHEMA["required"]) == {"name", "facts", "languages"}
+    assert set(SCHEMA["required"]) == {"name", "instructions", "languages"}
     modules = props["modules"]
     remote, local = modules["items"]["oneOf"]
     for core, schema, what in [
@@ -198,8 +198,8 @@ MODULE_CASES: list[Any] = [
         GOOD,
         {**GOOD, "name": ""},
         {**GOOD, "name": "x" * (NAME_MAX + 1)},
-        {**GOOD, "facts": "x" * (FACTS_MAX + 1)},
-        {**GOOD, "facts": 5},
+        {**GOOD, "instructions": "x" * (INSTRUCTIONS_MAX + 1)},
+        {**GOOD, "instructions": 5},
         {**GOOD, "languages": []},
         {**GOOD, "languages": ["de"]},
         {**GOOD, "languages": [list[str]()]},
@@ -208,7 +208,7 @@ MODULE_CASES: list[Any] = [
         *({**GOOD, "modules": modules} for modules in MODULE_CASES),
         *({**GOOD, "theme": theme} for theme in THEME_CASES),
         *({**GOOD, "privacy_url": url} for url in PRIVACY_URL_CASES),
-        {"name": "A", "facts": ""},
+        {"name": "A", "instructions": ""},
         ["not", "an", "object"],
     ],
 )
@@ -337,9 +337,12 @@ def test_the_portal_is_asked_for_the_business_with_the_secret() -> None:
 def test_a_settings_change_shows_up_in_the_next_call() -> None:
     with fake_portal() as url:
         first = load_settings(portal_env(url), "7")
-    with fake_portal(body={**GOOD, "facts": "Stängt i juli."}) as url:
+    with fake_portal(body={**GOOD, "instructions": "Stängt i juli."}) as url:
         second = load_settings(portal_env(url), "7")
-    assert (first.facts, second.facts) == ("Öppet 8-17.", "Stängt i juli.")
+    assert (first.instructions, second.instructions) == (
+        "Öppet 8-17.",
+        "Stängt i juli.",
+    )
 
 
 def test_a_wrong_secret_a_bad_reply_or_a_down_portal_refuses() -> None:
@@ -416,7 +419,7 @@ def test_the_prompt_is_built_from_the_business_and_keeps_the_disclosure() -> Non
         "Speak Swedish. Answer in the language the caller last spoke: Swedish or English."
         in prompt
     )
-    assert prompt.endswith("Business facts:\nname: Anna's Salon\nÖppet 8-17.")
+    assert prompt.endswith("Business instructions:\nname: Anna's Salon\nÖppet 8-17.")
 
 
 def test_a_single_language_business_is_not_told_to_switch() -> None:
@@ -429,4 +432,4 @@ def test_a_refused_call_says_the_disclosure_then_the_reason_and_holds_no_facts()
 ):
     prompt = refusal_instruction()
     assert DISCLOSURE in prompt and REFUSAL in prompt
-    assert "Business facts" not in prompt
+    assert "Business instructions" not in prompt

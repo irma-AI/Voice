@@ -1,7 +1,7 @@
 """A web-search example Module: one general-purpose Action, as a real search Module such as Exa offers.
 
 Stands in for a search Module the eval can hold still: the `module_web` Scenario proves the agent uses it for a
-question the Business's facts do not cover. Run it as `python -m modules.example_web` (stdio). It reaches nothing.
+question the Business's instructions do not cover. Run it as `python -m modules.example_web` (stdio). It reaches nothing.
 """
 
 from mcp.server.mcpserver import MCPServer
