@@ -59,6 +59,7 @@ EVENTS: list[dict[str, Any]] = [
         "t": 3.0,
         "call": CALL,
         "e": "levels",
+        "after_barge_in_ms": 500,
         "caller_dbfs": [
             -60.2,
             -58.0,
@@ -335,6 +336,14 @@ def test_the_database_itself_refuses_a_log_that_breaks_a_rule() -> None:
         ),
         (
             {"events": [{"t": 1, "bot_dbfs": [-20.0] * 21}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (
+            {"events": [{"t": 1, "vad": "low"}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (
+            {"events": [{"t": 1, "bot_dbfs": "loud"}]},
             "call_log_events_hold_only_listed_fields",
         ),
         (

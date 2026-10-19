@@ -20,7 +20,7 @@ from pipecat.frames.frames import (
     TTSTextFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
-from pipecat.processors.frame_processor import FrameDirection
+from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.tests.utils import SleepFrame, run_test
 
 from tests.evals.checks import (
@@ -238,25 +238,41 @@ def _pcm(level: int) -> bytes:
     return int(level).to_bytes(2, "little", signed=True) * 320  # 20 ms at 16 kHz
 
 
+class _TurnStart(FrameProcessor):
+    """Interrupts on every Caller transcript, as Pipecat's user aggregator before the recorder does."""
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
+        await super().process_frame(frame, direction)
+        if isinstance(frame, TranscriptionFrame):
+            await self.push_frame(InterruptionFrame())
+        await self.push_frame(frame, direction)
+
+
 def _a_cut(tmp_path: Path, caller_levels: list[int]) -> list[dict[str, Any]]:
-    """A second of agent speech in syllables and the Caller's sound beside it, a cut, then half a second more."""
+    """A second of agent speech in syllables and the Caller's sound beside it, Gemini's cut, then more.
+
+    Pipecat interrupts on each transcript: right after the cut (the same cut, not logged again) and
+    1.1 s later while the agent still speaks (a cut of its own).
+    """
     frames: list[Frame] = [BotStartedSpeakingFrame()]
-    for tick in range(80):
+    for tick in range(110):
         if tick == 50:
             frames += [
                 TTSTextFrame("du pratar med en assistent", aggregated_by="sentence"),
                 InterruptionFrame(),
                 TranscriptionFrame("pratar med en", "caller", "now"),
             ]
-        agent = OutputAudioRawFrame(_pcm(AGENT[tick]), 16000, 1)
-        caller = InputAudioRawFrame(_pcm(caller_levels[tick]), 16000, 1)
+        if tick == 105:
+            frames += [TranscriptionFrame("hallå där", "caller", "now")]
+        agent = OutputAudioRawFrame(_pcm(AGENT[tick % 80]), 16000, 1)
+        caller = InputAudioRawFrame(_pcm(caller_levels[tick % 80]), 16000, 1)
         frames += [agent, caller, SleepFrame(0.02)]
     log = tmp_path / "call.jsonl"
     recorder = BargeInRecorder("c0ffee0123456789", log)
     # Upstream, as the model's signal and the Caller's transcript travel; the output side takes any direction.
     asyncio.run(
         run_test(
-            Pipeline([recorder, recorder.output_side]),
+            Pipeline([_TurnStart(), recorder, recorder.output_side]),
             frames_to_send=frames,
             frames_to_send_direction=FrameDirection.UPSTREAM,
         )
@@ -276,17 +292,20 @@ def test_the_recorder_tells_its_own_echo_from_a_caller(tmp_path: Path) -> None:
     # The agent's own sound, 200 ms later and quieter.
     echo = [20 + AGENT[i - 10] // 4 if i >= 10 else 20 for i in range(80)]
     events = _a_cut(tmp_path, echo)
-    [cut] = [e for e in events if e["e"] == "barge_in"]
+    cut, pipecat = [e for e in events if e["e"] == "barge_in"]
     assert cut["src"] == "gemini" and cut["bot_speaking"] is True
+    assert pipecat["src"] == "pipecat" and pipecat["t"] - cut["t"] > 1.0
     assert cut["echo_corr"] >= 0.8 and 120 <= cut["echo_lag_ms"] <= 280, cut
-    [levels] = [e for e in events if e["e"] == "levels"]
-    assert len(levels["caller_dbfs"]) == len(levels["bot_dbfs"]) == 10
+    levels = [e for e in events if e["e"] == "levels"]
+    assert len(levels[0]["caller_dbfs"]) == len(levels[0]["bot_dbfs"]) == 10
     [words] = [e for e in events if e["e"] == "caller_words"]
     assert words["words"] == 3 and words["similarity"] == 1.0
+    end = events[-1]
+    assert (end["barge_ins"], end["no_words"]) == (2, 1)
     assert barge_in_summary(Call((), tuple(events))).passed
 
     (tmp_path / "caller").mkdir()
-    [cut] = [e for e in _a_cut(tmp_path / "caller", OTHER) if e["e"] == "barge_in"]
+    cut, _ = [e for e in _a_cut(tmp_path / "caller", OTHER) if e["e"] == "barge_in"]
     assert cut["echo_corr"] < 0.8, cut
 
 

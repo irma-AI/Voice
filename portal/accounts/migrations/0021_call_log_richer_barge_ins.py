@@ -25,13 +25,20 @@ CREATE OR REPLACE FUNCTION accounts_call_log_events_are_plain(events jsonb) RETU
             SELECT 1 FROM jsonb_each(event) AS field(key, value)
             WHERE field.key <> ALL (accounts_call_log_fields())
                OR CASE WHEN field.key = 'vad'
-                    THEN jsonb_typeof(field.value) <> 'object' OR EXISTS (
-                        SELECT 1 FROM jsonb_each(field.value) AS setting(key, value)
-                        WHERE setting.key !~ '^[a-z_]{1,40}$' OR NOT accounts_call_log_value_is_plain(setting.value))
+                    -- nested CASEs: Postgres does not promise OR's order, and reading a scalar as an object
+                    -- or array raises instead of naming the rule
+                    THEN CASE WHEN jsonb_typeof(field.value) <> 'object' THEN true
+                              ELSE EXISTS (
+                                  SELECT 1 FROM jsonb_each(field.value) AS setting(key, value)
+                                  WHERE setting.key !~ '^[a-z_]{1,40}$'
+                                     OR NOT accounts_call_log_value_is_plain(setting.value))
+                         END
                   WHEN field.key IN ('caller_dbfs', 'bot_dbfs')
-                    THEN jsonb_typeof(field.value) <> 'array' OR jsonb_array_length(field.value) > 20 OR EXISTS (
-                        SELECT 1 FROM jsonb_array_elements(field.value) AS level
-                        WHERE jsonb_typeof(level) <> 'number')
+                    THEN CASE WHEN jsonb_typeof(field.value) <> 'array' THEN true
+                              ELSE jsonb_array_length(field.value) > 20 OR EXISTS (
+                                  SELECT 1 FROM jsonb_array_elements(field.value) AS level
+                                  WHERE jsonb_typeof(level) <> 'number')
+                         END
                     ELSE NOT accounts_call_log_value_is_plain(field.value)
                   END
         )

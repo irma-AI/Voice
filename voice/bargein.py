@@ -12,6 +12,7 @@ import re
 import time
 from array import array
 from collections import deque
+from itertools import pairwise
 from pathlib import Path
 
 from google.genai.types import StartSensitivity
@@ -54,6 +55,8 @@ TRACE_HALF_S = 0.5
 # How much audio level history is kept, and how many of the agent's last words (in memory only, for the score).
 KEEP_S = LOUDNESS_WINDOW_S + ECHO_MAX_LAG_S + TRACE_HALF_S
 AGENT_WORDS = 30
+# A Pipecat interruption this soon after a logged cut is the same cut, seen again.
+SAME_CUT_S = 1.0
 
 # (arrival time, length in seconds, peak, mean square) of one audio frame, in 16-bit sample levels
 Level = tuple[float, float, int, float]
@@ -116,13 +119,12 @@ def _words(text: str) -> list[str]:
 
 
 def _similarity(heard: list[str], said: list[str]) -> float:
-    """The share of the heard word pairs (one word: words) that the agent said in that order.
+    """The share of the heard word pairs that the agent said in that order; one word scores 0.
 
-    Pairs, so that common words the Caller shares with the agent ("en", "det") do not count as echo.
+    Pairs, so that common words the Caller shares with the agent ("en", "det", "ja") do not count as echo.
     """
-    n = min(2, len(heard))
-    pairs = [tuple(heard[i : i + n]) for i in range(len(heard) - n + 1)]
-    known = {tuple(said[i : i + n]) for i in range(len(said) - n + 1)}
+    pairs = list(pairwise(heard))
+    known = set(pairwise(said))
     return round(sum(p in known for p in pairs) / len(pairs), 2) if pairs else 0.0
 
 
@@ -149,6 +151,7 @@ class BargeInRecorder(FrameProcessor):
         self._barge_in_at: float | None = None  # waiting for the Caller's words
         self._resume_after: float | None = None  # waiting for the agent to speak again
         self._trace_at: float | None = None  # waiting for the half second after a cut
+        self._last_cut: float | None = None
         self._barge_ins = 0
         self._no_words = 0
         self._stretches = 0  # stretches of agent speech
@@ -200,14 +203,20 @@ class BargeInRecorder(FrameProcessor):
                 best, lag = fit, round(back * 1000)
         return round(best, 2), lag
 
-    def _write_trace(self) -> None:
+    def _write_trace(self, now: float) -> None:
         cut, self._trace_at = self._trace_at, None
         if cut is None:
             return
-        steps = round(2 * TRACE_HALF_S / TRACE_STEP_S)
+        # Only whole steps already heard: a trace cut short by the next cut or the end is shorter,
+        # never padded with silence, which would read as sound that stopped with the agent.
+        steps = min(
+            round(2 * TRACE_HALF_S / TRACE_STEP_S),
+            math.floor((now - cut + TRACE_HALF_S) / TRACE_STEP_S + 1e-6),
+        )
         start = cut - TRACE_HALF_S
         self._write(
             e="levels",
+            after_barge_in_ms=round((now - cut) * 1000),
             caller_dbfs=[
                 _dbfs(x) for x in _envelope(self._caller, start, steps, TRACE_STEP_S)
             ],
@@ -217,7 +226,7 @@ class BargeInRecorder(FrameProcessor):
         )
 
     def _barge_in(self, now: float, src: str) -> None:
-        self._write_trace()
+        self._write_trace(now)
         if self._barge_in_at is not None:
             self._no_words += 1
         self._barge_ins += 1
@@ -240,6 +249,7 @@ class BargeInRecorder(FrameProcessor):
             echo_lag_ms=lag,
         )
         self._barge_in_at = now
+        self._last_cut = now
         self._resume_after = now if since is not None else None
         self._trace_at = now
 
@@ -247,15 +257,19 @@ class BargeInRecorder(FrameProcessor):
         await super().process_frame(frame, direction)
         now = time.monotonic()
         if self._trace_at is not None and now >= self._trace_at + TRACE_HALF_S:
-            self._write_trace()
+            self._write_trace(now)
         if isinstance(frame, InputAudioRawFrame):
             _keep(self._caller, _level(frame, now), now)
         elif isinstance(frame, InterruptionFrame):
-            # Upstream it can only come from the model (Gemini's interrupted signal); downstream from
-            # what sits before the recorder (Pipecat's own turn handling or the worker).
-            self._barge_in(
-                now, "gemini" if direction == FrameDirection.UPSTREAM else "pipecat"
-            )
+            if direction == FrameDirection.UPSTREAM:
+                self._barge_in(now, "gemini")  # only the model sends one up to here
+            elif self._bot_since is not None and (
+                self._last_cut is None or now - self._last_cut > SAME_CUT_S
+            ):
+                # Downstream: from before the recorder (Pipecat's own turn handling, which interrupts on
+                # every Caller turn, or the worker). It counts only when it cuts the agent off and is not
+                # a cut just logged, seen again.
+                self._barge_in(now, "pipecat")
         elif direction == FrameDirection.UPSTREAM:
             if isinstance(frame, BotStartedSpeakingFrame):
                 self._bot_since = now
@@ -286,7 +300,7 @@ class BargeInRecorder(FrameProcessor):
                     self._barge_in_at = None
         elif isinstance(frame, (EndFrame, CancelFrame)) and not self._ended:
             self._ended = True
-            self._write_trace()
+            self._write_trace(now)
             if self._barge_in_at is not None:
                 self._no_words += 1
             self._write(

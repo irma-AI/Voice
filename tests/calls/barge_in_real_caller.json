@@ -35,6 +35,7 @@
   {
    "t": 3.0,
    "e": "levels",
+   "after_barge_in_ms": 500,
    "caller_dbfs": [
     -60.0,
     -58.2,
