@@ -9,13 +9,12 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
-const { readBaseJson } = require(path.join(__dirname, '..', '..', 'base-config.js'));
+const { readBaseJson, changedFiles, inFixture } = require(path.join(__dirname, '..', '..', 'base-config.js'));
 const ROOT = process.env.GUARD_ROOT || process.cwd();
 
 // A fixture has `.guard-changed-files` and `.guard-pr-text` in place of a git diff and the CI env.
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-const fixture = fs.existsSync(path.join(ROOT, '.guard-changed-files'));
+const fixture = inFixture(ROOT) && fs.existsSync(path.join(ROOT, '.guard-changed-files'));
 if (!fixture && !process.env.GUARD_BASE) {
   console.log('#scanned 1');
   console.error('not a pull-request run (GUARD_BASE unset): the skeptic pass is checked in CI only');
@@ -41,13 +40,6 @@ if (!Array.isArray(listed) || !listed.length) {
   process.exit(1);
 }
 
-function changedFiles() {
-  if (fixture) return read('.guard-changed-files').split('\n').filter(Boolean);
-  const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).trim();
-  const from = git('merge-base', process.env.GUARD_BASE, 'HEAD');
-  // No diff filter and no renames: a deleted or moved listed file counts too.
-  return git('diff', '--name-only', '--no-renames', from, 'HEAD').split('\n').filter(Boolean);
-}
 
 // The body of the "Skeptic pass" heading, up to the next heading, or null.
 function section(text) {
@@ -55,7 +47,8 @@ function section(text) {
   return m ? m[1] : null;
 }
 
-const changed = changedFiles();
+let changed;
+try { changed = changedFiles(ROOT); } catch (e) { console.log('#scanned 1'); console.log(`base\t${e.message}`); process.exit(1); }
 console.log(`#scanned ${changed.length + 1}`); // +1: the change set itself, which may be empty
 const touched = changed.filter((f) => listed.some((g) => path.matchesGlob(f, g)));
 if (!touched.length) process.exit(0);

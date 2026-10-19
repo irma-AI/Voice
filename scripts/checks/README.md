@@ -11,7 +11,14 @@ A guard is one file in `guards/`. It:
 3. Prints one line per violation: `<stable id><TAB><message>`. The message ends with the exact fix: the helper to use, the lines to add, the command to run.
 4. Exits 1 when it printed a violation, 0 otherwise. Anything on stderr shows as a note.
 
-Every guard has a fixture, `fixtures/<guard name>/`, laid out like a repo, that must make it fail. The self-test runs the guard there first. A guard that reads a pull request's changed files lets the fixture list them in `.guard-changed-files` (and its labels in `.guard-labels`, a JSON list) instead of a git diff and CI's env. A guard that reads its configuration from the base branch (`scripts/base-config.js`) takes it from the fixture's `.guard-base/<path>`, so the fixture can loosen its own copy and still fail.
+Every guard has a fixture, `fixtures/<guard name>/`, laid out like a repo, that must make it fail; `fixtures/<guard name>.<case>/` adds another case that must fail too, and a fixture's `.guard-env.json` (`{ "<VAR>": "<value>" }`) sets environment variables for its run. The self-test runs the guard on each first. A guard that reads a pull request's changed files lets the fixture list them in `.guard-changed-files` (and its labels in `.guard-labels`, a JSON list) instead of a git diff and CI's env; these `.guard-*` files count only under `fixtures/`.
+
+## Where a guard reads from
+
+`scripts/base-config.js` is the one place for both:
+
+- **Configuration** (`scripts/low-risk-paths.json`, `scripts/eval-required.json`, `scripts/checks/db-test-required.json`, `scripts/checks/layers.json`): `readBaseJson` reads it from the base branch (`$GUARD_BASE`, which CI sets on pull requests), so a pull request cannot loosen or delete the rule that checks it; with `$GUARD_BASE` unset (a local run) the working-tree copy decides. A fixture's `.guard-base/<path>` stands in for the base, so the fixture can loosen its own copy and still fail. A config that switches a guard on (`{ optional: true }`) and is not on the base yet comes from the pull request that adds it, with a note.
+- **Changed files**: `changedFiles(root, { diff })` returns the diff from the merge-base with `$GUARD_BASE` (else origin/main) plus uncommitted edits; `diff` is the guard's own diff flags. With `$GUARD_BASE` set, a diff that cannot be computed fails the guard; only a local run with no origin/main gets no files and a note.
 
 ## Baselines
 
