@@ -155,6 +155,21 @@ def test_the_call_page_opens_with_a_portal_ticket_and_refuses_everyone_else() ->
     assert refused.status_code == 403 and REFUSAL in refused.text
 
 
+def test_every_response_says_https_only_no_sniffing_and_no_referrer_off_site() -> None:
+    client = TestClient(
+        create_app("portal-secret"), base_url="https://voice.example.se"
+    )
+    page = f"/?ticket={sign('portal-secret', 7, 'test', int(time.time()) + 60)}"
+    for response in (
+        client.get(page),
+        client.get("/fonts/SchibstedGrotesk-Variable.woff2"),
+        client.get("/"),  # the 403 refusal
+    ):
+        assert response.headers["strict-transport-security"] == "max-age=2592000"
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["referrer-policy"] == "same-origin"
+
+
 def test_the_call_page_says_which_site_may_frame_it() -> None:
     client = TestClient(
         create_app("portal-secret"), base_url="https://voice.example.se"
