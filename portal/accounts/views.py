@@ -7,8 +7,10 @@ import logging
 import re
 import unicodedata
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime, time
 from decimal import Decimal
+from functools import wraps
 from typing import Any
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -277,11 +279,22 @@ def calls(request: HttpRequest) -> HttpResponse:
     )
 
 
-@login_required
+def operator_only(view: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
+    """The one gate for the operator's pages: behind the login, then only the Account whose email is `SUPER_ADMIN_EMAIL` (unset: nobody); anyone else gets 403."""
+
+    @login_required
+    @wraps(view)
+    def gated(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        if not sees_totals(request.user):
+            return HttpResponseForbidden("This page is not open to your account.")
+        return view(request, *args, **kwargs)
+
+    return gated
+
+
+@operator_only
 def totals(request: HttpRequest) -> HttpResponse:
-    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls. Only the Account whose email is `SUPER_ADMIN_EMAIL` may open it."""
-    if not sees_totals(request.user):
-        return HttpResponseForbidden("This page is not open to your account.")
+    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls."""
     month = TruncMonth("started_at", tzinfo=ZoneInfo(settings.TIME_ZONE))
     sums = (
         CallRecord.objects.annotate(month=month)
@@ -323,6 +336,91 @@ def totals(request: HttpRequest) -> HttpResponse:
             "time_zone": settings.TIME_ZONE,
         },
     )
+
+
+# What the timeline calls each event the recorder writes (voice/bargein.py); an event not here shows by its code.
+EVENT_NAMES = {
+    "config": "Call starts",
+    "bot_speech": "Agent speech",
+    "barge_in": "Barge-in",
+    "caller_words": "Caller's words",
+    "resumed": "Agent resumes",
+    "end": "Call ends",
+}
+LOGS_SHOWN = 100
+
+
+def log_summary(events: list[dict[str, Any]]) -> tuple[str, int, int]:
+    """Length (minutes:seconds, from the end event; "–" without one), barge-ins, and barge-ins with no Caller's words after: the recorder writes words only for the first words after a barge-in, so the difference is the count."""
+    ends = [e["secs"] for e in events if e["e"] == "end" and "secs" in e]
+    length = f"{int(ends[0]) // 60}:{int(ends[0]) % 60:02d}" if ends else "–"
+    barge_ins = sum(e["e"] == "barge_in" for e in events)
+    words = sum(e["e"] == "caller_words" for e in events)
+    return length, barge_ins, barge_ins - words
+
+
+@operator_only
+def call_logs(request: HttpRequest) -> HttpResponse:
+    """The latest stored Call logs of every Business, newest first."""
+    # shortcut: the newest LOGS_SHOWN only, no paging; add paging when Petter needs an older one before it expires.
+    logs = CallLog.objects.select_related("business").order_by("-started_at")[
+        :LOGS_SHOWN
+    ]
+    rows = [
+        (log.call_id, log.started_at, log.business.name, CALL_KINDS[log.kind])
+        + log_summary(log.events)
+        for log in logs
+    ]
+    return render(
+        request,
+        "accounts/call_logs.html",
+        {"rows": rows, "shown": LOGS_SHOWN, "time_zone": settings.TIME_ZONE},
+    )
+
+
+@operator_only
+def call_log(request: HttpRequest, call_id: str) -> HttpResponse:
+    """One Call log's events as a timeline: seconds since the call began, the event, and its logged fields."""
+    log = get_object_or_404(CallLog.objects.select_related("business"), call_id=call_id)
+    events = [
+        (
+            e["t"],
+            EVENT_NAMES.get(e["e"], e["e"]),
+            [(k, json.dumps(v)) for k, v in e.items() if k not in ("t", "call", "e")],
+        )
+        for e in log.events
+    ]
+    length, barge_ins, no_words = log_summary(log.events)
+    return render(
+        request,
+        "accounts/call_log.html",
+        {
+            "log": log,
+            "kind": CALL_KINDS[log.kind],
+            "length": length,
+            "barge_ins": barge_ins,
+            "no_words": no_words,
+            "events": events,
+            "time_zone": settings.TIME_ZONE,
+        },
+    )
+
+
+@operator_only
+def call_log_text(request: HttpRequest, call_id: str) -> HttpResponse:
+    """The Call log as the server log's barge-in lines (`barge-in ` and the event's JSON), one per event, to hand to an agent."""
+    log = get_object_or_404(CallLog, call_id=call_id)
+    # jsonb keeps no key order: t, call and e go first as the recorder writes them, the rest follow as stored.
+    lines = (
+        "barge-in " + json.dumps({"t": e["t"], "call": e["call"], "e": e["e"], **e})
+        for e in log.events
+    )
+    response = HttpResponse(
+        "".join(line + "\n" for line in lines), content_type="text/plain; charset=utf-8"
+    )
+    # The call id is a plain code (the database refuses anything else), so it is safe in the header.
+    response["Content-Disposition"] = f'attachment; filename="call-log-{call_id}.txt"'
+    return response
 
 
 class Text(forms.CharField):
