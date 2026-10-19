@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Call logs · Voice Portal{% endblock %}
+{% block content %}
+<h1 class="text-4xl sm:text-[3.5rem] sm:leading-none">Call logs</h1>
+<p class="mt-4 max-w-prose text-foam-muted">The latest {{ shown }} calls of every Business that left a log, newest first. Times are in {{ time_zone }}; lengths are minutes:seconds. A log is kept 30 days after its call.</p>
+
+<ul class="mt-10 border-t border-granite">
+  {% for call_id, started, business, kind, length, barge_ins, no_words in rows %}
+  <li class="border-b border-granite">
+    <a href="{% url 'call_log' call_id %}" class="group block py-4 no-underline">
+      <div class="flex items-baseline justify-between gap-4">
+        <p class="text-lg font-medium whitespace-nowrap tabular-nums underline decoration-foam-faint group-hover:decoration-cable-light">{{ started|date:"Y-m-d H:i" }}</p>
+        <p class="text-lg tabular-nums"><span class="sr-only">Length </span>{{ length }}</p>
+      </div>
+      <p class="mt-1 flex items-center gap-2 text-sm text-foam-muted"><span aria-hidden="true" class="size-2 shrink-0 rounded-full border border-foam-faint"></span><span class="min-w-0 break-words">{{ business }} · {{ kind }}</span></p>
+      <p class="mt-1 text-sm text-foam-muted">{{ barge_ins }} barge-in{{ barge_ins|pluralize }}, {{ no_words }} without words</p>
+    </a>
+  </li>
+  {% empty %}
+  <li class="border-b border-granite py-4 text-foam-muted">No call logs yet.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

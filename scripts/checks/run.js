@@ -21,10 +21,10 @@ const readBaseline = (name) => (fs.existsSync(baselinePath(name)) ? JSON.parse(f
 const guards = (fs.existsSync(GUARDS) ? fs.readdirSync(GUARDS) : []).filter((f) => !f.startsWith('.')).sort()
   .map((f) => ({ name: path.parse(f).name, file: path.join(GUARDS, f) }));
 
-function runGuard(guard, root) {
+function runGuard(guard, root, env = {}) {
   const js = guard.file.endsWith('.js');
   const r = spawnSync(js ? process.execPath : guard.file, js ? [guard.file] : [],
-    { cwd: root, env: { ...process.env, GUARD_ROOT: root }, encoding: 'utf8' });
+    { cwd: root, env: { ...process.env, ...env, GUARD_ROOT: root }, encoding: 'utf8' });
   let scanned = null;
   const counts = new Map();
   const messages = new Map();
@@ -77,17 +77,22 @@ if (process.argv.includes('--report')) {
 }
 
 let failed = 0;
-console.log('Self-tests (each guard must fail on its fixture):');
+console.log('Self-tests (each guard must fail on each of its fixtures):');
+const fixtureDirs = fs.existsSync(FIXTURES) ? fs.readdirSync(FIXTURES) : [];
 for (const g of guards) {
-  const fx = path.join(FIXTURES, g.name);
-  let problem = null;
-  if (!fs.existsSync(fx)) problem = `no fixture: add scripts/checks/fixtures/${g.name}/ with input that must make this guard fail`;
-  else {
-    const r = runGuard(g, fx);
-    if (r.status !== 1 || r.counts.size === 0) problem = `did not fail on its fixture (exit ${r.status}, ${r.counts.size} violations) ${r.stderr.trim().slice(0, 200)}`;
+  // fixtures/<guard>/ is required; fixtures/<guard>.<case>/ adds a case. A fixture's .guard-env.json sets env vars.
+  for (const name of [g.name, ...fixtureDirs.filter((d) => d.startsWith(`${g.name}.`)).sort()]) {
+    const fx = path.join(FIXTURES, name);
+    const envFile = path.join(fx, '.guard-env.json');
+    let problem = null;
+    if (!fs.existsSync(fx)) problem = `no fixture: add scripts/checks/fixtures/${g.name}/ with input that must make this guard fail`;
+    else {
+      const r = runGuard(g, fx, fs.existsSync(envFile) ? JSON.parse(fs.readFileSync(envFile, 'utf8')) : {});
+      if (r.status !== 1 || r.counts.size === 0) problem = `did not fail on its fixture (exit ${r.status}, ${r.counts.size} violations) ${r.stderr.trim().slice(0, 200)}`;
+    }
+    console.log(`  ${problem ? 'FAIL' : 'PASS'}  ${name}${problem ? `: ${problem}` : ''}`);
+    if (problem) failed++;
   }
-  console.log(`  ${problem ? 'FAIL' : 'PASS'}  ${g.name}${problem ? `: ${problem}` : ''}`);
-  if (problem) failed++;
 }
 
 console.log('Guards:');
