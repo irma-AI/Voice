@@ -29,6 +29,7 @@ from tests.evals.checks import (
     agent_cut_off,
     agent_not_cut_off,
     answers_in_english,
+    barge_in_fields_logged,
     barge_in_summary,
     barge_ins_not_echo,
     books_nothing,
@@ -179,6 +180,9 @@ def test_false_barge_ins(record: str, passes: bool) -> None:
         (agent_cut_off, "noise_only", True),
         (agent_cut_off, "none", False),
         (agent_cut_off, "agent_silent", False),
+        # Pipecat's own cut is logged but judged by neither: they read Gemini's detector.
+        (agent_not_cut_off, "pipecat_cut", True),
+        (agent_cut_off, "pipecat_cut", False),
     ],
 )
 def test_cut_off_checks(
@@ -201,6 +205,9 @@ def test_cut_off_checks(
         (barge_in_summary, "echo", True),
         (barge_in_summary, "summary_wrong", False),
         (barge_in_summary, "words_follow", False),  # no summary
+        (barge_in_fields_logged, "real_caller", True),
+        (barge_in_fields_logged, "echo", True),
+        (barge_in_fields_logged, "words_follow", False),  # logged before the new fields
     ],
 )
 def test_echo_and_summary_checks(
