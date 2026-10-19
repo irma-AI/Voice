@@ -1,0 +1,90 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good on purpose: a real Caller spoke over the agent. The Caller's sound did not follow the agent's, kept on after the agent stopped, and the words were not the agent's.",
+ "events": [
+  {
+   "t": 0.0,
+   "e": "config",
+   "vad": {},
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 0.4,
+   "e": "bot_speech",
+   "phase": "start",
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 2.5,
+   "e": "barge_in",
+   "bot_speaking": true,
+   "bot_ms": 2100,
+   "peak_dbfs": -12.0,
+   "rms_dbfs": -21.0,
+   "src": "gemini",
+   "echo_corr": 0.18,
+   "echo_lag_ms": 60,
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 2.6,
+   "e": "bot_speech",
+   "phase": "stop",
+   "played_ms": 2200,
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 3.0,
+   "e": "levels",
+   "after_barge_in_ms": 500,
+   "caller_dbfs": [
+    -60.0,
+    -58.2,
+    -40.1,
+    -22.5,
+    -21.0,
+    -20.4,
+    -22.8,
+    -21.9,
+    -24.0,
+    -23.1
+   ],
+   "bot_dbfs": [
+    -14.0,
+    -13.2,
+    -15.1,
+    -12.9,
+    -13.4,
+    -30.0,
+    -100.0,
+    -100.0,
+    -100.0,
+    -100.0
+   ],
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 3.4,
+   "e": "caller_words",
+   "words": 4,
+   "after_barge_in_ms": 900,
+   "similarity": 0.0,
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 4.0,
+   "e": "resumed",
+   "after_barge_in_ms": 1500,
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 9.0,
+   "e": "end",
+   "reason": "cancel",
+   "secs": 9.0,
+   "barge_ins": 1,
+   "no_words": 0,
+   "cut_share": 1.0,
+   "call": "a1b2c3d4e5f6"
+  }
+ ]
+}

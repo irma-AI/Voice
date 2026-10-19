@@ -53,7 +53,7 @@ What one call that reached the model used: when it started, how long it ran, wha
 _Avoid_: usage log, CDR
 
 **Call log**:
-Everything stored about one call's events (for now its Barge-in timings and levels), kept 30 days from the call's start and then deleted. Not the Call record, which stays final and is kept for billing.
+Everything stored about one call's events (for now its Barge-in timings, levels and scores), kept 30 days from the call's start and then deleted. Not the Call record, which stays final and is kept for billing.
 _Avoid_: event log, call history, trace
 
 **Barge-in**:

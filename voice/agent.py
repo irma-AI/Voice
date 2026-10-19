@@ -178,15 +178,24 @@ async def _run(
         "content": "The call has just connected.",
     }
     user, assistant = LLMContextAggregatorPair(LLMContext(messages=[seed]))
-    steps = [transport.input(), user, llm, transport.output(), assistant]
+    call_id = uuid.uuid4().hex
+    barge_ins = BargeInRecorder(call_id, record_to)
+    # The recorder's output side hears the agent's audio as it is played, for the echo signature.
+    steps = [
+        transport.input(),
+        user,
+        llm,
+        transport.output(),
+        barge_ins.output_side,
+        assistant,
+    ]
     if record_to:  # only the eval Channel passes this: a real call is never recorded
         steps.insert(3, CallRecorder(record_to))  # what the model sends downstream
         steps.insert(
             2, CallRecorder(record_to)
         )  # the Caller's transcript, which travels upstream
     # The barge-in events (the first words after one, not the rest) go to the server log in production, with an id for the call (never a number).
-    call_id = uuid.uuid4().hex
-    steps.insert(2, BargeInRecorder(call_id, record_to))
+    steps.insert(2, barge_ins)
     tally = UsageTally(call_id)
     steps.insert(steps.index(llm) + 1, tally)
     if refused:
