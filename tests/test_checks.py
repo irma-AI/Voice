@@ -274,7 +274,9 @@ def _a_cut(tmp_path: Path, caller_levels: list[int]) -> list[dict[str, Any]]:
         agent = OutputAudioRawFrame(_pcm(AGENT[tick % 80]), 16000, 1)
         caller = InputAudioRawFrame(_pcm(caller_levels[tick % 80]), 16000, 1)
         frames += [agent, caller, SleepFrame(0.02)]
-    log = tmp_path / "call.jsonl"
+    log = (
+        tmp_path / "calls" / "call.jsonl"
+    )  # a folder not made yet, as on the eval Channel
     recorder = BargeInRecorder("c0ffee0123456789", log)
     # Upstream, as the model's signal and the Caller's transcript travel; the output side takes any direction.
     asyncio.run(
