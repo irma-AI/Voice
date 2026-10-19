@@ -1,7 +1,7 @@
 {
   "files": {
-    "voice/agent.py": "162a2f0478035df4aec8a99c2d737cbadf7af2291ba45a79e0780e020c0d4080",
-    "voice/bargein.py": "e069e4ae5fce8d70cdee5be5ad63e1fc9e2e1d4afb909c00aa7ec2a16e0e4ed5",
+    "voice/agent.py": "0f395db5ca2b9c9ce42e3daa0e20c7686397a01039f9933a2f6bb7b5a4d8a253",
+    "voice/bargein.py": "49ddc035d51542e7c5ad6bcceaee3519b738f955e52367c6e3bf8aaec440b15a",
     "voice/settings.py": "83f63f9d34dde13e0f67bde31338a75a144dad08d57e6758c300a0896e54918c",
     "voice/modules.py": "d31c8cceaa9d7498d5392f9022efb8bf0e161334d5c5e44e2abcc9d7726cfebe",
     "modules/example.py": "55e636c4e0e0ceb3872bf8867d27870917105ac4a476c8ab56f88a1420591f31",
