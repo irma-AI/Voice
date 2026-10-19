@@ -505,6 +505,9 @@ def test_the_browser_facts_go_to_the_log_checked_or_not_at_all() -> None:
         **FACTS,
     }
     assert serve.page_facts(json.dumps({"type": "browser"})) == {"page_facts": "sent"}
+    # In the database's field order whatever order the page sent, so the Portal's log file matches the server log.
+    shuffled = json.dumps({"type": "browser", **dict(reversed(FACTS.items()))})
+    assert list(serve.page_facts(shuffled)) == ["page_facts", *serve.PAGE_FACTS]
     assert serve.page_facts(None) == {"page_facts": "not_sent"}
     refused = {
         "a user-agent string": {"browser": USER_AGENT},

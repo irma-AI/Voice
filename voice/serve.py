@@ -137,7 +137,11 @@ def page_facts(text: str | None) -> dict[str, object]:
     if isinstance(message, dict) and message["type"] == "browser":
         facts = {k: v for k, v in message.items() if k != "type"}
         if all(k in PAGE_FACTS and PAGE_FACTS[k](v) for k, v in facts.items()):
-            return {"page_facts": "sent", **facts}
+            # PAGE_FACTS's order is the database's field list's, which the Portal's Call log pages show fields in.
+            return {
+                "page_facts": "sent",
+                **{k: facts[k] for k in PAGE_FACTS if k in facts},
+            }
     logger.warning("refused the call page's browser facts: {}", _kind(message))
     return {"page_facts": "refused"}
 
