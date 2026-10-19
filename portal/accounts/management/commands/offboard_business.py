@@ -6,7 +6,9 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.management.base import BaseCommand, CommandError, CommandParser
-from django.db import transaction
+from django.db import connection, transaction
+from django.db.models import CharField, Value
+from django.db.models.functions import Cast, Concat
 
 from portal.accounts.models import (
     AccessToken,
@@ -45,6 +47,7 @@ class Command(BaseCommand):
         if business is None:
             raise CommandError("no Account with a Business has that email")
         tokens = AccessToken.objects.filter(business=business, revoked_at__isnull=True)
+        labels = AccessToken.objects.filter(business=business)
         modules = Module.objects.filter(business=business)
         digest = reviewed_digest(
             self,
@@ -57,6 +60,7 @@ class Command(BaseCommand):
                 "account": str(business.account.pk),
                 "business": str(business.pk),
                 "access tokens to revoke": str(tokens.count()),
+                "access token labels to blank": str(labels.count()),
                 "modules to delete": str(modules.count()),
                 "call records kept": str(
                     CallRecord.objects.filter(business=business).count()
@@ -69,7 +73,18 @@ class Command(BaseCommand):
             revoked = list(tokens)
             for token in revoked:
                 token.revoke()
-            deleted, _ = modules.delete()
+            # A label may name a person: the one path that may blank it (migration 0022), once every token is revoked.
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('voice.offboard_token_labels', 'on', true)"
+                )
+                blanked = labels.update(
+                    label=Concat(Value("Token "), Cast("id", output_field=CharField()))
+                )
+                cursor.execute(
+                    "SELECT set_config('voice.offboard_token_labels', '', true)"
+                )
+            deleted = Module.remove(modules)
             business.name = f"Business {business.pk}"
             business.instructions = business.website_domain = business.accent = ""
             business.privacy_url = ""
@@ -85,11 +100,12 @@ class Command(BaseCommand):
             account.set_unusable_password()
             account.save()
         audit.info(
-            "offboarded business %s (account %s) by %s: %s tokens revoked, %s modules deleted, plan %s",
+            "offboarded business %s (account %s) by %s: %s tokens revoked, %s token labels blanked, %s modules deleted, plan %s",
             business.pk,
             account.pk,
             getpass.getuser(),
             len(revoked),
+            blanked,
             deleted,
             digest,
         )  # ids only: no email or name in logs
