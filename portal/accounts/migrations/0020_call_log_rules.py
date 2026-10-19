@@ -4,6 +4,7 @@ from django.db import migrations
 # - call_log_is_final: a stored log is never changed (a trigger, for every role).
 # - call_log_is_kept_until_expiry: a log is deleted only once accounts_call_log_expires_at (30 days after the call's
 #   start, Petter 2026-10-19) has passed; the deleting job is VOI-157.
+# - call_log_must_not_start_in_the_future: a start more than an hour ahead is refused, so no log outlives its 30 days.
 # - call_log_events_hold_only_listed_fields: each event is an object whose fields are the ones .claude/rules/security.md
 #   lists for a barge-in line (accounts_call_log_fields, which tests/portal/test_call_logs.py holds to that list), and
 #   whose values are numbers, true or false, or short codes (no spaces, so no sentence); `vad` is an object of the same.
@@ -44,6 +45,14 @@ $$ LANGUAGE sql IMMUTABLE;
 
 CREATE FUNCTION accounts_call_log_is_final() RETURNS trigger AS $$
 BEGIN
+    IF TG_OP = 'INSERT' THEN
+        -- A start in the future would keep the log past its 30 days; an hour allows for the core's clock.
+        IF NEW.started_at > now() + interval '1 hour' THEN
+            RAISE EXCEPTION 'call_log_must_not_start_in_the_future: a Call log''s start is when its call began'
+                USING ERRCODE = 'check_violation';
+        END IF;
+        RETURN NEW;
+    END IF;
     IF TG_OP = 'UPDATE' THEN
         RAISE EXCEPTION 'call_log_is_final: a stored Call log is never changed'
             USING ERRCODE = 'restrict_violation';
@@ -55,7 +64,7 @@ BEGIN
     RETURN OLD;
 END
 $$ LANGUAGE plpgsql;
-CREATE TRIGGER accounts_call_log_is_final BEFORE UPDATE OR DELETE ON accounts_calllog
+CREATE TRIGGER accounts_call_log_is_final BEFORE INSERT OR UPDATE OR DELETE ON accounts_calllog
     FOR EACH ROW EXECUTE FUNCTION accounts_call_log_is_final();
 """
 DROP = """

@@ -167,7 +167,11 @@ BAD: dict[str, dict[str, Any]] = {
         "events": [{**EVENTS[0], "vad": {"Start Sensitivity": 1}}]
     },
     "a code holding a NUL": {"events": [{**EVENTS[1], "phase": "a\u0000b"}]},
+    "events that are null": {"events": None},
+    "a start in the future": {"started_at": "9999-12-31T23:59:59.999999Z"},
 }
+# What only the database refuses (the schema cannot know the time).
+DATABASE_ONLY = {"a start in the future"}
 
 
 @pytest.mark.parametrize("name", sorted(BAD))
@@ -184,9 +188,7 @@ def test_the_contract_refuses_what_the_portal_refuses(name: str) -> None:
     assert not list(validator.iter_errors(a_log(business))), (
         "edit the schema or the example log: a good log must pass"
     )
-    if (
-        name != "unknown kind"
-    ):  # an unknown kind is the database's to refuse too, and the schema's enum
+    if name not in DATABASE_ONLY:
         assert list(validator.iter_errors(a_log(business, **BAD[name]))), (
             f"'{name}' is refused by the Portal but passes the schema: edit contract/call-log.schema.json to refuse it too"
         )
@@ -260,6 +262,10 @@ def test_the_database_itself_refuses_a_log_that_breaks_a_rule() -> None:
     for changes, rule in (
         ({"kind": "demo"}, "call_log_kind"),
         ({"call_id": "words, not a code"}, "call_log_id"),
+        (
+            {"started_at": datetime.now(UTC) + timedelta(hours=2)},
+            "call_log_must_not_start_in_the_future",
+        ),
         (
             {"events": [{"t": 1, "text": "hej"}]},
             "call_log_events_hold_only_listed_fields",

@@ -38,6 +38,8 @@ RETRY_PAUSE_S = 5
 # Records retrying against a down Portal wait here, never on asyncio's default threads that call starts read settings on.
 # shortcut: a fifth record waits for a free thread, raise max_workers if the give-up line is ever seen for a queued record.
 SENDER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="call-record")
+# Call logs retry on their own threads, so a down Portal never makes a record (and its log line, the billing copy) wait behind them.
+LOG_SENDER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="call-log")
 # Record field <- Pipecat's usage report field. Both sides name the same count; the contract is the record's one definition.
 TOKEN_FIELDS = {
     "prompt_tokens": "prompt_tokens",
@@ -51,7 +53,7 @@ TOKEN_FIELDS = {
 sending: set[asyncio.Future[bool]] = set()
 BARGE_IN_PREFIX = "barge-in "
 # The barge-in events of each call still running, by call id, as logged; report_call takes a call's out at its end.
-# shortcut: a call that never reaches report_call (the eval Channel, a pipeline that fails to build) leaves its lines here until the process ends; bound it if a long-lived core ever runs those.
+# shortcut: a call that never reaches report_call (the eval Channel, a pipeline that fails to build), or a line logged after it (not seen), stays here until the process ends; bound it if a long-lived core ever runs those.
 EVENTS: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
 
 
@@ -230,7 +232,7 @@ def report_call(
         loop.run_in_executor(
             SENDER, finish, call_id, ticket, started_at, length_seconds, totals, env
         ),
-        loop.run_in_executor(SENDER, send_log, log, env),
+        loop.run_in_executor(LOG_SENDER, send_log, log, env),
     ):
         sending.add(task)
         task.add_done_callback(sending.discard)

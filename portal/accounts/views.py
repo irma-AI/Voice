@@ -893,7 +893,11 @@ def record_call_log(request: HttpRequest) -> HttpResponse:
         body = json.loads(request.body)
     except ValueError:
         body = None
-    if not isinstance(body, dict) or body.keys() != CALL_LOG_FIELDS:
+    if (
+        not isinstance(body, dict)
+        or body.keys() != CALL_LOG_FIELDS
+        or not isinstance(body["events"], list)
+    ):
         return JsonResponse({"error": "not a Call log"}, status=400)
     form = CallLogForm(body)
     if not form.is_valid():
@@ -909,14 +913,16 @@ def record_call_log(request: HttpRequest) -> HttpResponse:
                 defaults={**values, "events": body["events"]},
             )
     except (IntegrityError, DataError) as e:
-        # The database is what checks an event (call_log_events_hold_only_listed_fields), or refuses text jsonb can't hold (a NUL); this only says so.
-        refused = getattr(getattr(e.__cause__, "diag", None), "constraint_name", None)
-        if (
-            isinstance(e, IntegrityError)
-            and refused != "call_log_events_hold_only_listed_fields"
+        # The database is what checks the events and the start (migration 0020), or refuses text jsonb can't hold (a NUL); this only says so.
+        if isinstance(e, DataError) or "call_log_events_hold_only_listed_fields" in str(
+            e
         ):
+            field = "events"
+        elif "call_log_must_not_start_in_the_future" in str(e):
+            field = "started_at"
+        else:
             raise
         return JsonResponse(
-            {"error": "malformed Call log", "fields": ["events"]}, status=400
+            {"error": "malformed Call log", "fields": [field]}, status=400
         )
     return JsonResponse({"stored": True}, status=201 if created else 200)
