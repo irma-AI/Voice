@@ -279,7 +279,8 @@ class BargeInRecorder(FrameProcessor):
             and isinstance(frame.message, dict)
             and frame.message.get("type") == "playback_gaps"  # pyright: ignore[reportUnknownMemberType]
         ):
-            self._gaps = int(frame.message["count"])  # pyright: ignore[reportUnknownArgumentType]  # checked by the web Channel
+            # A count the web Channel checked (voice/serve.py); Pipecat types the message as Any.
+            self._gaps = int(frame.message["count"])  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
         elif isinstance(frame, InterruptionFrame):
             if direction == FrameDirection.UPSTREAM:
                 self._barge_in(now, "gemini")  # only the model sends one up to here

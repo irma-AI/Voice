@@ -9,7 +9,7 @@ import contextlib
 import json
 import re
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from pathlib import Path
 
 import pytest
@@ -490,7 +490,7 @@ USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)"  # synthet
 
 
 @contextlib.contextmanager
-def warnings() -> Iterator[list[str]]:
+def warnings() -> Generator[list[str]]:
     lines: list[str] = []
     sink = logger.add(lambda m: lines.append(m.record["message"]), level="WARNING")
     try:
@@ -588,7 +588,10 @@ class HangsUpOnTheLastCount(FrameProcessor):
     async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
         await super().process_frame(frame, direction)
         await self.push_frame(frame, direction)
-        if isinstance(frame, InputTransportMessageFrame) and frame.message["count"] == 2:
+        if (
+            isinstance(frame, InputTransportMessageFrame)
+            and frame.message["count"] == 2
+        ):
             await self._worker().stop_when_done()
 
 
@@ -614,7 +617,9 @@ def test_a_call_logs_the_browser_facts_and_its_playback_gaps_and_survives_a_bad_
         )
         recorder = BargeInRecorder("c0ffee0123456789", log, page)
         worker = PipelineWorker(
-            Pipeline([transport.input(), recorder, HangsUpOnTheLastCount(lambda: worker)])
+            Pipeline(
+                [transport.input(), recorder, HangsUpOnTheLastCount(lambda: worker)]
+            )
         )
         runner = WorkerRunner(handle_sigint=False)
         await runner.add_workers(worker)
@@ -655,9 +660,12 @@ def test_a_page_that_sends_no_facts_first_leaves_the_reason_and_no_gap_count(
         ws.send_bytes(b"\x00\x00" * 320)  # audio first
         with pytest.raises(WebSocketDisconnect):
             ws.receive_text()
-    with TestClient(app).websocket_connect("/ws") as ws:  # nothing at all
-        with pytest.raises(WebSocketDisconnect):
-            ws.receive_text()
+    # nothing at all
+    with (
+        TestClient(app).websocket_connect("/ws") as ws,
+        pytest.raises(WebSocketDisconnect),
+    ):
+        ws.receive_text()
     assert got == [{"page_facts": "not_sent"}] * 2
     recorder = BargeInRecorder("c0ffee0123456789", tmp_path / "call.jsonl", got[0])
     asyncio.run(run_test(Pipeline([recorder]), frames_to_send=[]))
