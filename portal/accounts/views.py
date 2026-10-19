@@ -22,7 +22,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db import DataError, IntegrityError, transaction
+from django.db import DataError, IntegrityError, connection, transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.http import (
@@ -283,6 +283,7 @@ def operator_only(view: Callable[..., HttpResponse]) -> Callable[..., HttpRespon
     """The one gate for the operator's pages: behind the login, then only the Account whose email is `SUPER_ADMIN_EMAIL` (unset: nobody); anyone else gets 403."""
 
     @login_required
+    @never_cache  # every Business's figures: no shared cache keeps them
     @wraps(view)
     def gated(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         if not sees_totals(request.user):
@@ -352,11 +353,26 @@ LOGS_SHOWN = 100
 
 def log_summary(events: list[dict[str, Any]]) -> tuple[str, int, int]:
     """Length (minutes:seconds, from the end event; "–" without one), barge-ins, and barge-ins with no Caller's words after: the recorder writes words only for the first words after a barge-in, so the difference is the count."""
-    ends = [e["secs"] for e in events if e["e"] == "end" and "secs" in e]
+    # .get and the type check: the database checks field names and value shapes, not that a field is there or a number.
+    ends = [
+        e["secs"]
+        for e in events
+        if e.get("e") == "end"
+        and type(e.get("secs")) in (int, float)
+        and e["secs"] >= 0
+    ]
     length = f"{int(ends[0]) // 60}:{int(ends[0]) % 60:02d}" if ends else "–"
-    barge_ins = sum(e["e"] == "barge_in" for e in events)
-    words = sum(e["e"] == "caller_words" for e in events)
-    return length, barge_ins, barge_ins - words
+    barge_ins = sum(e.get("e") == "barge_in" for e in events)
+    words = sum(e.get("e") == "caller_words" for e in events)
+    return length, barge_ins, max(barge_ins - words, 0)
+
+
+def in_recorder_order(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The events with their fields in the order the recorder writes them: jsonb keeps no key order, and the database's field list (migration 0020) is in the recorder's order. A nested `vad` keeps jsonb's order."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT accounts_call_log_fields()")
+        order = cursor.fetchone()[0]
+    return [{**{k: e[k] for k in order if k in e}, **e} for e in events]
 
 
 @operator_only
@@ -384,11 +400,11 @@ def call_log(request: HttpRequest, call_id: str) -> HttpResponse:
     log = get_object_or_404(CallLog.objects.select_related("business"), call_id=call_id)
     events = [
         (
-            e["t"],
-            EVENT_NAMES.get(e["e"], e["e"]),
+            e.get("t"),
+            EVENT_NAMES.get(str(e.get("e")), e.get("e", "–")),
             [(k, json.dumps(v)) for k, v in e.items() if k not in ("t", "call", "e")],
         )
-        for e in log.events
+        for e in in_recorder_order(log.events)
     ]
     length, barge_ins, no_words = log_summary(log.events)
     return render(
@@ -410,11 +426,7 @@ def call_log(request: HttpRequest, call_id: str) -> HttpResponse:
 def call_log_text(request: HttpRequest, call_id: str) -> HttpResponse:
     """The Call log as the server log's barge-in lines (`barge-in ` and the event's JSON), one per event, to hand to an agent."""
     log = get_object_or_404(CallLog, call_id=call_id)
-    # jsonb keeps no key order: t, call and e go first as the recorder writes them, the rest follow as stored.
-    lines = (
-        "barge-in " + json.dumps({"t": e["t"], "call": e["call"], "e": e["e"], **e})
-        for e in log.events
-    )
+    lines = ("barge-in " + json.dumps(e) for e in in_recorder_order(log.events))
     response = HttpResponse(
         "".join(line + "\n" for line in lines), content_type="text/plain; charset=utf-8"
     )

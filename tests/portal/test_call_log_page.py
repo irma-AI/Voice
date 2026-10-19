@@ -43,6 +43,9 @@ def test_only_the_operator_opens_the_pages_and_a_visitor_goes_to_the_login(
     settings.SUPER_ADMIN_EMAIL = EMAIL
     for page in PAGES:
         assert petter.get(page).status_code == 200
+        assert (
+            "no-store" in petter.get(page)["Cache-Control"]
+        )  # never in a shared cache
         assert client.get(page).status_code == 403
         assert Client().get(page)["Location"].startswith("/login/")
     assert "Call logs for every Business" in petter.get("/dashboard/").content.decode()
@@ -107,8 +110,29 @@ def test_the_text_file_has_the_lines_the_core_wrote(settings: Any) -> None:
     assert response["Content-Type"].startswith("text/plain")
     assert f'filename="call-log-{CALL}.txt"' in response["Content-Disposition"]
     lines = response.content.decode().splitlines()
-    # The recorder's line, as voice/bargein.py logs it: the prefix and the event's JSON, t, call and e first.
-    assert lines[2].startswith(
-        'barge-in {"t": 2.5, "call": "' + CALL + '", "e": "barge_in"'
-    )
+    # The recorder's lines, as voice/bargein.py logs them, character for character; config's vad keeps no key order.
+    assert lines[1:] == [f"barge-in {json.dumps(e)}" for e in EVENTS[1:]]
     assert [json.loads(line.removeprefix("barge-in ")) for line in lines] == EVENTS
+
+
+@pytest.mark.parametrize(
+    "events",
+    [
+        [{"e": "end", "secs": "abc"}],  # a code where a number belongs
+        [{"t": 1}],  # no event name
+        [{"e": "barge_in"}],  # no time, no call
+        [{"call": CALL, "e": "caller_words", "words": 2}],  # words with no barge-in
+    ],
+)
+def test_an_odd_event_the_database_took_never_breaks_the_pages(
+    settings: Any, events: Any
+) -> None:
+    """The database checks an event's field names and value shapes, not that t, call and e are there; one odd log must not take the list down for its 30 days."""
+    settings.SUPER_ADMIN_EMAIL = EMAIL
+    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, petter = business_with_login(EMAIL, "Petter's Business")
+    a_log(anna, events=events)
+    for page in PAGES:
+        assert petter.get(page).status_code == 200, page
+    length, _, no_words = petter.get("/logs/").context["rows"][0][4:]
+    assert length == "–" and no_words >= 0
