@@ -412,7 +412,7 @@ class CallLog(models.Model):
 
 
 class AccessToken(models.Model):
-    """What lets a Business's own agent act for it (ADR 0003). The secret is shown once and never stored, only its SHA-256. Once made, only `last_used_at` and a first `revoked_at` can change, and it is never deleted: triggers (migrations 0014, 0021) refuse the rest, for every role."""
+    """What lets a Business's own agent act for it (ADR 0003). The secret is shown once and never stored, only its SHA-256. Once made, only `last_used_at`, a first `revoked_at` and offboarding's blanking of a revoked label can change, and it is never deleted: triggers (migrations 0014, 0021, 0022) refuse the rest, for every role."""
 
     business = models.ForeignKey(
         Business, on_delete=models.CASCADE, related_name="access_tokens"
