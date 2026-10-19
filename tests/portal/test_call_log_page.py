@@ -85,6 +85,7 @@ def test_the_timeline_shows_every_event_with_its_fields(settings: Any) -> None:
         "Agent speech",
         "Barge-in",
         "Agent speech",
+        "Levels around the cut",
         "Caller's words",
         "Agent resumes",
         "Call ends",
@@ -97,6 +98,8 @@ def test_the_timeline_shows_every_event_with_its_fields(settings: Any) -> None:
         "peak_dbfs": "-12.5",
         "rms_dbfs": "-30.1",
         "src": '"gemini"',
+        "echo_corr": "0.12",
+        "echo_lag_ms": "180",
     }
     assert petter.get("/logs/no-such-call-01/").status_code == 404
 

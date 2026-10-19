@@ -345,6 +345,7 @@ EVENT_NAMES = {
     "config": "Call starts",
     "bot_speech": "Agent speech",
     "barge_in": "Barge-in",
+    "levels": "Levels around the cut",
     "caller_words": "Caller's words",
     "resumed": "Agent resumes",
     "end": "Call ends",
@@ -369,7 +370,7 @@ def log_summary(events: list[dict[str, Any]]) -> tuple[str, int, int]:
 
 
 def in_recorder_order(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The events with their fields in the order the recorder writes them: jsonb keeps no key order, and the database's field list (migration 0020) is in the recorder's order. A nested `vad` keeps jsonb's order."""
+    """The events with their fields in the order the recorder writes them: jsonb keeps no key order, and the database's field list (migrations 0023 and 0024) is in the recorder's order. A nested `vad` keeps jsonb's order."""
     with connection.cursor() as cursor:
         cursor.execute("SELECT accounts_call_log_fields()")
         order = cursor.fetchone()[0]

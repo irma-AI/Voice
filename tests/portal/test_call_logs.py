@@ -40,6 +40,17 @@ EVENTS: list[dict[str, Any]] = [
         "call": CALL,
         "e": "config",
         "vad": {"start_sensitivity": "START_SENSITIVITY_LOW", "prefix_padding_ms": 300},
+        "page_facts": "sent",
+        "echo_cancellation": True,
+        "noise_suppression": "remote-only",
+        "auto_gain_control": False,
+        "loopback": "set_up",
+        "sample_rate": 48000,
+        "base_latency_ms": 5.3,
+        "output_latency_ms": 21.0,
+        "browser": "safari",
+        "os": "ios",
+        "os_version": 18,
     },
     {"t": 1.2, "call": CALL, "e": "bot_speech", "phase": "start"},
     {
@@ -51,12 +62,62 @@ EVENTS: list[dict[str, Any]] = [
         "peak_dbfs": -12.5,
         "rms_dbfs": -30.1,
         "src": "gemini",
+        "echo_corr": 0.12,
+        "echo_lag_ms": 180,
     },
     {"t": 2.6, "call": CALL, "e": "bot_speech", "phase": "stop", "played_ms": 1400},
-    {"t": 3.1, "call": CALL, "e": "caller_words", "words": 4, "after_barge_in_ms": 600},
+    {
+        "t": 3.0,
+        "call": CALL,
+        "e": "levels",
+        "after_barge_in_ms": 500,
+        "caller_dbfs": [
+            -60.2,
+            -58.0,
+            -31.5,
+            -25.0,
+            -24.1,
+            -26.3,
+            -28.0,
+            -30.2,
+            -45.0,
+            -60.0,
+        ],
+        "bot_dbfs": [
+            -20.1,
+            -19.5,
+            -21.0,
+            -20.4,
+            -22.0,
+            -100.0,
+            -100.0,
+            -100.0,
+            -100.0,
+            -100.0,
+        ],
+    },
+    {
+        "t": 3.1,
+        "call": CALL,
+        "e": "caller_words",
+        "words": 4,
+        "after_barge_in_ms": 600,
+        "similarity": 0.0,
+    },
     {"t": 4.0, "call": CALL, "e": "resumed", "after_barge_in_ms": 1500},
-    {"t": 9.9, "call": CALL, "e": "end", "reason": "cancel", "secs": 9.9},
+    {
+        "t": 9.9,
+        "call": CALL,
+        "e": "end",
+        "reason": "cancel",
+        "secs": 9.9,
+        "barge_ins": 1,
+        "no_words": 0,
+        "cut_share": 1.0,
+        "playback_gaps": 2,
+    },
 ]
+LEVELS = EVENTS[4]
 
 
 @pytest.fixture(autouse=True)
@@ -167,6 +228,12 @@ BAD: dict[str, dict[str, Any]] = {
         "events": [{**EVENTS[0], "vad": {"Start Sensitivity": 1}}]
     },
     "a code holding a NUL": {"events": [{**EVENTS[1], "phase": "a\u0000b"}]},
+    "a level trace holding words": {"events": [{**LEVELS, "caller_dbfs": ["hej"]}]},
+    "a level trace that is a code": {"events": [{**LEVELS, "bot_dbfs": "loud"}]},
+    "a level trace over 20 numbers": {"events": [{**LEVELS, "bot_dbfs": [-20.0] * 21}]},
+    "a list in a field that is no trace": {
+        "events": [{**EVENTS[2], "echo_corr": [0.9]}]
+    },
     "events that are null": {"events": None},
     "a start in the future": {"started_at": "9999-12-31T23:59:59.999999Z"},
 }
@@ -275,6 +342,38 @@ def test_the_database_itself_refuses_a_log_that_breaks_a_rule() -> None:
             "call_log_events_hold_only_listed_fields",
         ),
         ({"events": {"t": 1}}, "call_log_events_hold_only_listed_fields"),
+        (
+            {"events": [{"t": 1, "caller_dbfs": ["hej"]}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (
+            {"events": [{"t": 1, "bot_dbfs": [-20.0] * 21}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (
+            {"events": [{"t": 1, "vad": "low"}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (
+            {"events": [{"t": 1, "bot_dbfs": "loud"}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (
+            {"events": [{"t": 1, "similarity": [1, 2]}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (  # a user-agent string where the browser family goes
+            {
+                "events": [
+                    {"t": 1, "browser": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0)"}
+                ]
+            },
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (
+            {"events": [{"t": 1, "user_agent": "Safari"}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
     ):
         with pytest.raises(IntegrityError, match=rule), transaction.atomic():
             CallLog.objects.create(**{**good, **changes})
