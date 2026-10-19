@@ -158,7 +158,6 @@ BAD: dict[str, dict[str, Any]] = {
         "cost_reason": "The catalogue was down",
     },
     "business that is not a number": {"business": "abc"},
-    "a start in the future": {"started_at": "9999-12-31T23:59:59Z"},
 }
 
 
@@ -184,7 +183,6 @@ def test_the_contract_refuses_what_the_portal_refuses(name: str) -> None:
         "business that is not a number",
         "time that is not real",
         "unknown kind",
-        "a start in the future",  # the schema cannot know the time
     }
     if name not in database_only:
         assert list(validator.iter_errors(a_record(business, **BAD[name]))), (
@@ -291,3 +289,15 @@ def test_the_record_shape_is_the_same_in_the_schema_and_the_portal() -> None:
         PROPERTIES["cost_reason"]["pattern"],
     ), "set the patterns in models.py and the schema to the same text"
     assert CallRecord._meta.get_field("call_id").max_length == 64  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+
+
+def test_a_record_from_a_core_clock_running_ahead_still_counts_today() -> None:
+    business = a_business()
+    record = a_record(business, started_at="9999-12-31T23:59:59Z")
+    before = datetime.now(UTC)
+    assert (
+        send(record).status_code == 201
+    )  # refused as sent, it would drop out of the daily budget
+    assert send(record).status_code == 200
+    stored = CallRecord.objects.get()
+    assert before <= stored.started_at <= datetime.now(UTC)

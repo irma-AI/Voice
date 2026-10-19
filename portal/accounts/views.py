@@ -33,6 +33,7 @@ from django.http import (
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
@@ -594,7 +595,7 @@ def modules(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
-    """The one way a Module goes: only one of the logged-in Business's own."""
+    """Remove on the Modules page: only one of the logged-in Business's own, through Module.remove."""
     if request.method != "POST":
         return back_to("modules")
     mine = Module.objects.filter(pk=module_id, business__account=request.user)
@@ -867,17 +868,23 @@ def record_call(request: HttpRequest) -> HttpResponse:
             status=400,
         )
     values = dict(form.cleaned_data)
+    call_id = values.pop("call_id")
     try:
         with transaction.atomic():
             _, created = CallRecord.objects.get_or_create(
-                call_id=values.pop("call_id"), defaults=values
+                call_id=call_id, defaults=values
             )
     except IntegrityError as e:
-        # The database is what refuses a start in the future (migration 0021); this only says so.
+        # The database refuses a start in the future (migration 0021). Refusing the call would drop its cost from the
+        # daily budget (fail open), so it is stored at the Portal's clock instead, and the core's clock is logged as off.
         if "call_record_must_not_start_in_the_future" not in str(e):
             raise
-        return JsonResponse(
-            {"error": "malformed Call record", "fields": ["started_at"]}, status=400
+        log.warning(
+            "call record %s started in the future by the core's clock: stored at the Portal's",
+            call_id,
+        )
+        _, created = CallRecord.objects.get_or_create(
+            call_id=call_id, defaults={**values, "started_at": timezone.now()}
         )
     return JsonResponse({"stored": True}, status=201 if created else 200)
 
