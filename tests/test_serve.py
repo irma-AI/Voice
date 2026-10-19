@@ -552,6 +552,13 @@ def test_the_page_may_say_only_what_the_call_log_contract_lists() -> None:
     assert (True, False, *switch[1]["enum"]) == serve.SWITCH, (
         "voice/serve.py SWITCH and the contract's switch differ: edit whichever is wrong"
     )
+    said = {
+        serve.page_facts(text)["page_facts"]
+        for text in ('{"type": "browser"}', None, "not json")
+    }
+    assert said == set(event["page_facts"]["enum"]), (
+        "voice/serve.py page_facts and the contract's page_facts enum differ: edit whichever is wrong"
+    )
 
 
 def test_the_page_count_of_playback_gaps_is_passed_on_and_anything_else_ignored() -> (

@@ -329,11 +329,16 @@ async function browserFacts(stream, ctx) {
   facts.os = /iPhone|iPad|iPod/.test(ua) ? "ios" : /Android/.test(ua) ? "android" : /CrOS/.test(ua) ? "chromeos"
     : /Macintosh/.test(ua) ? "macos" : /Windows/.test(ua) ? "windows" : /Linux/.test(ua) ? "linux" : "other";
   // The OS's major version only where it is not frozen: Chromium's own, iOS Safari's and Firefox's Android number
-  // (Chrome reports Android 10, macOS 10 and Windows NT 10 whatever runs). shortcut: whether Safari freezes the
+  // (Chrome reports Android 10, macOS 10 and Windows NT 10 whatever runs), never on Windows, whose platformVersion
+  // is not the Windows number. A failed lookup loses the version only. shortcut: whether Safari freezes the
   // iOS number too is not checked; drop it if a call shows a stale one.
   let version = null;
   if (navigator.userAgentData) {
-    version = (await navigator.userAgentData.getHighEntropyValues(["platformVersion"])).platformVersion?.split(".")[0];
+    if (facts.os !== "windows") {
+      try {
+        version = (await navigator.userAgentData.getHighEntropyValues(["platformVersion"])).platformVersion?.split(".")[0];
+      } catch (e) {}
+    }
   } else if (facts.os === "ios") version = ua.match(/OS (\d+)_/)?.[1];
   else if (facts.os === "android") version = ua.match(/Android (\d+)/)?.[1];
   if (/^\d{1,3}$/.test(version ?? "")) facts.os_version = Number(version);
@@ -412,8 +417,8 @@ async function start() {
     src.connect(out);
     src.onended = () => playing.delete(src);
     // A playback gap: the agent's audio ran out and more came within a second, with no barge-in between (an
-    // interrupt sets next to 0). shortcut: a new turn within a second of the agent's last audio counts too;
-    // tell turns apart if the counts ever look high.
+    // interrupt sets next to 0). shortcut: a new turn within a second of the agent's last audio counts too, and a
+    // pause of a second or more inside one turn does not; tell turns apart if the counts ever look wrong.
     const dry = ctx.currentTime - next;
     if (next && dry > 0 && dry < 1) ws.send(JSON.stringify({ type: "playback_gaps", count: ++gaps }));
     next = Math.max(next, ctx.currentTime);
