@@ -8,6 +8,7 @@ import json
 import threading
 import time
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -215,6 +216,35 @@ def test_the_record_is_logged_before_any_send_and_the_call_never_waits_on_it() -
     assert logged_before_send == 1  # the line was written when the send had not started
     assert [s[2] for s in seen] == [a_record()]
     assert any("delivered" in line for line in lines)
+
+
+def test_records_stuck_on_a_down_portal_leave_the_default_threads_to_call_starts() -> (
+    None
+):
+    hold = threading.Event()
+    with fake_portal([], [], hold) as portal:
+        env = {"SETTINGS_URL": portal, "CORE_SECRET": SECRET}
+
+        async def six_calls_end_then_one_starts() -> tuple[float, int]:
+            # asyncio's default executor on a 2 vCPU host: min(32, cpu + 4) threads.
+            asyncio.get_running_loop().set_default_executor(
+                ThreadPoolExecutor(max_workers=6)
+            )
+            began = time.monotonic()
+            for _ in range(6):
+                report_call("c0ffee0123456789", TICKET, STARTED, 184, TOTALS, env)
+            took = time.monotonic() - began
+            await asyncio.sleep(0)  # each record is on its thread
+            try:  # a call start reading its settings
+                return took, await asyncio.wait_for(asyncio.to_thread(lambda: 1), 1)
+            finally:
+                hold.set()
+                await asyncio.gather(*report.sending)
+
+        took, started = asyncio.run(six_calls_end_then_one_starts())
+
+    assert took < 0.1
+    assert started == 1
 
 
 def test_no_portal_to_send_to_is_logged_not_ignored() -> None:
