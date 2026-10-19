@@ -83,3 +83,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-19] VOI-167: after VOI-169 the future-start fallback sits inside store_core_report, keyed on the Call record rule's name, not back in record_call: one opening for both reports stays, and the Call log path is unchanged.
 [2026-10-19] Claim sweep: the base-branch reading of the ticket, fence and eval lists stays "not checked": ticket-required has failed PRs in CI, but no run shows a PR's own loosened list being ignored. Claims in files outside no_ticket wait for a ticket (PR body).
 [2026-10-19] Claim sweep: the Loops row keeps "yes" rather than the sweep's zizmor exception, since VOI-170 made CI's workflow-lint job call `make workflow-lint`.
+[2026-10-19] VOI-173: the Evals run prints the last 200 lines of each bot log, not an artifact: the eval Channel plays synthetic Callers only, and two runs failed with connect_failed and nothing showing why.
