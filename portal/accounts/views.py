@@ -817,8 +817,13 @@ def spent_today(business: Business) -> Decimal:
     return spent
 
 
-def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
-    """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call."""
+def to_core(
+    request: HttpRequest, business: Business, kind: str, domain: str = ""
+) -> HttpResponse:
+    """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call. Once the Business's daily budget is spent (VOI-123), a kind BUDGET_COUNTED counts gets no ticket until the next day, whichever view mints it (VOI-172); a kind missing from it raises, so no ticket."""
+    if BUDGET_COUNTED[kind] and spent_today(business) >= business.daily_budget_usd:
+        log.warning("call refused: Business %s has spent its daily budget", business.pk)
+        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
     # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
     if not settings.CORE_SECRET:
         return HttpResponse("Calls are not set up: CORE_SECRET is empty.", status=503)
@@ -831,7 +836,7 @@ def test_call(request: HttpRequest) -> HttpResponse:
     """A logged-in Business's own test call; it takes no Business from the request."""
     if request.method != "POST":
         return back_to("dashboard")
-    return to_core(get_object_or_404(Business, account=request.user), "test")
+    return to_core(request, get_object_or_404(Business, account=request.user), "test")
 
 
 @require_GET
@@ -841,7 +846,7 @@ def test_call(request: HttpRequest) -> HttpResponse:
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     """A Business's public call link, opened in the panel the Call button script builds on the Business's website (VOI-73).
 
-    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too. Once the Business's daily budget is spent (VOI-123), no ticket until the next day.
+    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too. Once the Business's daily budget is spent (VOI-123), `to_core` gives no ticket until the next day.
     """
     business = get_object_or_404(Business, call_slug=slug)
     if request.headers.get("Sec-Fetch-Dest") != "iframe":
@@ -852,12 +857,7 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     if not business.website_domain:
         log.warning("call link refused: Business %s has no website domain", business.pk)
         return call_link_refused(request)
-    if spent_today(business) >= business.daily_budget_usd:
-        log.warning(
-            "call link refused: Business %s has spent its daily budget", business.pk
-        )
-        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
-    return to_core(business, "call_link", business.website_domain)
+    return to_core(request, business, "call_link", business.website_domain)
 
 
 # The Call button script a Business's website loads, and the hash of its bytes that the pasted tag names (VOI-135):
