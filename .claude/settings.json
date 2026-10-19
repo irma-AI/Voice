@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"${CLAUDE_PROJECT_DIR}\" && rm -f \"$(git rev-parse --git-path next-step-ticket)\"",
+            "command": "cd \"${CLAUDE_PROJECT_DIR}\" && marker=$(git rev-parse --git-path next-step-ticket) && rm -f \"$marker\"",
             "timeout": 5,
             "statusMessage": "Forgetting the last session's ticket"
           }
