@@ -6,11 +6,14 @@ Pipecat's own runner (voice/web.py) stays for the eval Channel; Pipecat calls it
 import asyncio
 import html
 import json
+import math
 import os
 import socket
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit
 
 import uvicorn
@@ -21,6 +24,7 @@ from loguru import logger
 from pipecat.frames.frames import (
     Frame,
     InputAudioRawFrame,
+    InputTransportMessageFrame,
     InterruptionFrame,
     OutputAudioRawFrame,
     TranscriptionFrame,
@@ -57,6 +61,97 @@ FONTS = {
     p.name: p.read_bytes()
     for p in (Path(__file__).parent / "static" / "fonts").glob("*.woff2")
 }
+
+
+# What the call page tells the core about the browser (voice/page.html): untrusted, so each field is checked here.
+# The browser family and its OS come from fixed lists, so a user-agent string or a device name has no field to land
+# in; contract/call-log.schema.json lists the same values (tests/test_serve.py fails when they differ).
+BROWSERS = ("chrome", "edge", "firefox", "safari", "samsung", "other")
+SYSTEMS = ("android", "ios", "macos", "windows", "linux", "chromeos", "other")
+LOOPBACK = ("set_up", "fell_back")
+# getSettings() reports an audio setting as true or false, or (newer browsers) which audio echo cancelling covers.
+SWITCH = (True, False, "all", "remote-only")
+PAGE_MESSAGE_MAX = 1024  # characters; the page's messages are a few hundred
+# The page sends its facts before its microphone; one that has not by then is taken to send none.
+PAGE_FACTS_WAIT_S = 3.0
+
+
+def _number(value: object) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and 0 <= value <= 1_000_000
+    )
+
+
+def _count(value: object, below: int = 1_000_000) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and 0 <= value < below
+
+
+def _one_of(*allowed: object) -> Callable[[object], bool]:
+    # By type as well as value: True == 1 in Python, and a list or object is never one of them.
+    return lambda value: any(type(value) is type(a) and value == a for a in allowed)
+
+
+PAGE_FACTS: dict[str, Callable[[object], bool]] = {
+    "echo_cancellation": _one_of(*SWITCH),
+    "noise_suppression": _one_of(*SWITCH),
+    "auto_gain_control": _one_of(*SWITCH),
+    "loopback": _one_of(*LOOPBACK),
+    "sample_rate": _number,
+    "base_latency_ms": _number,
+    "output_latency_ms": _number,
+    "browser": _one_of(*BROWSERS),
+    "os": _one_of(*SYSTEMS),
+    "os_version": lambda value: _count(value, 1000),  # the major version only
+}
+
+
+def read_page_message(text: str) -> dict[str, Any] | str:
+    """One text message from the call page, a JSON object with a `type`; else why not, as a code (never its content)."""
+    if len(text) > PAGE_MESSAGE_MAX:
+        return "oversized"
+    try:
+        message: object = json.loads(text)
+    except ValueError:
+        return "not_json"
+    if not isinstance(message, dict) or not isinstance(message.get("type"), str):  # pyright: ignore[reportUnknownMemberType]
+        return "no_type"
+    return message  # pyright: ignore[reportUnknownVariableType]
+
+
+def _kind(message: dict[str, Any] | str) -> str:
+    """What a refused page message was, for the log: our code, or a type the page knows, never the page's text."""
+    if isinstance(message, str):
+        return message
+    known = message["type"] in ("browser", "playback_gaps")
+    return f"bad_{message['type']}" if known else "unknown_type"
+
+
+def page_facts(text: str | None) -> dict[str, object]:
+    """The browser facts for the call's config event, with `page_facts` saying whether they came: never a guess."""
+    if text is None:
+        return {"page_facts": "not_sent"}
+    message = read_page_message(text)
+    if isinstance(message, dict) and message["type"] == "browser":
+        facts = {k: v for k, v in message.items() if k != "type"}
+        if all(k in PAGE_FACTS and PAGE_FACTS[k](v) for k, v in facts.items()):
+            return {"page_facts": "sent", **facts}
+    logger.warning("refused the call page's browser facts: {}", _kind(message))
+    return {"page_facts": "refused"}
+
+
+async def receive_page_facts(websocket: WebSocket) -> dict[str, object] | None:
+    """The page's first message, its browser facts, waited for briefly; None when the page has already gone."""
+    try:
+        message = await asyncio.wait_for(websocket.receive(), PAGE_FACTS_WAIT_S)
+    except TimeoutError:
+        return page_facts(None)
+    if message["type"] == "websocket.disconnect":
+        return None
+    # Audio first is a page that sends no facts; that one block of microphone, before the agent speaks, is dropped.
+    return page_facts(message.get("text"))
 
 
 def render_page(settings: Settings | None) -> str:
@@ -130,9 +225,37 @@ class RawPcmSerializer(FrameSerializer):
             )
         return None
 
+    def __init__(self) -> None:
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]  # untyped kwargs upstream
+        self._warned: set[str] = (
+            set()
+        )  # kinds of page message already logged on this call
+
     async def deserialize(self, data: str | bytes) -> Frame | None:
         if isinstance(data, bytes):
             return InputAudioRawFrame(audio=data, sample_rate=IN_RATE, num_channels=1)
+        # Text is the page's count of playback gaps so far, for the barge-in log's end event (voice/bargein.py);
+        # anything else is ignored and logged by kind, and the call goes on.
+        message = read_page_message(data)
+        if (
+            isinstance(message, dict)
+            and message["type"] == "playback_gaps"
+            and set(message) == {"type", "count"}
+            and _count(message["count"])
+        ):
+            return InputTransportMessageFrame(
+                message={"type": "playback_gaps", "count": message["count"]}
+            )
+        kind = _kind(message)
+        if kind == "bad_browser":
+            kind = (
+                "late_browser"  # facts come first or not at all; these missed the wait
+            )
+        if (
+            kind not in self._warned
+        ):  # once per kind and call: a page sending junk in a loop must not flood the log
+            self._warned.add(kind)
+            logger.warning("ignored a message from the call page: {}", kind)
         return None
 
 
@@ -331,6 +454,9 @@ def create_app(ticket_secret: str) -> FastAPI:
             return await websocket.close(code=1008)
         try:
             await websocket.accept()
+            page = await receive_page_facts(websocket)
+            if page is None:
+                return
             transport = CallTransport(
                 websocket,
                 FastAPIWebsocketParams(
@@ -347,7 +473,7 @@ def create_app(ticket_secret: str) -> FastAPI:
             async def _time_up(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
                 await websocket.close()
 
-            await run_call(transport, ticket=ticket)
+            await run_call(transport, ticket=ticket, page=page)
         finally:
             one_call.release(ticket.business)
 

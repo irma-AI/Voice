@@ -5,7 +5,7 @@ import os
 import sys
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -110,10 +110,12 @@ async def run_call(
     idle_timeout_secs: float | None = None,
     record_to: Path | None = None,
     handle_sigint: bool = False,
+    page: Mapping[str, object] | None = None,
 ) -> None:
     """Runs one call on any Channel's transport until the Caller leaves.
 
     `ticket` is what a Portal ticket named, the Business and the kind of call; the eval Channel names none and reads a settings file.
+    `page` is what the web Channel's call page said about the browser, checked, for the barge-in log; other Channels have none.
     """
     # Pipecat logs what the Caller said at DEBUG, and its dev runner resets the level to DEBUG
     # at startup; transcripts never go in logs (.claude/rules/security.md), so cap it per call.
@@ -145,6 +147,7 @@ async def run_call(
             idle_timeout_secs,
             record_to,
             handle_sigint,
+            page,
         )
     finally:
         await modules.close()  # a call that fails before its pipeline starts must not leave a Module running
@@ -159,6 +162,7 @@ async def _run(
     idle_timeout_secs: float | None,
     record_to: Path | None,
     handle_sigint: bool,
+    page: Mapping[str, object] | None,
 ) -> None:
     llm = GeminiLiveLLMService(
         api_key=os.environ["GOOGLE_API_KEY"],
@@ -179,7 +183,7 @@ async def _run(
     }
     user, assistant = LLMContextAggregatorPair(LLMContext(messages=[seed]))
     call_id = uuid.uuid4().hex
-    barge_ins = BargeInRecorder(call_id, record_to)
+    barge_ins = BargeInRecorder(call_id, record_to, page)
     # The recorder's output side hears the agent's audio as it is played, for the echo signature.
     steps = [
         transport.input(),
@@ -207,6 +211,8 @@ async def _run(
         pipeline,
         params=PipelineParams(enable_metrics=True, enable_usage_metrics=True),
         idle_timeout_secs=idle_timeout_secs,
+        # No page speaks Pipecat's RTVI protocol, and its processor logs every page message (a gap count) as a warning.
+        enable_rtvi=False,
     )
     runner = WorkerRunner(handle_sigint=handle_sigint)
     await runner.add_workers(worker)
