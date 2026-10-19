@@ -31,15 +31,19 @@ Not a party: Callers' audio never goes to the Portal, to Linear or to GitHub; th
 |---|---|---|---|---|
 | Caller audio, both directions | Yes (voice, and whatever the Caller says) | Not stored: streamed from the Caller's browser through the core to Google and back | Nothing to keep | Google, 55 days (abuse monitoring) |
 | Live transcript (Gemini's transcription, shown on the call page) | Yes | Not stored, not logged (`tests/test_serve.py` fails if it reaches a log) | Nothing to keep | Google, within the 55 days above |
-| Call record (call id, Business, kind, start time, length, token counts, cost) | No person in it; it says a Business had a call at a time | Portal's Postgres, written once, never changed or deleted by the application (database trigger) | Proposed: while the Business is a customer, then anonymised at offboarding (not built: no offboarding job exists) | Container logs (same numbers, § below) |
+| Call record (call id, Business, kind, start time, length, token counts, cost) | No person in it; it says a Business had a call at a time | Portal's Postgres, written once, never changed or deleted by the application (database trigger) | Kept for billing after offboarding, keyed by the Business's number, whose name and account are emptied (§ 3a) | Container logs (same numbers, § below) |
 | Barge-in log (timings, levels, event names, call id) | No | The core's container log | Proposed: 30 days (not checked: Dokploy's log retention has not been set or seen) | |
 | Container logs of the core and the Portal (the lines in `.claude/rules/security.md`; the web server's access log may hold the Caller's IP address: not checked) | IP addresses, if present | Dokploy on the HostUp server | Proposed: 30 days (not checked, as above) | Anthropic, when an agent reads them |
 | Postgres backups | Same as the Portal's database | Handled outside the repository | Proposed: 30 days (not checked) | |
-| Business account: email, name, facts, languages, logo, accent, website domain, privacy notice address | Yes (email, and anything personal the Business writes in its facts) | Portal's Postgres | While the Business is a customer; the facts also go to Google with every call | Google (facts), HostUp (mail to the email) |
+| Business account: email, name, facts, languages, logo, accent, website domain, privacy notice address | Yes (email, and anything personal the Business writes in its facts) | Portal's Postgres | While the Business is a customer, then emptied by offboarding (§ 3a); the facts also go to Google with every call | Google (facts), HostUp (mail to the email) |
 | Access tokens | No (a SHA-256 hash, a label, times) | Portal's Postgres | Until revoked; a revoked token stays as a row | |
 | Eval runs (`make eval`) | No: stored Caller audio is synthetic | Petter's PC, or the GitHub Actions run's logs | Local; the eval Business is fictional | Google, 55 days |
 
 Nothing in this table is a cache or queue: Postgres is the only store (`.claude/rules/data.md`).
+
+## 3a. Deleting a Business's data (offboarding)
+
+The one offboarding path is the `offboard_business <email>` command (nothing else is stopped from editing the same columns: not enforced) (`.claude/rules/prod-scripts.md`: a dry run first, then `--execute` with the reviewed plan's hash and `--target`). In one transaction it revokes every Access token, deletes the Modules, empties the Business's name (to `Business <its number>`), facts, website domain, logo, accent and privacy notice address, sets its call link's daily budget to $0, and closes the Account: a tombstone email (`deleted-<the Account's number>@invalid`), no usable password, no last login time, inactive. The plan the operator reviews shows the Business's current name and website domain. The Business row and its Call records stay, keyed by number, for billing. The audit log names ids and the operator's OS user only. `tests/portal/test_offboard.py` reads every column afterwards. Not covered: copies already in Postgres backups and container logs until their retention runs out (§ 3, not checked), Google's 55-day copy of facts sent with past calls, a revoked token's label, which the database keeps unchanged, the logo in Callers' browsers, which may keep it for up to a year (`Cache-Control: public, immutable`), and a Portal request already running when the command commits: a settings save or a new token from it can write data back or escape revocation (no row lock; run the command again to be sure).
 
 ## 4. Lawful basis, per data item (proposed; Petter confirms)
 
@@ -60,6 +64,6 @@ Google's data terms depend on whether the Cloud project behind the key has an ac
 ## 6. Open points
 
 - A processing agreement (Article 28) between Voice and each Business, and a template notice a Business may start from: before the first paying customer.
-- Retention: none of the proposed periods in § 3 is enforced; log retention on Dokploy, the backup policy and an offboarding step each need a ticket and a `DECISIONS.md` line once set.
+- Retention: none of the proposed periods in § 3 is enforced; log retention on Dokploy and the backup policy each need a ticket and a `DECISIONS.md` line once set.
 - HostUp's server location and terms: not read.
 - Whether Google publishes a sub-processor list for "Gemini API Paid Services": not found on 2026-10-18 (`docs/research/gemini-api-data-terms.md` § 3).
