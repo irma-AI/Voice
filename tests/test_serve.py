@@ -9,6 +9,8 @@ import contextlib
 import json
 import re
 import time
+from collections.abc import Callable, Iterator
+from pathlib import Path
 
 import pytest
 import uvicorn
@@ -18,6 +20,7 @@ from loguru import logger
 from pipecat.frames.frames import (
     Frame,
     InputAudioRawFrame,
+    InputTransportMessageFrame,
     InterruptionFrame,
     LLMTextFrame,
     OutputAudioRawFrame,
@@ -28,6 +31,7 @@ from pipecat.frames.frames import (
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineWorker
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
+from pipecat.tests.utils import run_test
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams
 from pipecat.utils.text.base_text_aggregator import AggregationType
 from pipecat.workers.runner import WorkerRunner
@@ -38,6 +42,7 @@ from starlette.websockets import WebSocketDisconnect
 from tests.test_settings_port import GOOD, fake_portal, portal_env
 from voice import serve
 from voice.auth import FONTS_PATH, REFUSAL, TICKET_PATHS
+from voice.bargein import BargeInRecorder
 from voice.serve import (
     DrainingServer,
     OneCallPerBusiness,
@@ -466,3 +471,199 @@ def test_transcript_messages_name_the_speaker() -> None:
     }
     # The agent's words also come as an LLMTextFrame; the page gets them once.
     assert asyncio.run(RawPcmSerializer().serialize(LLMTextFrame("Hej hej"))) is None
+
+
+# What voice/page.html sends at call start: an iPhone with the loopback route up.
+FACTS = {
+    "echo_cancellation": True,
+    "noise_suppression": True,
+    "auto_gain_control": "remote-only",
+    "loopback": "set_up",
+    "sample_rate": 48000,
+    "base_latency_ms": 5.3,
+    "output_latency_ms": 0,
+    "browser": "safari",
+    "os": "ios",
+    "os_version": 18,
+}
+USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)"  # synthetic
+
+
+@contextlib.contextmanager
+def warnings() -> Iterator[list[str]]:
+    lines: list[str] = []
+    sink = logger.add(lambda m: lines.append(m.record["message"]), level="WARNING")
+    try:
+        yield lines
+    finally:
+        logger.remove(sink)
+
+
+def test_the_browser_facts_go_to_the_log_checked_or_not_at_all() -> None:
+    assert serve.page_facts(json.dumps({"type": "browser", **FACTS})) == {
+        "page_facts": "sent",
+        **FACTS,
+    }
+    assert serve.page_facts(json.dumps({"type": "browser"})) == {"page_facts": "sent"}
+    assert serve.page_facts(None) == {"page_facts": "not_sent"}
+    refused = {
+        "a user-agent string": {"browser": USER_AGENT},
+        "a field nobody listed": {"user_agent": USER_AGENT},
+        "a version that is not a major number": {"os_version": "18.0.1"},
+        "true for a number": {"sample_rate": True},
+        "1 for true": {"echo_cancellation": 1},
+        "an unknown loopback": {"loopback": "maybe"},
+        "a list": {"os": ["ios"]},
+    }
+    with warnings() as logged:
+        for name, bad in refused.items():
+            message = json.dumps({"type": "browser", **FACTS, **bad})
+            assert serve.page_facts(message) == {"page_facts": "refused"}, name
+        for message, kind in (
+            ("x" * (serve.PAGE_MESSAGE_MAX + 1), "oversized"),
+            ("{not json", "not_json"),
+            ('["browser"]', "no_type"),
+            ('{"type": "playback_gaps", "count": 1}', "bad_playback_gaps"),
+            (json.dumps({"type": USER_AGENT}), "unknown_type"),
+        ):
+            assert serve.page_facts(message) == {"page_facts": "refused"}, kind
+            assert logged[-1].endswith(f": {kind}")
+    # Logged by kind, never by what the page sent.
+    assert logged and not [line for line in logged if "Mozilla" in line]
+
+
+def test_the_page_may_say_only_what_the_call_log_contract_lists() -> None:
+    schema = json.loads(
+        (Path(__file__).parents[1] / "contract/call-log.schema.json").read_text()
+    )
+    event = schema["$defs"]["event"]["properties"]
+    assert {"page_facts", *serve.PAGE_FACTS} <= set(event), (
+        "a browser fact voice/serve.py accepts is not in contract/call-log.schema.json: add it there (and to the security rule) first"
+    )
+    for name, values in (
+        ("browser", serve.BROWSERS),
+        ("os", serve.SYSTEMS),
+        ("loopback", serve.LOOPBACK),
+    ):
+        assert tuple(event[name]["enum"]) == values, (
+            f"voice/serve.py and contract/call-log.schema.json list different values for {name}: edit whichever is wrong"
+        )
+    switch = schema["$defs"]["switch"]["anyOf"]
+    assert (True, False, *switch[1]["enum"]) == serve.SWITCH, (
+        "voice/serve.py SWITCH and the contract's switch differ: edit whichever is wrong"
+    )
+
+
+def test_the_page_count_of_playback_gaps_is_passed_on_and_anything_else_ignored() -> (
+    None
+):
+    frame = asyncio.run(
+        RawPcmSerializer().deserialize('{"type": "playback_gaps", "count": 3}')
+    )
+    assert isinstance(frame, InputTransportMessageFrame)
+    assert frame.message == {"type": "playback_gaps", "count": 3}
+    with warnings() as logged:
+        for message in (
+            '{"type": "playback_gaps", "count": -1}',
+            '{"type": "playback_gaps", "count": 2, "note": "hej"}',
+            '{"type": "browser"}',  # facts come once, first
+            "x" * (serve.PAGE_MESSAGE_MAX + 1),
+        ):
+            assert asyncio.run(RawPcmSerializer().deserialize(message)) is None
+    assert logged == [
+        "ignored a message from the call page: bad_playback_gaps",
+        "ignored a message from the call page: bad_playback_gaps",
+        "ignored a message from the call page: bad_browser",
+        "ignored a message from the call page: oversized",
+    ]
+
+
+class HangsUpOnTheLastCount(FrameProcessor):
+    """Stands in for the Caller hanging up: ends the call once the page's second gap count has passed the recorder."""
+
+    def __init__(self, worker: Callable[[], PipelineWorker]) -> None:
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]  # untyped kwargs upstream
+        self._worker = worker
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
+        await super().process_frame(frame, direction)
+        await self.push_frame(frame, direction)
+        if isinstance(frame, InputTransportMessageFrame) and frame.message["count"] == 2:
+            await self._worker().stop_when_done()
+
+
+def test_a_call_logs_the_browser_facts_and_its_playback_gaps_and_survives_a_bad_message(
+    tmp_path: Path,
+) -> None:
+    """The page's messages through a real socket and Pipecat pipeline into the barge-in log, as on a call."""
+    log = tmp_path / "call.jsonl"
+    app = FastAPI()
+
+    @app.websocket("/ws")
+    async def call(websocket: WebSocket) -> None:  # pyright: ignore[reportUnusedFunction]
+        await websocket.accept()
+        page = await serve.receive_page_facts(websocket)
+        assert page is not None
+        transport = serve.CallTransport(
+            websocket,
+            FastAPIWebsocketParams(
+                audio_in_enabled=True,
+                audio_in_sample_rate=serve.IN_RATE,
+                serializer=RawPcmSerializer(),
+            ),
+        )
+        recorder = BargeInRecorder("c0ffee0123456789", log, page)
+        worker = PipelineWorker(
+            Pipeline([transport.input(), recorder, HangsUpOnTheLastCount(lambda: worker)])
+        )
+        runner = WorkerRunner(handle_sigint=False)
+        await runner.add_workers(worker)
+        await runner.run()
+        await websocket.close()
+
+    with warnings() as logged, TestClient(app).websocket_connect("/ws") as ws:
+        ws.send_text(json.dumps({"type": "browser", **FACTS}))
+        ws.send_text(json.dumps({"type": "user_agent", "ua": USER_AGENT}))
+        ws.send_text("x" * 5000)
+        ws.send_bytes(b"\x00\x00" * 320)
+        ws.send_text('{"type": "playback_gaps", "count": 1}')
+        ws.send_text('{"type": "playback_gaps", "count": 2}')
+        with pytest.raises(WebSocketDisconnect):
+            ws.receive_text()  # the call ends from its side, so the end event is written
+    events = [json.loads(line) for line in log.read_text("utf-8").splitlines()]
+    config, end = events[0], events[-1]
+    assert config == {**config, "e": "config", "page_facts": "sent", **FACTS}
+    # Both bad messages were refused and the call went on to count the gaps after them.
+    assert end["e"] == "end" and end["playback_gaps"] == 2, end
+    assert "Mozilla" not in log.read_text("utf-8") + str(logged)
+
+
+def test_a_page_that_sends_no_facts_first_leaves_the_reason_and_no_gap_count(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(serve, "PAGE_FACTS_WAIT_S", 0.2)
+    got: list[dict[str, object] | None] = []
+    app = FastAPI()
+
+    @app.websocket("/ws")
+    async def call(websocket: WebSocket) -> None:  # pyright: ignore[reportUnusedFunction]
+        await websocket.accept()
+        got.append(await serve.receive_page_facts(websocket))
+        await websocket.close()
+
+    with TestClient(app).websocket_connect("/ws") as ws:
+        ws.send_bytes(b"\x00\x00" * 320)  # audio first
+        with pytest.raises(WebSocketDisconnect):
+            ws.receive_text()
+    with TestClient(app).websocket_connect("/ws") as ws:  # nothing at all
+        with pytest.raises(WebSocketDisconnect):
+            ws.receive_text()
+    assert got == [{"page_facts": "not_sent"}] * 2
+    recorder = BargeInRecorder("c0ffee0123456789", tmp_path / "call.jsonl", got[0])
+    asyncio.run(run_test(Pipeline([recorder]), frames_to_send=[]))
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "call.jsonl").read_text("utf-8").splitlines()
+    ]
+    assert events[0]["page_facts"] == "not_sent"
+    assert "playback_gaps" not in events[-1], "a gap count nobody counted"
