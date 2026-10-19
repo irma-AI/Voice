@@ -20,7 +20,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import DataError, IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.http import (
@@ -52,6 +52,7 @@ from portal.accounts.models import (
     AccessToken,
     Account,
     Business,
+    CallLog,
     CallRecord,
     Module,
     clean_email,
@@ -816,17 +817,12 @@ def settings_for_core(request: HttpRequest, business_id: int) -> HttpResponse:
     return JsonResponse(business.as_settings())
 
 
-class CallRecordForm(forms.ModelForm):  # pyright: ignore[reportMissingTypeArgument]
-    """A Call record as the core sends it (contract/call-record.schema.json). The strict spellings are here because the form's defaults accept more than the contract does."""
+class CoreReportForm(forms.ModelForm):  # pyright: ignore[reportMissingTypeArgument]
+    """What every report from the core shares: a UTC start spelled as the contracts spell it, and a call id that may repeat."""
 
     started_at = forms.RegexField(
         regex=r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,6})?Z$"
     )  # UTC only
-    price_date = forms.DateField(input_formats=["%Y-%m-%d"], required=False)
-
-    class Meta:
-        model = CallRecord
-        fields = "__all__"
 
     def clean_started_at(self) -> Any:
         try:
@@ -835,7 +831,17 @@ class CallRecordForm(forms.ModelForm):  # pyright: ignore[reportMissingTypeArgum
             raise ValidationError("not a real moment") from None
 
     def validate_unique(self) -> None:
-        """A repeated call id is the core retrying, not a mistake: record_call answers it with the stored row."""
+        """A repeated call id is the core retrying, not a mistake: the view answers it with the stored row."""
+
+
+class CallRecordForm(CoreReportForm):
+    """A Call record as the core sends it (contract/call-record.schema.json). The strict spellings are here because the form's defaults accept more than the contract does."""
+
+    price_date = forms.DateField(input_formats=["%Y-%m-%d"], required=False)
+
+    class Meta:
+        model = CallRecord
+        fields = "__all__"
 
 
 @csrf_exempt  # the shared secret gates it, not a session
@@ -862,4 +868,61 @@ def record_call(request: HttpRequest) -> HttpResponse:
     _, created = CallRecord.objects.get_or_create(
         call_id=values.pop("call_id"), defaults=values
     )
+    return JsonResponse({"stored": True}, status=201 if created else 200)
+
+
+class CallLogForm(CoreReportForm):
+    """A Call log's call fields as the core sends them (contract/call-log.schema.json). Its events are the database's to check."""
+
+    class Meta:
+        model = CallLog
+        exclude = ("events",)
+
+
+CALL_LOG_FIELDS = {*CallLogForm.base_fields, "events"}  # pyright: ignore[reportUnknownMemberType]
+
+
+@csrf_exempt  # the shared secret gates it, not a session
+@require_POST
+@never_cache
+def record_call_log(request: HttpRequest) -> HttpResponse:
+    """The one address the core sends a finished call's Call log to. Stores it once per call id; the database refuses every later change, and a delete before its expiry."""
+    if not core_secret_sent(request):
+        return JsonResponse({"error": "missing or wrong secret"}, status=401)
+    try:
+        body = json.loads(request.body)
+    except ValueError:
+        body = None
+    if (
+        not isinstance(body, dict)
+        or body.keys() != CALL_LOG_FIELDS
+        or not isinstance(body["events"], list)
+    ):
+        return JsonResponse({"error": "not a Call log"}, status=400)
+    form = CallLogForm(body)
+    if not form.is_valid():
+        # Field names only: a refused value never goes back out.
+        return JsonResponse(
+            {"error": "malformed Call log", "fields": sorted(form.errors)}, status=400
+        )
+    values = dict(form.cleaned_data)
+    try:
+        with transaction.atomic():
+            _, created = CallLog.objects.get_or_create(
+                call_id=values.pop("call_id"),
+                defaults={**values, "events": body["events"]},
+            )
+    except (IntegrityError, DataError) as e:
+        # The database is what checks the events and the start (migration 0020), or refuses text jsonb can't hold (a NUL); this only says so.
+        if isinstance(e, DataError) or "call_log_events_hold_only_listed_fields" in str(
+            e
+        ):
+            field = "events"
+        elif "call_log_must_not_start_in_the_future" in str(e):
+            field = "started_at"
+        else:
+            raise
+        return JsonResponse(
+            {"error": "malformed Call log", "fields": [field]}, status=400
+        )
     return JsonResponse({"stored": True}, status=201 if created else 200)

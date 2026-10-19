@@ -1,0 +1,324 @@
+"""The Portal stores the core's Call logs, never lets one change, and keeps each until its expiry (make test-db). No mocks of our own code.
+The log shape lives once, in contract/call-log.schema.json; the parity tests fail when the Portal, the database or the security rule drifts from it and name the side to edit."""
+
+# pyright: basic
+# (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
+
+import json
+import re
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import pytest
+from django.db import connection, transaction
+from django.db.utils import DatabaseError, IntegrityError
+from django.test import Client
+from jsonschema import Draft202012Validator
+
+from portal.accounts.models import (
+    CALL_ID_PATTERN,
+    CALL_KINDS,
+    Account,
+    Business,
+    CallLog,
+)
+
+pytestmark = [pytest.mark.db, pytest.mark.django_db]
+
+ROOT = Path(__file__).parents[2]
+SECRET = "a-secret-for-tests"
+SCHEMA: dict[str, Any] = json.loads(
+    (ROOT / "contract/call-log.schema.json").read_text()
+)
+EVENT: dict[str, Any] = SCHEMA["$defs"]["event"]
+CALL = "c0ffee-0123456789"
+# The core's own lines (voice/bargein.py), one of each event.
+EVENTS: list[dict[str, Any]] = [
+    {
+        "t": 0.0,
+        "call": CALL,
+        "e": "config",
+        "vad": {"start_sensitivity": "START_SENSITIVITY_LOW", "prefix_padding_ms": 300},
+    },
+    {"t": 1.2, "call": CALL, "e": "bot_speech", "phase": "start"},
+    {
+        "t": 2.5,
+        "call": CALL,
+        "e": "barge_in",
+        "bot_speaking": True,
+        "bot_ms": 1300,
+        "peak_dbfs": -12.5,
+        "rms_dbfs": -30.1,
+        "src": "gemini",
+    },
+    {"t": 2.6, "call": CALL, "e": "bot_speech", "phase": "stop", "played_ms": 1400},
+    {"t": 3.1, "call": CALL, "e": "caller_words", "words": 4, "after_barge_in_ms": 600},
+    {"t": 4.0, "call": CALL, "e": "resumed", "after_barge_in_ms": 1500},
+    {"t": 9.9, "call": CALL, "e": "end", "reason": "cancel", "secs": 9.9},
+]
+
+
+@pytest.fixture(autouse=True)
+def core_secret(settings: Any) -> None:
+    settings.CORE_SECRET = SECRET
+
+
+def a_business() -> Business:
+    account = Account.objects.create_user("anna.testsson@example.com", "x" * 20)
+    return Business.objects.create(account=account, name="Anna's Salon")
+
+
+def a_log(owner: Business, **changes: Any) -> dict[str, Any]:
+    return {
+        "call_id": CALL,
+        "business": owner.pk,
+        "kind": "test",
+        "started_at": "2026-10-19T05:00:00.000000Z",
+        "events": EVENTS,
+        **changes,
+    }
+
+
+def run_sql(*statements: str, params: list[Any] | None = None) -> Any:
+    with connection.cursor() as cursor:
+        for sql in statements:
+            cursor.execute(sql, params)
+        return cursor.fetchall() if cursor.description else None
+
+
+def send(log: Any, secret: str | None = SECRET, raw: bytes | None = None) -> Any:
+    headers = {} if secret is None else {"Authorization": f"Bearer {secret}"}
+    body = raw if raw is not None else json.dumps(log).encode()
+    return Client().post(
+        "/api/call-logs/", body, content_type="application/json", headers=headers
+    )
+
+
+def test_a_valid_log_is_stored_and_a_repeat_stores_nothing_more() -> None:
+    business = a_business()
+    assert send(a_log(business)).status_code == 201
+    assert send(a_log(business, events=EVENTS[:1])).status_code == 200
+    stored = CallLog.objects.get()
+    assert (stored.business, stored.kind, stored.events) == (business, "test", EVENTS)
+    assert stored.started_at.isoformat() == "2026-10-19T05:00:00+00:00"
+
+
+def test_without_the_secret_or_with_a_wrong_one_it_answers_401_before_any_lookup(
+    django_assert_num_queries: Any, settings: Any
+) -> None:
+    log = a_log(a_business())
+    with django_assert_num_queries(0):
+        assert send(log, secret=None).status_code == 401
+        assert send(log, secret="wrong").status_code == 401
+        assert send({}, secret="wrong").status_code == 401  # not even read
+    settings.CORE_SECRET = ""
+    assert send(log, secret="").status_code == 401  # an unset secret refuses all
+    assert CallLog.objects.count() == 0
+
+
+def test_only_a_post_is_answered() -> None:
+    assert (
+        Client()
+        .get("/api/call-logs/", headers={"Authorization": f"Bearer {SECRET}"})
+        .status_code
+        == 405
+    )
+
+
+def test_a_log_for_an_unknown_business_is_refused() -> None:
+    business = a_business()
+    response = send(a_log(business, business=business.pk + 1))
+    assert response.status_code == 400 and response.json()["fields"] == ["business"]
+    assert CallLog.objects.count() == 0
+
+
+def test_only_the_listed_fields_are_accepted_and_all_are_required() -> None:
+    business = a_business()
+    assert send(a_log(business, transcript="hello")).status_code == 400
+    log = a_log(business)
+    del log["events"]
+    assert send(log).status_code == 400
+    assert send(None, raw=b"not json").status_code == 400
+    assert send([1, 2]).status_code == 400
+    assert CallLog.objects.count() == 0
+
+
+# Each bad log is also checked against the schema by the parity test below.
+BAD: dict[str, dict[str, Any]] = {
+    "unknown kind": {"kind": "demo"},
+    "call id with words": {"call_id": "hello, I would like to book"},
+    "time in another zone": {"started_at": "2026-10-19T07:00:00+02:00"},
+    "events that are not a list": {"events": {"t": 1}},
+    "an event that is not an object": {"events": [1]},
+    "an event field the rule does not list": {"events": [{**EVENTS[0], "text": "hej"}]},
+    "an event holding words": {
+        "events": [{**EVENTS[1], "phase": "jag vill boka en tid"}]
+    },
+    "a long code": {"events": [{**EVENTS[1], "phase": "x" * 65}]},
+    "an event holding a list": {"events": [{**EVENTS[1], "phase": ["hej"]}]},
+    "a detector setting holding words": {
+        "events": [{**EVENTS[0], "vad": {"start_sensitivity": "very low please"}}]
+    },
+    "a detector setting holding an object": {
+        "events": [{**EVENTS[0], "vad": {"x": {"y": 1}}}]
+    },
+    "a detector setting with an odd name": {
+        "events": [{**EVENTS[0], "vad": {"Start Sensitivity": 1}}]
+    },
+    "a code holding a NUL": {"events": [{**EVENTS[1], "phase": "a\u0000b"}]},
+    "events that are null": {"events": None},
+    "a start in the future": {"started_at": "9999-12-31T23:59:59.999999Z"},
+}
+# What only the database refuses (the schema cannot know the time).
+DATABASE_ONLY = {"a start in the future"}
+
+
+@pytest.mark.parametrize("name", sorted(BAD))
+def test_a_malformed_log_is_refused_and_stores_nothing(name: str) -> None:
+    response = send(a_log(a_business(), **BAD[name]))
+    assert response.status_code == 400
+    assert CallLog.objects.count() == 0
+
+
+@pytest.mark.parametrize("name", sorted(BAD))
+def test_the_contract_refuses_what_the_portal_refuses(name: str) -> None:
+    business = a_business()
+    validator = Draft202012Validator(SCHEMA)
+    assert not list(validator.iter_errors(a_log(business))), (
+        "edit the schema or the example log: a good log must pass"
+    )
+    if name not in DATABASE_ONLY:
+        assert list(validator.iter_errors(a_log(business, **BAD[name]))), (
+            f"'{name}' is refused by the Portal but passes the schema: edit contract/call-log.schema.json to refuse it too"
+        )
+
+
+def stored(started_at: datetime) -> CallLog:
+    """A log written straight into the table, as any writer could."""
+    return CallLog.objects.create(
+        call_id=CALL,
+        business=a_business(),
+        kind="test",
+        started_at=started_at,
+        events=EVENTS,
+    )
+
+
+def test_the_database_refuses_an_update_of_a_stored_log() -> None:
+    log = stored(datetime.now(UTC) - timedelta(days=40))  # expired, and still final
+    refused = "call_log_is_final"
+    for sql in (
+        "UPDATE accounts_calllog SET events = '[]'",
+        "UPDATE accounts_calllog SET kind = 'call_link'",
+    ):
+        with pytest.raises(DatabaseError, match=refused), transaction.atomic():
+            run_sql(sql)
+    log.events = []
+    with pytest.raises(DatabaseError, match=refused), transaction.atomic():
+        log.save()
+    assert CallLog.objects.get().events == EVENTS
+
+
+def test_the_database_refuses_deleting_a_log_before_its_expiry() -> None:
+    log = stored(datetime.now(UTC) - timedelta(days=29, hours=23))
+    refused = "call_log_is_kept_until_expiry"
+    with pytest.raises(DatabaseError, match=refused), transaction.atomic():
+        run_sql("DELETE FROM accounts_calllog")
+    with pytest.raises(DatabaseError, match=refused), transaction.atomic():
+        log.delete()
+    assert CallLog.objects.count() == 1
+
+
+def test_a_log_past_its_expiry_can_be_deleted() -> None:
+    stored(datetime.now(UTC) - timedelta(days=30, minutes=1)).delete()
+    assert CallLog.objects.count() == 0
+
+
+def test_the_expiry_is_30_days_after_the_call_started() -> None:
+    [[expires]] = run_sql(
+        "SELECT accounts_call_log_expires_at(%s)",
+        params=[datetime(2026, 10, 19, 5, tzinfo=UTC)],
+    )
+    assert expires == datetime(2026, 11, 18, 5, tzinfo=UTC)
+
+
+def test_a_business_with_logs_cannot_be_deleted() -> None:
+    log = stored(datetime.now(UTC))
+    with pytest.raises(Exception, match="protected"), transaction.atomic():
+        log.business.delete()
+    assert Business.objects.count() == 1
+
+
+def test_the_database_itself_refuses_a_log_that_breaks_a_rule() -> None:
+    business = a_business()
+    good: dict[str, Any] = {
+        "call_id": CALL,
+        "business": business,
+        "kind": "test",
+        "started_at": datetime.now(UTC),
+        "events": EVENTS,
+    }
+    for changes, rule in (
+        ({"kind": "demo"}, "call_log_kind"),
+        ({"call_id": "words, not a code"}, "call_log_id"),
+        (
+            {"started_at": datetime.now(UTC) + timedelta(hours=2)},
+            "call_log_must_not_start_in_the_future",
+        ),
+        (
+            {"events": [{"t": 1, "text": "hej"}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (
+            {"events": [{"t": 1, "src": "hej hej"}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
+        ({"events": {"t": 1}}, "call_log_events_hold_only_listed_fields"),
+    ):
+        with pytest.raises(IntegrityError, match=rule), transaction.atomic():
+            CallLog.objects.create(**{**good, **changes})
+
+
+def security_rule_fields() -> set[str]:
+    """The fields `.claude/rules/security.md` lets a production barge-in line hold."""
+    rule = (ROOT / ".claude/rules/security.md").read_text()
+    line = next(
+        line for line in rule.splitlines() if line.startswith("- The barge-in log")
+    )
+    return set(
+        re.findall(r"`([a-z_]+)`", line.split("may hold:", 1)[1].split(". ", 1)[0])
+    )
+
+
+def test_a_stored_event_holds_only_the_fields_the_security_rule_lists() -> None:
+    listed = security_rule_fields()
+    assert {"t", "call", "e", "secs"} <= listed, (
+        "the field list in .claude/rules/security.md was not found"
+    )
+    assert set(EVENT["properties"]) == listed, (
+        "contract/call-log.schema.json's event properties and the barge-in fields in .claude/rules/security.md differ: "
+        "add the field to the rule first, then to the schema"
+    )
+    [[in_store]] = run_sql("SELECT accounts_call_log_fields()")
+    assert set(in_store) == listed, (
+        "the database's accounts_call_log_fields() and the barge-in fields in .claude/rules/security.md differ: "
+        "a new migration redefines the function"
+    )
+    assert {k for event in EVENTS for k in event} == listed, (
+        "give the example events every listed field"
+    )
+
+
+def test_the_log_shape_is_the_same_in_the_schema_and_the_portal() -> None:
+    Draft202012Validator.check_schema(SCHEMA)
+    names = {f.name for f in CallLog._meta.get_fields() if f.name != "id"}  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
+    assert names == set(SCHEMA["properties"]) == set(SCHEMA["required"]), (
+        "CallLog's fields and the schema's properties and required list must name the same fields: edit whichever is wrong"
+    )
+    assert set(CALL_KINDS) == set(SCHEMA["properties"]["kind"]["enum"]), (
+        "CALL_KINDS in models.py and the schema's kind enum must list the same kinds"
+    )
+    assert CALL_ID_PATTERN == SCHEMA["properties"]["call_id"]["pattern"], (
+        "set the patterns in models.py and the schema to the same text"
+    )
