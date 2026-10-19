@@ -1,7 +1,7 @@
 # The one command interface: CI, hooks, loops and agents call only these targets.
 # A target that does not apply here is `@echo "n/a: <reason>"`, which records the choice.
 .DEFAULT_GOAL := help
-.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio seed check lint typecheck test test-db guards generate generate-check build
+.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio seed check lint typecheck test test-db guards archive-decisions generate generate-check build
 
 help: ## List the targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -60,6 +60,9 @@ test-db: ## Tests against the real data stores (the target starts and stops them
 	docker compose -f compose.test.yml -p voice-test up -d --wait
 	DATABASE_URL=postgres://postgres:test@127.0.0.1:55432/portal_test uv run pytest -m db; status=$$?; \
 	  docker compose -f compose.test.yml -p voice-test down -v; exit $$status
+
+archive-decisions: ## Move DECISIONS.md lines older than KEEP_DAYS (7) into docs/decisions/<yyyy-mm>.md; open questions stay
+	node scripts/archive-decisions.js
 
 guards: ## Guard scripts, self-tests first (scripts/checks/README.md)
 	node scripts/checks/run.js
