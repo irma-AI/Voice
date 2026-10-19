@@ -72,6 +72,35 @@ log = logging.getLogger(__name__)
 
 LOGIN_TRIES = 10
 LOGIN_WINDOW = 15 * 60
+RESET_TRIES = 5
+
+
+def client_address(request: HttpRequest | None) -> str:
+    """Where a request came from. Behind the one trusted proxy the last X-Forwarded-For entry is the address it saw;
+    entries before it are whatever the client wrote. A local run has no proxy, so the header is ignored there."""
+    meta = request.META if request else {}
+    forwarded = "" if settings.DEBUG else meta.get("HTTP_X_FORWARDED_FOR", "")
+    return forwarded.split(",")[-1].strip() or meta.get("REMOTE_ADDR", "")
+
+
+def tries_key(kind: str, typed_email: str, request: HttpRequest | None) -> str:
+    """One count per email and address, so a stranger who knows the email cannot lock its owner out from elsewhere."""
+    # Normalised the way Django's username field does before it authenticates, so a look-alike spelling of one address shares one count.
+    email = clean_email(unicodedata.normalize("NFKC", typed_email))
+    who = f"{email}\n{client_address(request)}"
+    return f"{kind}:" + hashlib.sha256(who.encode()).hexdigest()
+
+
+def count_try(key: str) -> int:
+    """Adds one to the key's count in the current window and returns it."""
+    cache.add(key, 0, LOGIN_WINDOW)
+    try:
+        return cache.incr(key)
+    except (
+        ValueError
+    ):  # the key expired between add and incr: this try starts a new window
+        cache.set(key, 1, LOGIN_WINDOW)
+        return 1
 
 
 def back_to(page: str) -> HttpResponse:
@@ -111,11 +140,9 @@ class LoginForm(AuthenticationForm):
         return clean_email(self.cleaned_data["username"])
 
     def clean(self):
-        # shortcut: counts per email in this process's memory (the image runs one worker), so a restart resets it; move to the database before a second worker. Locks the owner out too for the window, which beats guessing.
-        # Normalised the way Django's username field does before it authenticates, so a look-alike spelling of one address shares one count.
-        typed = unicodedata.normalize("NFKC", str(self.data.get("username", "")))
-        key = (
-            "login-failures:" + hashlib.sha256(clean_email(typed).encode()).hexdigest()
+        # shortcut: counts per email and address in this process's memory (the image runs one worker), so a restart resets it; move to the database before a second worker.
+        key = tries_key(
+            "login-failures", str(self.data.get("username", "")), self.request
         )
         if cache.get(key, 0) >= LOGIN_TRIES:
             raise ValidationError(
@@ -124,13 +151,7 @@ class LoginForm(AuthenticationForm):
         try:
             cleaned = super().clean()
         except ValidationError:
-            cache.add(key, 0, LOGIN_WINDOW)
-            try:
-                cache.incr(key)
-            except (
-                ValueError
-            ):  # the key expired between add and incr: this attempt starts a new window
-                cache.set(key, 1, LOGIN_WINDOW)
+            count_try(key)
             raise
         if (
             self.user_cache
@@ -146,6 +167,17 @@ class ResetForm(PasswordResetForm):
         self.fields["email"].widget.attrs.update(
             inputmode="email", autocapitalize="none", spellcheck="false"
         )
+
+    def save(
+        self, *args: Any, request: HttpRequest | None = None, **kwargs: Any
+    ) -> None:
+        # A sixth request for one email from one address in the window sends nothing; the page says "sent" either way.
+        if (
+            count_try(tries_key("reset", self.cleaned_data["email"], request))
+            > RESET_TRIES
+        ):
+            return
+        super().save(*args, request=request, **kwargs)
 
     def get_users(self, email):
         # Django's form skips an account with no password yet, which would leave an invitee with an expired link stuck.

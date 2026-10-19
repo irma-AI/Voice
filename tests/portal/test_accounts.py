@@ -324,3 +324,70 @@ def test_a_look_alike_spelling_of_the_email_shares_the_count() -> None:
     locked = client.post("/login/", {"username": "a@b.se", "password": PASSWORD})
     assert "Too many failed attempts" in locked.text
     cache.clear()
+
+
+def test_ten_failures_lock_only_that_address_and_email() -> None:
+    Account.objects.create_user(EMAIL, PASSWORD)
+    guesser = Client(HTTP_X_FORWARDED_FOR="203.0.113.7")
+    for _ in range(10):
+        guesser.post("/login/", {"username": EMAIL, "password": "not-it"})
+    locked = guesser.post("/login/", {"username": EMAIL, "password": PASSWORD})
+    assert "Too many failed attempts" in locked.text
+    owner = Client(HTTP_X_FORWARDED_FOR="198.51.100.4")
+    assert (
+        owner.post("/login/", {"username": EMAIL, "password": PASSWORD}).status_code
+        == 302
+    )
+
+
+def test_the_proxy_appended_address_counts_not_the_one_the_client_wrote() -> None:
+    Account.objects.create_user(EMAIL, PASSWORD)
+    for n in range(
+        10
+    ):  # a new made-up address each try; the proxy appends the real one
+        Client(HTTP_X_FORWARDED_FOR=f"10.0.0.{n}, 203.0.113.7").post(
+            "/login/", {"username": EMAIL, "password": "not-it"}
+        )
+    locked = Client(HTTP_X_FORWARDED_FOR="10.9.9.9, 203.0.113.7").post(
+        "/login/", {"username": EMAIL, "password": PASSWORD}
+    )
+    assert "Too many failed attempts" in locked.text
+
+
+def test_the_forwarded_header_is_ignored_locally_and_missing_falls_back(
+    settings: Any,
+) -> None:
+    Account.objects.create_user(EMAIL, PASSWORD)
+    settings.DEBUG = (
+        True  # a local run: no proxy, so the header is the client's own words
+    )
+    for n in range(10):
+        Client(HTTP_X_FORWARDED_FOR=f"10.0.0.{n}").post(
+            "/login/", {"username": EMAIL, "password": "not-it"}
+        )
+    assert (
+        "Too many failed attempts"
+        in Client().post("/login/", {"username": EMAIL, "password": PASSWORD}).text
+    )
+    settings.DEBUG = False
+    for _ in range(
+        10
+    ):  # no header behind the proxy: REMOTE_ADDR, the test client's 127.0.0.1
+        Client().post("/login/", {"username": "b@example.com", "password": "not-it"})
+    assert (
+        "Too many failed attempts"
+        in Client()
+        .post("/login/", {"username": "b@example.com", "password": PASSWORD})
+        .text
+    )
+
+
+def test_a_sixth_reset_request_in_the_window_sends_nothing_and_looks_the_same() -> None:
+    Account.objects.create_user(EMAIL, PASSWORD)
+    client = Client(HTTP_X_FORWARDED_FOR="203.0.113.7")
+    for _ in range(5):
+        client.post("/password-reset/", {"email": EMAIL})
+    assert len(mail.outbox) == 5
+    sixth = client.post("/password-reset/", {"email": EMAIL})
+    assert sixth["Location"] == "/password-reset/sent/"
+    assert len(mail.outbox) == 5
