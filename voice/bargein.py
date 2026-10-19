@@ -150,6 +150,10 @@ class BargeInRecorder(FrameProcessor):
         super().__init__()  # pyright: ignore[reportUnknownMemberType]  # untyped kwargs upstream
         self._call_id = call_id
         self._path = path
+        if (
+            path
+        ):  # the eval Channel's run folder does not exist yet when the call starts
+            path.parent.mkdir(parents=True, exist_ok=True)
         self._t0 = time.monotonic()
         self._caller: deque[Level] = deque()
         self._agent: deque[Level] = deque()
