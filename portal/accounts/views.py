@@ -597,7 +597,9 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     """The one way a Module goes: only one of the logged-in Business's own."""
     if request.method != "POST":
         return back_to("modules")
-    get_object_or_404(Module, pk=module_id, business__account=request.user).delete()
+    mine = Module.objects.filter(pk=module_id, business__account=request.user)
+    if not Module.remove(mine):
+        raise Http404
     return redirect("modules")
 
 
@@ -865,9 +867,18 @@ def record_call(request: HttpRequest) -> HttpResponse:
             status=400,
         )
     values = dict(form.cleaned_data)
-    _, created = CallRecord.objects.get_or_create(
-        call_id=values.pop("call_id"), defaults=values
-    )
+    try:
+        with transaction.atomic():
+            _, created = CallRecord.objects.get_or_create(
+                call_id=values.pop("call_id"), defaults=values
+            )
+    except IntegrityError as e:
+        # The database is what refuses a start in the future (migration 0021); this only says so.
+        if "call_record_must_not_start_in_the_future" not in str(e):
+            raise
+        return JsonResponse(
+            {"error": "malformed Call record", "fields": ["started_at"]}, status=400
+        )
     return JsonResponse({"stored": True}, status=201 if created else 200)
 
 

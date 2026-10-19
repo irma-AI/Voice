@@ -5,6 +5,7 @@ The record shape lives once, in contract/call-record.schema.json; the parity tes
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -157,6 +158,7 @@ BAD: dict[str, dict[str, Any]] = {
         "cost_reason": "The catalogue was down",
     },
     "business that is not a number": {"business": "abc"},
+    "a start in the future": {"started_at": "9999-12-31T23:59:59Z"},
 }
 
 
@@ -182,6 +184,7 @@ def test_the_contract_refuses_what_the_portal_refuses(name: str) -> None:
         "business that is not a number",
         "time that is not real",
         "unknown kind",
+        "a start in the future",  # the schema cannot know the time
     }
     if name not in database_only:
         assert list(validator.iter_errors(a_record(business, **BAD[name]))), (
@@ -253,6 +256,25 @@ def test_the_database_itself_refuses_a_record_that_breaks_a_rule() -> None:
         CallRecord.objects.create(
             **{**good, "call_id": "words, not a code", "cost_reason": "none_yet"}
         )
+    with (
+        pytest.raises(IntegrityError, match="call_record_must_not_start_in_the_future"),
+        transaction.atomic(),
+    ):
+        CallRecord.objects.create(
+            **{
+                **good,
+                "started_at": datetime.now(UTC) + timedelta(hours=2),
+                "cost_reason": "none_yet",
+            }
+        )
+    # Within the hour the core's clock may run ahead.
+    CallRecord.objects.create(
+        **{
+            **good,
+            "started_at": datetime.now(UTC) + timedelta(minutes=30),
+            "cost_reason": "none_yet",
+        }
+    )
 
 
 def test_the_record_shape_is_the_same_in_the_schema_and_the_portal() -> None:

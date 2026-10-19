@@ -221,3 +221,20 @@ def test_a_made_token_changes_only_in_its_last_use_and_its_first_revoke() -> Non
     AccessToken.objects.filter(pk=token.pk).update(last_used_at=timezone.now())
     token.refresh_from_db()
     assert token.last_used_at and token.scope == "read" and token.revoked_at is None
+
+
+def test_a_token_is_never_deleted_only_revoked() -> None:
+    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    token, _ = AccessToken.make(business, "x", "read", False)
+    refused = "access_token_is_revoked_never_deleted"
+    with pytest.raises(IntegrityError, match=refused), transaction.atomic():
+        token.delete()
+    with (
+        pytest.raises(IntegrityError, match=refused),
+        transaction.atomic(),
+        connection.cursor() as cursor,
+    ):
+        cursor.execute("DELETE FROM accounts_accesstoken")
+    with pytest.raises(IntegrityError, match=refused), transaction.atomic():
+        business.delete()  # a Business's CASCADE takes no token with it
+    assert AccessToken.objects.filter(pk=token.pk).exists()

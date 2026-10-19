@@ -69,7 +69,7 @@ class Command(BaseCommand):
             revoked = list(tokens)
             for token in revoked:
                 token.revoke()
-            deleted, _ = modules.delete()
+            deleted = Module.remove(modules)
             business.name = f"Business {business.pk}"
             business.instructions = business.website_domain = business.accent = ""
             business.privacy_url = ""

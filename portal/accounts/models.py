@@ -11,7 +11,7 @@ from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MinValueValidator, RegexValidator
-from django.db import models
+from django.db import connection, models, transaction
 from django.db.models.functions import Length, Lower, Now, Trim
 from django.db.models.lookups import Exact, LessThanOrEqual
 from django.urls import reverse
@@ -254,7 +254,7 @@ class Business(models.Model):
 
 
 class Module(models.Model):
-    """An MCP server a Business's agent may use: its name and address only. Credentials stay inside the Module; the database refuses an address that could hold one."""
+    """An MCP server a Business's agent may use: its name and address only. Credentials stay inside the Module; the database refuses an address that could hold one, and a delete outside `Module.remove`."""
 
     business = models.ForeignKey(
         Business, on_delete=models.CASCADE, related_name="modules"
@@ -300,6 +300,15 @@ class Module(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @staticmethod
+    def remove(modules: models.QuerySet[Module]) -> int:
+        """The one way Modules go (the Modules page's Remove, offboarding): the database refuses any other delete (migration 0021)."""
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("SELECT set_config('voice.module_remove', 'on', true)")
+            removed, _ = modules.delete()
+            cursor.execute("SELECT set_config('voice.module_remove', '', true)")
+        return removed
+
     def as_setting(self) -> dict[str, object]:
         """One item of the settings' `modules`: exactly the shape of contract/business-settings.schema.json."""
         if self.command:
@@ -308,7 +317,7 @@ class Module(models.Model):
 
 
 class CallRecord(models.Model):
-    """What the core reported about one finished call. Written once and never changed: the database refuses update and delete for every role (migration 0007)."""
+    """What the core reported about one finished call. Written once and never changed: the database refuses update and delete for every role (migration 0007), and a start more than an hour ahead (0021)."""
 
     # Made by the core, so a retried send is the same row.
     call_id = models.CharField(
@@ -403,7 +412,7 @@ class CallLog(models.Model):
 
 
 class AccessToken(models.Model):
-    """What lets a Business's own agent act for it (ADR 0003). The secret is shown once and never stored, only its SHA-256. Once made, only `last_used_at` and a first `revoked_at` can change: a trigger (migration 0014) refuses the rest, for every role."""
+    """What lets a Business's own agent act for it (ADR 0003). The secret is shown once and never stored, only its SHA-256. Once made, only `last_used_at` and a first `revoked_at` can change, and it is never deleted: triggers (migrations 0014, 0021) refuse the rest, for every role."""
 
     business = models.ForeignKey(
         Business, on_delete=models.CASCADE, related_name="access_tokens"
