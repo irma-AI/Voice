@@ -7,8 +7,10 @@ import logging
 import re
 import unicodedata
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime, time
 from decimal import Decimal
+from functools import wraps
 from typing import Any
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -20,7 +22,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db import DataError, IntegrityError, transaction
+from django.db import DataError, IntegrityError, connection, transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.http import (
@@ -278,11 +280,23 @@ def calls(request: HttpRequest) -> HttpResponse:
     )
 
 
-@login_required
+def operator_only(view: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
+    """The one gate for the operator's pages: behind the login, then only the Account whose email is `SUPER_ADMIN_EMAIL` (unset: nobody); anyone else gets 403."""
+
+    @login_required
+    @never_cache  # every Business's figures: no shared cache keeps them
+    @wraps(view)
+    def gated(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        if not sees_totals(request.user):
+            return HttpResponseForbidden("This page is not open to your account.")
+        return view(request, *args, **kwargs)
+
+    return gated
+
+
+@operator_only
 def totals(request: HttpRequest) -> HttpResponse:
-    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls. Only the Account whose email is `SUPER_ADMIN_EMAIL` may open it."""
-    if not sees_totals(request.user):
-        return HttpResponseForbidden("This page is not open to your account.")
+    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls."""
     month = TruncMonth("started_at", tzinfo=ZoneInfo(settings.TIME_ZONE))
     sums = (
         CallRecord.objects.annotate(month=month)
@@ -324,6 +338,102 @@ def totals(request: HttpRequest) -> HttpResponse:
             "time_zone": settings.TIME_ZONE,
         },
     )
+
+
+# What the timeline calls each event the recorder writes (voice/bargein.py); an event not here shows by its code.
+EVENT_NAMES = {
+    "config": "Call starts",
+    "bot_speech": "Agent speech",
+    "barge_in": "Barge-in",
+    "caller_words": "Caller's words",
+    "resumed": "Agent resumes",
+    "end": "Call ends",
+}
+LOGS_SHOWN = 100
+
+
+def log_summary(events: list[dict[str, Any]]) -> tuple[str, int, int]:
+    """Length (minutes:seconds, from the end event; "–" without one), barge-ins, and barge-ins with no Caller's words after: the recorder writes words only for the first words after a barge-in, so the difference is the count."""
+    # .get and the type check: the database checks field names and value shapes, not that a field is there or a number.
+    ends = [
+        e["secs"]
+        for e in events
+        if e.get("e") == "end"
+        and type(e.get("secs")) in (int, float)
+        and e["secs"] >= 0
+    ]
+    length = f"{int(ends[0]) // 60}:{int(ends[0]) % 60:02d}" if ends else "–"
+    barge_ins = sum(e.get("e") == "barge_in" for e in events)
+    words = sum(e.get("e") == "caller_words" for e in events)
+    return length, barge_ins, max(barge_ins - words, 0)
+
+
+def in_recorder_order(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The events with their fields in the order the recorder writes them: jsonb keeps no key order, and the database's field list (migration 0020) is in the recorder's order. A nested `vad` keeps jsonb's order."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT accounts_call_log_fields()")
+        order = cursor.fetchone()[0]
+    return [{**{k: e[k] for k in order if k in e}, **e} for e in events]
+
+
+@operator_only
+def call_logs(request: HttpRequest) -> HttpResponse:
+    """The latest stored Call logs of every Business, newest first."""
+    # shortcut: the newest LOGS_SHOWN only, no paging; add paging when Petter needs an older one before it expires.
+    logs = CallLog.objects.select_related("business").order_by("-started_at")[
+        :LOGS_SHOWN
+    ]
+    rows = [
+        (log.call_id, log.started_at, log.business.name, CALL_KINDS[log.kind])
+        + log_summary(log.events)
+        for log in logs
+    ]
+    return render(
+        request,
+        "accounts/call_logs.html",
+        {"rows": rows, "shown": LOGS_SHOWN, "time_zone": settings.TIME_ZONE},
+    )
+
+
+@operator_only
+def call_log(request: HttpRequest, call_id: str) -> HttpResponse:
+    """One Call log's events as a timeline: seconds since the call began, the event, and its logged fields."""
+    log = get_object_or_404(CallLog.objects.select_related("business"), call_id=call_id)
+    events = [
+        (
+            e.get("t"),
+            EVENT_NAMES.get(str(e.get("e")), e.get("e", "–")),
+            [(k, json.dumps(v)) for k, v in e.items() if k not in ("t", "call", "e")],
+        )
+        for e in in_recorder_order(log.events)
+    ]
+    length, barge_ins, no_words = log_summary(log.events)
+    return render(
+        request,
+        "accounts/call_log.html",
+        {
+            "log": log,
+            "kind": CALL_KINDS[log.kind],
+            "length": length,
+            "barge_ins": barge_ins,
+            "no_words": no_words,
+            "events": events,
+            "time_zone": settings.TIME_ZONE,
+        },
+    )
+
+
+@operator_only
+def call_log_text(request: HttpRequest, call_id: str) -> HttpResponse:
+    """The Call log as the server log's barge-in lines (`barge-in ` and the event's JSON), one per event, to hand to an agent."""
+    log = get_object_or_404(CallLog, call_id=call_id)
+    lines = ("barge-in " + json.dumps(e) for e in in_recorder_order(log.events))
+    response = HttpResponse(
+        "".join(line + "\n" for line in lines), content_type="text/plain; charset=utf-8"
+    )
+    # The call id is a plain code (the database refuses anything else), so it is safe in the header.
+    response["Content-Disposition"] = f'attachment; filename="call-log-{call_id}.txt"'
+    return response
 
 
 class Text(forms.CharField):
@@ -846,31 +956,47 @@ class CallRecordForm(CoreReportForm):
         fields = "__all__"
 
 
+def store_core_report(
+    request: HttpRequest,
+    form_class: type[CoreReportForm],
+    name: str,
+    stored_as_sent: dict[str, type] | None = None,
+) -> JsonResponse:
+    """The one opening for every report the core sends: the secret before any lookup, then the body parsed once and stored once per call id. `stored_as_sent` names the keys the form leaves out and the type each must be."""
+    if not core_secret_sent(request):
+        return JsonResponse({"error": "missing or wrong secret"}, status=401)
+    stored_as_sent = stored_as_sent or {}
+    try:
+        body = json.loads(request.body)
+    except ValueError:
+        body = None
+    if (
+        not isinstance(body, dict)
+        or body.keys() != {*form_class.base_fields, *stored_as_sent}  # pyright: ignore[reportUnknownMemberType]
+        or not all(isinstance(body[key], kind) for key, kind in stored_as_sent.items())
+    ):
+        return JsonResponse({"error": f"not a {name}"}, status=400)
+    form = form_class(body)
+    if not form.is_valid():
+        # Field names only: a refused value never goes back out.
+        return JsonResponse(
+            {"error": f"malformed {name}", "fields": sorted(form.errors)}, status=400
+        )
+    values = dict(form.cleaned_data)
+    with transaction.atomic():  # a refusal from the database leaves the connection usable for the caller's answer
+        _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
+            call_id=values.pop("call_id"),
+            defaults={**values, **{key: body[key] for key in stored_as_sent}},
+        )
+    return JsonResponse({"stored": True}, status=201 if created else 200)
+
+
 @csrf_exempt  # the shared secret gates it, not a session
 @require_POST
 @never_cache
 def record_call(request: HttpRequest) -> HttpResponse:
     """The one address the core sends a finished call's record to. Stores it once per call id; the database refuses every later change."""
-    if not core_secret_sent(request):
-        return JsonResponse({"error": "missing or wrong secret"}, status=401)
-    try:
-        body = json.loads(request.body)
-    except ValueError:
-        body = None
-    if not isinstance(body, dict) or body.keys() != CallRecordForm.base_fields.keys():  # pyright: ignore[reportUnknownMemberType]
-        return JsonResponse({"error": "not a Call record"}, status=400)
-    form = CallRecordForm(body)
-    if not form.is_valid():
-        # Field names only: a refused value never goes back out.
-        return JsonResponse(
-            {"error": "malformed Call record", "fields": sorted(form.errors)},
-            status=400,
-        )
-    values = dict(form.cleaned_data)
-    _, created = CallRecord.objects.get_or_create(
-        call_id=values.pop("call_id"), defaults=values
-    )
-    return JsonResponse({"stored": True}, status=201 if created else 200)
+    return store_core_report(request, CallRecordForm, "Call record")
 
 
 class CallLogForm(CoreReportForm):
@@ -881,39 +1007,13 @@ class CallLogForm(CoreReportForm):
         exclude = ("events",)
 
 
-CALL_LOG_FIELDS = {*CallLogForm.base_fields, "events"}  # pyright: ignore[reportUnknownMemberType]
-
-
 @csrf_exempt  # the shared secret gates it, not a session
 @require_POST
 @never_cache
 def record_call_log(request: HttpRequest) -> HttpResponse:
     """The one address the core sends a finished call's Call log to. Stores it once per call id; the database refuses every later change, and a delete before its expiry."""
-    if not core_secret_sent(request):
-        return JsonResponse({"error": "missing or wrong secret"}, status=401)
     try:
-        body = json.loads(request.body)
-    except ValueError:
-        body = None
-    if (
-        not isinstance(body, dict)
-        or body.keys() != CALL_LOG_FIELDS
-        or not isinstance(body["events"], list)
-    ):
-        return JsonResponse({"error": "not a Call log"}, status=400)
-    form = CallLogForm(body)
-    if not form.is_valid():
-        # Field names only: a refused value never goes back out.
-        return JsonResponse(
-            {"error": "malformed Call log", "fields": sorted(form.errors)}, status=400
-        )
-    values = dict(form.cleaned_data)
-    try:
-        with transaction.atomic():
-            _, created = CallLog.objects.get_or_create(
-                call_id=values.pop("call_id"),
-                defaults={**values, "events": body["events"]},
-            )
+        return store_core_report(request, CallLogForm, "Call log", {"events": list})
     except (IntegrityError, DataError) as e:
         # The database is what checks the events and the start (migration 0020), or refuses text jsonb can't hold (a NUL); this only says so.
         if isinstance(e, DataError) or "call_log_events_hold_only_listed_fields" in str(
@@ -927,4 +1027,3 @@ def record_call_log(request: HttpRequest) -> HttpResponse:
         return JsonResponse(
             {"error": "malformed Call log", "fields": [field]}, status=400
         )
-    return JsonResponse({"stored": True}, status=201 if created else 200)
