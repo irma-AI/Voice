@@ -475,3 +475,71 @@ def agent_cut_off(call: Call) -> Verdict:
     if cut := _cut_offs(call):
         return Verdict(True, f"the agent was cut off at {cut[0]['t']}s")
     return Verdict(False, "the Caller spoke over the agent and it was never cut off")
+
+
+# shortcut: first guesses, until the speakerphone call (VOI-162) shows what echo and a real Caller read as.
+# Above ECHO_CORR the Caller's sound follows the agent's own; above SELF_WORDS Gemini heard the agent's words.
+ECHO_CORR = 0.8
+SELF_WORDS = 0.8
+
+
+def _events(call: Call, kind: str) -> list[dict[str, Any]]:
+    return [e for e in call.events if e.get("e") == kind]
+
+
+def barge_ins_not_echo(call: Call) -> Verdict:
+    """No barge-in came from the agent hearing itself: the Caller's sound did not follow the agent's output."""
+    for e in _events(call, "barge_in"):
+        if "echo_corr" not in e:
+            return Verdict(False, f"the barge-in at {e['t']}s has no echo signature")
+        if e["echo_corr"] >= ECHO_CORR:
+            return Verdict(
+                False,
+                f"at {e['t']}s the Caller's sound followed the agent's ({e['echo_corr']} at {e['echo_lag_ms']} ms): echo",
+            )
+    return Verdict(True, "no barge-in's sound followed the agent's output")
+
+
+def caller_words_not_agent(call: Call) -> Verdict:
+    """The words heard after each barge-in were not the agent's own last words."""
+    for e in _events(call, "caller_words"):
+        if "similarity" not in e:
+            return Verdict(False, f"the words at {e['t']}s have no similarity score")
+        if e["similarity"] >= SELF_WORDS:
+            return Verdict(
+                False,
+                f"at {e['t']}s the words heard after a barge-in were the agent's own ({e['similarity']})",
+            )
+    return Verdict(True, "the words after each barge-in were the Caller's own")
+
+
+def barge_in_summary(call: Call) -> Verdict:
+    """The end event's summary agrees with the barge-in events before it."""
+    if not (ends := _events(call, "end")) or "barge_ins" not in ends[-1]:
+        return Verdict(False, "the call has no end summary")
+    end = ends[-1]
+    barge_ins = no_words = stretches = 0
+    cut: set[int] = set()  # the stretches of agent speech a barge-in cut short
+    waiting = False  # a barge-in still waiting for the Caller's words
+    for e in call.events:
+        if e.get("e") == "bot_speech" and e.get("phase") == "start":
+            stretches += 1
+        elif e.get("e") == "barge_in":
+            no_words += waiting
+            barge_ins += 1
+            waiting = True
+            if e["bot_speaking"]:
+                cut.add(stretches)
+        elif e.get("e") == "caller_words":
+            waiting = False
+    no_words += waiting
+    share = round(len(cut) / stretches, 2) if stretches else 0.0
+    found = (end["barge_ins"], end["no_words"], end["cut_share"])
+    if found != (barge_ins, no_words, share):
+        return Verdict(
+            False,
+            f"the end summary says {found} (barge-ins, no words, cut share), the events {(barge_ins, no_words, share)}",
+        )
+    return Verdict(
+        True, f"{barge_ins} barge-ins, {no_words} with no words, {share} of speech cut"
+    )

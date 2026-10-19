@@ -1,0 +1,89 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: the agent heard itself on a speakerphone. The Caller's sound followed the agent's at a 220 ms delay, fell silent when the agent stopped, and the words heard were the agent's own.",
+ "events": [
+  {
+   "t": 0.0,
+   "e": "config",
+   "vad": {},
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 0.4,
+   "e": "bot_speech",
+   "phase": "start",
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 2.5,
+   "e": "barge_in",
+   "bot_speaking": true,
+   "bot_ms": 2100,
+   "peak_dbfs": -24.0,
+   "rms_dbfs": -33.0,
+   "src": "gemini",
+   "echo_corr": 0.93,
+   "echo_lag_ms": 220,
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 2.6,
+   "e": "bot_speech",
+   "phase": "stop",
+   "played_ms": 2200,
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 3.0,
+   "e": "levels",
+   "caller_dbfs": [
+    -34.0,
+    -33.1,
+    -35.2,
+    -32.8,
+    -33.5,
+    -36.0,
+    -52.0,
+    -60.1,
+    -61.0,
+    -60.5
+   ],
+   "bot_dbfs": [
+    -14.0,
+    -13.2,
+    -15.1,
+    -12.9,
+    -13.4,
+    -30.0,
+    -100.0,
+    -100.0,
+    -100.0,
+    -100.0
+   ],
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 3.3,
+   "e": "caller_words",
+   "words": 4,
+   "after_barge_in_ms": 800,
+   "similarity": 1.0,
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 4.1,
+   "e": "resumed",
+   "after_barge_in_ms": 1600,
+   "call": "a1b2c3d4e5f6"
+  },
+  {
+   "t": 9.0,
+   "e": "end",
+   "reason": "cancel",
+   "secs": 9.0,
+   "barge_ins": 1,
+   "no_words": 0,
+   "cut_share": 1.0,
+   "call": "a1b2c3d4e5f6"
+  }
+ ]
+}

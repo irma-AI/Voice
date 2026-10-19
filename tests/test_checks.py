@@ -2,13 +2,26 @@
 
 import asyncio
 import json
+import random
+import re
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
-from pipecat.frames.frames import FunctionCallInProgressFrame
+from pipecat.frames.frames import (
+    BotStartedSpeakingFrame,
+    Frame,
+    FunctionCallInProgressFrame,
+    InputAudioRawFrame,
+    InterruptionFrame,
+    OutputAudioRawFrame,
+    TranscriptionFrame,
+    TTSTextFrame,
+)
+from pipecat.pipeline.pipeline import Pipeline
 from pipecat.processors.frame_processor import FrameDirection
-from pipecat.tests.utils import run_test
+from pipecat.tests.utils import SleepFrame, run_test
 
 from tests.evals.checks import (
     Call,
@@ -16,8 +29,11 @@ from tests.evals.checks import (
     agent_cut_off,
     agent_not_cut_off,
     answers_in_english,
+    barge_in_summary,
+    barge_ins_not_echo,
     books_nothing,
     call_from_log,
+    caller_words_not_agent,
     disclosure_first,
     events_from_record,
     false_barge_ins,
@@ -31,9 +47,11 @@ from tests.evals.checks import (
     states_listed_price,
     uses_web_search,
 )
+from voice.bargein import BargeInRecorder
 from voice.record import CallRecorder
 
 CALLS = Path(__file__).parent / "calls"
+ROOT = Path(__file__).parent.parent
 
 
 @pytest.mark.parametrize(
@@ -169,6 +187,107 @@ def test_cut_off_checks(
     verdict = check(Call.load(CALLS / f"barge_in_{record}.json"))
     assert verdict.passed is passes, verdict.reason
     assert verdict.reason
+
+
+@pytest.mark.parametrize(
+    ("check", "record", "passes"),
+    [
+        (barge_ins_not_echo, "real_caller", True),
+        (barge_ins_not_echo, "echo", False),
+        (barge_ins_not_echo, "words_follow", False),  # logged before the echo signature
+        (caller_words_not_agent, "real_caller", True),
+        (caller_words_not_agent, "echo", False),
+        (barge_in_summary, "real_caller", True),
+        (barge_in_summary, "echo", True),
+        (barge_in_summary, "summary_wrong", False),
+        (barge_in_summary, "words_follow", False),  # no summary
+    ],
+)
+def test_echo_and_summary_checks(
+    check: Callable[[Call], Verdict], record: str, passes: bool
+) -> None:
+    verdict = check(Call.load(CALLS / f"barge_in_{record}.json"))
+    assert verdict.passed is passes, verdict.reason
+    assert verdict.reason
+
+
+def security_rule_fields() -> set[str]:
+    """The fields `.claude/rules/security.md` lets a production barge-in line hold."""
+    rule = (ROOT / ".claude/rules/security.md").read_text("utf-8")
+    line = next(l for l in rule.splitlines() if l.startswith("- The barge-in log"))
+    return set(
+        re.findall(r"`([a-z_]+)`", line.split("may hold:", 1)[1].split(". ", 1)[0])
+    )
+
+
+def test_every_stored_barge_in_field_is_on_the_security_list() -> None:
+    listed = security_rule_fields()
+    for path in sorted(CALLS.glob("barge_in_*.json")):
+        for event in events_from_record(path):
+            assert set(event) <= listed, (
+                f"{path.name}: add {sorted(set(event) - listed)} to the barge-in line in .claude/rules/security.md first"
+            )
+
+
+# Levels of 20 ms frames: the agent speaking in 100 ms syllables, and someone else's speech.
+AGENT = [random.Random(i // 5).choice((0, 3000, 9000, 15000)) for i in range(80)]
+OTHER = [random.Random(1000 + i // 5).choice((0, 3000, 9000, 15000)) for i in range(80)]
+
+
+def _pcm(level: int) -> bytes:
+    return int(level).to_bytes(2, "little", signed=True) * 320  # 20 ms at 16 kHz
+
+
+def _a_cut(tmp_path: Path, caller_levels: list[int]) -> list[dict[str, Any]]:
+    """A second of agent speech in syllables and the Caller's sound beside it, a cut, then half a second more."""
+    frames: list[Frame] = [BotStartedSpeakingFrame()]
+    for tick in range(80):
+        if tick == 50:
+            frames += [
+                TTSTextFrame("du pratar med en assistent", aggregated_by="sentence"),
+                InterruptionFrame(),
+                TranscriptionFrame("pratar med en", "caller", "now"),
+            ]
+        agent = OutputAudioRawFrame(_pcm(AGENT[tick]), 16000, 1)
+        caller = InputAudioRawFrame(_pcm(caller_levels[tick]), 16000, 1)
+        frames += [agent, caller, SleepFrame(0.02)]
+    log = tmp_path / "call.jsonl"
+    recorder = BargeInRecorder("c0ffee0123456789", log)
+    # Upstream, as the model's signal and the Caller's transcript travel; the output side takes any direction.
+    asyncio.run(
+        run_test(
+            Pipeline([recorder, recorder.output_side]),
+            frames_to_send=frames,
+            frames_to_send_direction=FrameDirection.UPSTREAM,
+        )
+    )
+    events = read_events(log)
+    # The words are compared, never written.
+    assert "pratar" not in log.read_text("utf-8")
+    listed = security_rule_fields()
+    for event in events:
+        assert set(event) <= listed, (
+            f"add {sorted(set(event) - listed)} to the security rule"
+        )
+    return events
+
+
+def test_the_recorder_tells_its_own_echo_from_a_caller(tmp_path: Path) -> None:
+    # The agent's own sound, 200 ms later and quieter.
+    echo = [20 + AGENT[i - 10] // 4 if i >= 10 else 20 for i in range(80)]
+    events = _a_cut(tmp_path, echo)
+    [cut] = [e for e in events if e["e"] == "barge_in"]
+    assert cut["src"] == "gemini" and cut["bot_speaking"] is True
+    assert cut["echo_corr"] >= 0.8 and 120 <= cut["echo_lag_ms"] <= 280, cut
+    [levels] = [e for e in events if e["e"] == "levels"]
+    assert len(levels["caller_dbfs"]) == len(levels["bot_dbfs"]) == 10
+    [words] = [e for e in events if e["e"] == "caller_words"]
+    assert words["words"] == 3 and words["similarity"] == 1.0
+    assert barge_in_summary(Call((), tuple(events))).passed
+
+    (tmp_path / "caller").mkdir()
+    [cut] = [e for e in _a_cut(tmp_path / "caller", OTHER) if e["e"] == "barge_in"]
+    assert cut["echo_corr"] < 0.8, cut
 
 
 def test_call_log_becomes_turns(tmp_path: Path) -> None:
