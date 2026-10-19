@@ -20,6 +20,8 @@ const FIX = 'run `sh scripts/git-identity.sh` (and pass no -c user.name or user.
 // The one identity, read from the script that sets it (hard rule 5); the pre-commit hook reads the same line.
 const EMAIL = fs.readFileSync(path.join(ROOT, 'scripts', 'git-identity.sh'), 'utf8').match(/^email='(.*)'$/m)[1];
 const allowed = (ident) => ident.endsWith(`<${EMAIL}>`); // "Name <email>" of an author or committer
+// GitHub commits a squash merge itself, so a push to main (tip-only run) sees it as the committer (VOI-144).
+const GITHUB = 'GitHub <noreply@github.com>';
 const MESSAGE = require(path.join(__dirname, '..', '..', 'claude-attribution.js')); // shared with the GitHub write hook
 
 // A fixture has `.guard-commits.json` (a list of {sha, author, committer, message}) in place of git.
@@ -51,7 +53,7 @@ if (prWhy.length) {
 for (const c of list) {
   const why = [];
   if (!allowed(c.author)) why.push(`authored by ${c.author}`);
-  if (!allowed(c.committer)) why.push(`committed by ${c.committer}`);
+  if (!allowed(c.committer) && c.committer !== GITHUB) why.push(`committed by ${c.committer}`);
   for (const [re, what] of MESSAGE) if (re.test(c.message)) why.push(`has ${what}`);
   if (why.length) {
     console.log(`${c.sha.slice(0, 7)}\tcommit ${c.sha.slice(0, 7)} ${why.join(' and ')}: ${FIX}`);
