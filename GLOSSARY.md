@@ -77,7 +77,7 @@ One thing a Business's own agent can tell Voice to do, such as changing its fact
 _Avoid_: tool (in everyday talk), Action, API call
 
 **Access token**:
-The secret a Business makes in its Portal and pastes into its own agent, so the agent can send Commands. It is read-only or full, chosen when it is made, and works for that one Business.
+The secret a Business makes in its Portal and pastes into its own AI assistant (its own agent), so the assistant can send Commands. In Portal copy the owner's tool is "your AI assistant"; "your agent" is always the voice agent. It is read-only or full, chosen when it is made, and works for that one Business.
 _Avoid_: API key, password
 
 **Portal**:

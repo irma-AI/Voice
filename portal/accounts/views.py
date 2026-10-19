@@ -377,7 +377,7 @@ class SettingsForm(forms.ModelForm):
         required=False,
         max_length=PRIVACY_URL_MAX,
         assume_scheme="https",
-        help_text="The address of your privacy notice for callers, for example https://www.example.se/privacy. Your Callers see a link to it on the call page. Leave it empty for none.",
+        help_text="The address of your privacy notice for your Callers, for example https://www.example.se/privacy. Your Callers see a link to it on the call page. Leave it empty for none.",
         widget=forms.URLInput(
             attrs={
                 "autocomplete": "url",
