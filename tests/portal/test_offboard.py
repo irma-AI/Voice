@@ -65,6 +65,7 @@ def test_the_dry_run_changes_nothing_and_execute_needs_the_reviewed_hash_and_tar
     dry = StringIO()
     call_command("offboard_business", EMAIL, target="local", stdout=dry)
     assert f'"business": "{business.pk}"' in dry.getvalue()
+    assert '"name now": "Anna\'s Salon"' in dry.getvalue()
     assert '"access tokens to revoke": "1"' in dry.getvalue()
     assert '"modules to delete": "1"' in dry.getvalue()
     with pytest.raises(CommandError, match="plan changed"):
@@ -91,6 +92,7 @@ def emptied(business: Business) -> dict[str, dict[str, Any]]:
         "account": {
             "email": f"deleted-{business.account.pk}@invalid",
             "is_active": False,
+            "last_login": None,
         },
         "business": {
             "name": f"Business {business.pk}",
@@ -106,7 +108,7 @@ def emptied(business: Business) -> dict[str, dict[str, Any]]:
 
 
 NOT_ABOUT_A_PERSON = {
-    "account": {"id", "password", "last_login"},  # password: unusable, checked below
+    "account": {"id", "password"},  # password: unusable, checked below
     "business": {"id", "account", "languages", "call_slug"},
 }
 

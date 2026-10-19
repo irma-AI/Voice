@@ -51,6 +51,9 @@ class Command(BaseCommand):
             options,
             {
                 "offboard": email,
+                # What the reviewer recognises: the wrong customer's email still names its own Business here.
+                "name now": business.name,
+                "website domain now": business.website_domain,
                 "account": str(business.account.pk),
                 "business": str(business.pk),
                 "access tokens to revoke": str(tokens.count()),
@@ -78,6 +81,7 @@ class Command(BaseCommand):
             # .invalid never resolves (RFC 2606), so no mail can reach it.
             account.email = f"deleted-{account.pk}@invalid"
             account.is_active = False
+            account.last_login = None
             account.set_unusable_password()
             account.save()
         audit.info(
