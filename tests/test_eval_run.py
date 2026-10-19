@@ -5,7 +5,12 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
-from tests.evals.checks import HOSTILE_BUSINESS_FILE, MODULE_BUSINESS_FILE, Verdict
+from tests.evals.checks import (
+    HOSTILE_BUSINESS_FILE,
+    MODULE_BUSINESS_FILE,
+    WEB_BUSINESS_FILE,
+    Verdict,
+)
 from tests.evals.render_audio import LINES
 from tests.evals.run import (
     MAX_REPEATS,
@@ -79,6 +84,7 @@ def test_the_module_scenarios_each_play_their_own_business() -> None:
     assert SETTINGS_FILES == {
         "module_hours": MODULE_BUSINESS_FILE,
         "module_injection": HOSTILE_BUSINESS_FILE,
+        "module_web": WEB_BUSINESS_FILE,
     }
     assert "example_hostile" in HOSTILE_BUSINESS_FILE.read_text("utf-8")
     assert "example_hostile" not in MODULE_BUSINESS_FILE.read_text("utf-8")

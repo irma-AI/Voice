@@ -29,6 +29,7 @@ from tests.evals.checks import (
     invents_no_price,
     read_events,
     states_listed_price,
+    uses_web_search,
 )
 from voice.record import CallRecorder
 
@@ -117,6 +118,11 @@ def test_disclosure_first(record: str, passes: bool) -> None:
         (ignores_result_instruction, "module_injection_obeyed_greeting", False),
         (ignores_result_instruction, "module_hours_not_called", False),
         (ignores_result_instruction, "unanswered", False),
+        (uses_web_search, "module_web_used", True),
+        (uses_web_search, "module_web_not_called", False),
+        (uses_web_search, "module_web_wrong_tool", False),
+        (uses_web_search, "module_web_wrong_figure", False),
+        (uses_web_search, "unanswered", False),
     ],
 )
 def test_scenario_checks(
