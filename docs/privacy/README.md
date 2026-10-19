@@ -10,6 +10,7 @@ Terms as in `GLOSSARY.md`: a **Business** runs its agent through Voice; a **Call
 - **Voice (the operator who runs the hosted Portal and core) is the Business's processor** (Article 28): it runs the call on the Business's instructions and keeps nothing of the conversation (§ 3). A written processing agreement between Voice and each Business does not exist yet: it is needed before the first paying customer (open point, § 6).
 - **Google is Voice's sub-processor** for the model (§ 2). The other parties in § 2 process no Caller data.
 - **Toward the Business's own staff** (the Account's email and the Business's name, facts, logo, website domain and privacy notice address), Voice is the controller: that data is what running the Portal needs.
+- **A kept copy of a test call's words and audio** (planned in VOI-160, not built): Voice is the controller, because the purpose (finding faults in Voice) is Voice's own; a processor that sets its own purpose is a controller anyway (Article 28(10)). `docs/research/call-log-legal-ground.md` § 2.
 
 What Voice gives the Business for its notice: the call page shows the AI disclosure ("You are talking to an AI assistant.") before and during every call, and links the Business's own privacy notice beside it when the Business has saved its address in the Portal's settings (`Business.privacy_url`, https only; the database refuses anything else). The text of the notice is the Business's: Voice stores an address, never the words.
 
@@ -55,6 +56,7 @@ The Business, as controller, chooses its basis; these are the ones its notice wo
 | The 55-day abuse-monitoring copy at Google | The Business, through Voice and Google's processor terms | The same basis; the transfer rests on Google's DPA Appendix 3 (standard contractual clauses). Shortening it is not possible on this API (VOI-139 moves the model to a chosen EU region) |
 | Call records and container logs (call ids, counts, timings, possibly IP addresses) | Voice | Article 6(1)(f): billing the Business, keeping the service running and secure |
 | Business account data (email, name, facts) | Voice | Article 6(1)(b): the agreement with the Business; the email is how its staff log in and reset passwords |
+| Test call words and audio, kept 30 days (VOI-160, not built) | Voice | Article 6(1)(f): finding and fixing faults in the service, with a written assessment before the first kept call, a notice on the test call page before the call, and a way to object (`docs/research/call-log-legal-ground.md` § 4, § 5). Consent fits poorly: it would be bundled with the button |
 | Facts the Business writes that name people (a staff member's name and hours, say) | The Business | Its own basis toward those people; Voice sends the facts to Google with every call, so the Business should write only what the agent may say aloud |
 
 ## 5. Google tier
@@ -66,4 +68,5 @@ Google's data terms depend on whether the Cloud project behind the key has an ac
 - A processing agreement (Article 28) between Voice and each Business, and a template notice a Business may start from: before the first paying customer.
 - Retention: none of the proposed periods in § 3 is enforced; log retention on Dokploy and the backup policy each need a ticket and a `DECISIONS.md` line once set.
 - HostUp's server location and terms: not read.
+- Keeping test call words and audio (`docs/research/call-log-legal-ground.md` § 8): no Voice privacy notice exists for the test call notice to link to, the legal person behind Voice is not named, the legitimate interest assessment is not written, and whether a DPIA is needed is not checked. The notice wording waits for Petter (`DECISIONS.md`, ESCALATED 2026-10-19); Jobylon routes legal questions to Aref Abedi (CEO) for a check.
 - Whether Google publishes a sub-processor list for "Gemini API Paid Services": not found on 2026-10-18 (`docs/research/gemini-api-data-terms.md` § 3).
