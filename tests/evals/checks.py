@@ -440,8 +440,13 @@ def false_barge_ins(events: list[dict[str, Any]]) -> Verdict:
 
 
 def _cut_offs(call: Call) -> list[dict[str, Any]]:
+    """Cuts by Gemini's detector while the agent spoke: what these checks judged before Pipecat's own were logged."""
     return [
-        e for e in call.events if e.get("e") == "barge_in" and e.get("bot_speaking")
+        e
+        for e in call.events
+        if e.get("e") == "barge_in"
+        and e.get("bot_speaking")
+        and e.get("src", "gemini") == "gemini"
     ]
 
 
@@ -485,6 +490,20 @@ SELF_WORDS = 0.8
 
 def _events(call: Call, kind: str) -> list[dict[str, Any]]:
     return [e for e in call.events if e.get("e") == kind]
+
+
+def barge_in_fields_logged(call: Call) -> Verdict:
+    """Each barge-in carries what cut it and its echo signature, and each first words after one a similarity score.
+
+    The eval Channel has no echo path, so the echo verdicts below would only judge chance alignment there.
+    """
+    for e in _events(call, "barge_in"):
+        if missing := {"src", "echo_corr", "echo_lag_ms"} - set(e):
+            return Verdict(False, f"the barge-in at {e['t']}s lacks {sorted(missing)}")
+    for e in _events(call, "caller_words"):
+        if "similarity" not in e:
+            return Verdict(False, f"the words at {e['t']}s have no similarity score")
+    return Verdict(True, "every barge-in and its words carry the new fields")
 
 
 def barge_ins_not_echo(call: Call) -> Verdict:
