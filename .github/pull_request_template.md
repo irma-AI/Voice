@@ -8,6 +8,10 @@
 2. **What could be removed or simplified instead?** <!-- What you considered dropping or merging; fewer states and less code win unless something concrete needs more. -->
 3. **Is this the best solution, or just the proposed one?** <!-- The alternative you considered and why you did not take it. -->
 
+## Skeptic pass
+
+<!-- Only when the PR changes a `skeptic_pass` path or a Stop and ask area (`CLAUDE.md` § Workflow): the frozen SHA the skeptics read, then the counterexamples found or "none found". Delete the section otherwise. -->
+
 ## Not live yet
 
 <!-- What still has to be switched on after merge (a migration, a flag, a schedule, a secret) and who does it. "Nothing" if it is live once merged. -->

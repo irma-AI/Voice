@@ -1,5 +1,6 @@
 {
   "fenced": {"label": "evals-approved", "paths": ["tests/evals/**"]},
   "no_ticket": ["docs/**", "DECISIONS.md", "GLOSSARY.md"],
-  "frozen": ["portal/static/portal/call-button.v1.js", "portal/call-button.v1.integrity"]
+  "frozen": ["portal/static/portal/call-button.v1.js", "portal/call-button.v1.integrity"],
+  "skeptic_pass": ["voice/ticket.py", "voice/auth.py", "voice/serve.py", "voice/cost.py", "voice/report.py", "portal/accounts/views.py", "portal/accounts/models.py", "portal/accounts/ticket.py"]
 }
