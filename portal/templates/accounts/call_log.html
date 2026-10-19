@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Call log · Voice Portal{% endblock %}
+{% block content %}
+<p class="text-sm"><a href="{% url 'call_logs' %}" class="link-inline">All call logs</a></p>
+<h1 class="mt-4 text-4xl tabular-nums sm:text-[3.5rem] sm:leading-none"><span class="whitespace-nowrap">{{ log.started_at|date:"Y-m-d" }}</span> <span class="whitespace-nowrap">{{ log.started_at|date:"H:i" }}</span></h1>
+<p class="mt-4 max-w-prose text-foam-muted"><span class="break-words">{{ log.business.name }}</span> · {{ kind }} · {{ length }} · {{ barge_ins }} barge-in{{ barge_ins|pluralize }}, {{ no_words }} without words. Times are in {{ time_zone }}; each event shows the seconds since the call began.</p>
+<p class="mt-6"><a href="{% url 'call_log_text' log.call_id %}" class="pill" download>Download as text</a></p>
+
+<ol class="mt-10 border-t border-granite" aria-label="Events">
+  {% for t, name, fields in events %}
+  <li class="grid grid-cols-[4.5rem_1fr] gap-x-4 border-b border-granite py-3 sm:grid-cols-[6rem_1fr]">
+    <p class="font-mono text-sm tabular-nums text-foam-muted">{{ t|floatformat:3 }}&#8239;s</p>
+    <div class="min-w-0">
+      <p class="font-medium">{{ name }}</p>
+      {% if fields %}
+      <dl class="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-mono text-sm text-foam-muted">
+        {% for key, value in fields %}<div class="break-all"><dt class="inline">{{ key }}</dt> <dd class="inline text-foam">{{ value }}</dd></div>{% endfor %}
+      </dl>
+      {% endif %}
+    </div>
+  </li>
+  {% empty %}
+  <li class="border-b border-granite py-4 text-foam-muted">This log holds no events.</li>
+  {% endfor %}
+</ol>
+{% endblock %}
