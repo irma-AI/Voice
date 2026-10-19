@@ -27,7 +27,7 @@ from django.utils import timezone
 
 from portal.accounts import domain as portal_domain
 from portal.accounts import theme
-from portal.accounts.models import Account, Business
+from portal.accounts.models import BUDGET_COUNTED, CALL_KINDS, Account, Business
 from tests.portal.helpers import business_with_login
 from tests.portal.test_recent_calls import a_call
 from voice import ticket as core_ticket
@@ -211,6 +211,13 @@ def test_a_test_call_neither_counts_nor_is_refused() -> None:
     a_call(anna, "priced-000000001", timezone.now(), cost_usd="1")
     assert link(anna).status_code == 403
     assert client.post("/test-call/").status_code == 302
+
+
+def test_every_call_kind_is_counted_toward_the_budget_or_named_exempt() -> None:
+    """A kind added to CALL_KINDS with no mark would never count toward the daily budget, so its calls would spend uncapped (VOI-166)."""
+    assert set(BUDGET_COUNTED) == set(CALL_KINDS), (
+        "mark each kind of CALL_KINDS in BUDGET_COUNTED (portal/accounts/models.py): True counts toward the daily budget, False is exempt"
+    )
 
 
 def test_the_day_is_counted_on_the_portal_clock(settings: Any) -> None:
