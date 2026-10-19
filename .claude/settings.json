@@ -11,6 +11,7 @@
   },
   "enabledPlugins": {
     "ponytail@synced": false,
+    "ponytail@ponytail": false,
     "impeccable@synced": false,
     "mattpocock-skills@synced": false
   },
