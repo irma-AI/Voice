@@ -27,7 +27,7 @@ from django.utils import timezone
 
 from portal.accounts import domain as portal_domain
 from portal.accounts import theme
-from portal.accounts.models import Account, Business
+from portal.accounts.models import BUDGET_COUNTED, CALL_KINDS, Account, Business
 from tests.portal.helpers import business_with_login
 from tests.portal.test_recent_calls import a_call
 from voice import ticket as core_ticket
@@ -211,6 +211,31 @@ def test_a_test_call_neither_counts_nor_is_refused() -> None:
     a_call(anna, "priced-000000001", timezone.now(), cost_usd="1")
     assert link(anna).status_code == 403
     assert client.post("/test-call/").status_code == 302
+
+
+def test_the_mint_refuses_every_counted_kind_once_the_budget_is_spent(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The refusal lives where every ticket is minted, so a counted kind from a view other than the call link is refused too, and an exempt one is not (VOI-172). The test call stands in for a future counted kind."""
+    anna = a_business_with_a_budget("1.00")
+    client = Client()
+    client.force_login(anna.account)
+    a_call(anna, "priced-000000001", timezone.now(), cost_usd="1")  # at
+    assert client.post("/test-call/").status_code == 302  # exempt
+
+    monkeypatch.setitem(BUDGET_COUNTED, "test", True)
+    response = client.post("/test-call/")
+
+    assert response.status_code == 403 and "Location" not in response
+    assert_the_refusal_page(response.content.decode(), BUDGET_SPENT)
+    assert f"Business {anna.pk} has spent its daily budget (kind test)" in caplog.text
+
+
+def test_every_call_kind_is_counted_toward_the_budget_or_named_exempt() -> None:
+    """A kind added to CALL_KINDS with no mark would never count toward the daily budget, so its calls would spend uncapped (VOI-166)."""
+    assert set(BUDGET_COUNTED) == set(CALL_KINDS), (
+        "mark each kind of CALL_KINDS in BUDGET_COUNTED (portal/accounts/models.py): True counts toward the daily budget, False is exempt"
+    )
 
 
 def test_the_day_is_counted_on_the_portal_clock(settings: Any) -> None:

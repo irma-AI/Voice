@@ -1,0 +1,10 @@
+VOI-164: Drop the call log rules
+## What and why
+
+A migration only, and no skeptic pass.
+
+Closes VOI-164.
+
+## Not live yet
+
+Nothing.
