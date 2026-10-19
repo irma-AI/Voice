@@ -33,6 +33,7 @@ from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
     FastAPIWebsocketTransport,
 )
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from voice.agent import run_call
 from voice.auth import FONTS_PATH, REFUSAL_PAGE, TicketGate
@@ -224,10 +225,33 @@ class DrainingServer(uvicorn.Server):
         await super().shutdown(sockets)
 
 
+SECURITY_HEADERS = [
+    (b"strict-transport-security", b"max-age=2592000"),
+    (b"x-content-type-options", b"nosniff"),
+    (b"referrer-policy", b"same-origin"),
+]
+
+
+class SecurityHeaders:
+    """ASGI middleware: every HTTP response, the gate's refusal included, says HTTPS only, no sniffing, no referrer off the site."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        async def with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                message["headers"] = [*message.get("headers", []), *SECURITY_HEADERS]
+            await send(message)
+
+        await self.app(scope, receive, with_headers)
+
+
 def create_app(ticket_secret: str) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     one_call = app.state.one_call = OneCallPerBusiness()
     app.add_middleware(TicketGate, ticket_secret=ticket_secret)
+    app.add_middleware(SecurityHeaders)  # added last, so it wraps the gate
 
     @app.get("/")
     async def page(request: Request) -> HTMLResponse:  # pyright: ignore[reportUnusedFunction]
