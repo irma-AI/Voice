@@ -848,20 +848,20 @@ def store_core_report(
     request: HttpRequest,
     form_class: type[CoreReportForm],
     name: str,
-    raw: dict[str, type] | None = None,
+    stored_as_sent: dict[str, type] | None = None,
 ) -> JsonResponse:
-    """The one opening for every report the core sends: the secret before any lookup, then the body parsed once and stored once per call id. `raw` names the keys the form leaves out and the type each must be; they are stored as sent."""
+    """The one opening for every report the core sends: the secret before any lookup, then the body parsed once and stored once per call id. `stored_as_sent` names the keys the form leaves out and the type each must be."""
     if not core_secret_sent(request):
         return JsonResponse({"error": "missing or wrong secret"}, status=401)
-    raw = raw or {}
+    stored_as_sent = stored_as_sent or {}
     try:
         body = json.loads(request.body)
     except ValueError:
         body = None
     if (
         not isinstance(body, dict)
-        or body.keys() != {*form_class.base_fields, *raw}  # pyright: ignore[reportUnknownMemberType]
-        or not all(isinstance(body[key], kind) for key, kind in raw.items())
+        or body.keys() != {*form_class.base_fields, *stored_as_sent}  # pyright: ignore[reportUnknownMemberType]
+        or not all(isinstance(body[key], kind) for key, kind in stored_as_sent.items())
     ):
         return JsonResponse({"error": f"not a {name}"}, status=400)
     form = form_class(body)
@@ -874,7 +874,7 @@ def store_core_report(
     with transaction.atomic():  # a refusal from the database leaves the connection usable for the caller's answer
         _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
             call_id=values.pop("call_id"),
-            defaults={**values, **{key: body[key] for key in raw}},
+            defaults={**values, **{key: body[key] for key in stored_as_sent}},
         )
     return JsonResponse({"stored": True}, status=201 if created else 200)
 
