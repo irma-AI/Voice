@@ -71,7 +71,7 @@ from portal.accounts.ticket import mint
 log = logging.getLogger(__name__)
 
 LOGIN_TRIES = 10
-LOGIN_WINDOW = 15 * 60
+TRIES_WINDOW = 15 * 60
 RESET_TRIES = 5
 
 
@@ -93,13 +93,13 @@ def tries_key(kind: str, typed_email: str, request: HttpRequest | None) -> str:
 
 def count_try(key: str) -> int:
     """Adds one to the key's count in the current window and returns it."""
-    cache.add(key, 0, LOGIN_WINDOW)
+    # shortcut: login and reset counts live in this process's memory (the image runs one worker), so a restart clears them; move to the database before a second worker.
+    cache.add(key, 0, TRIES_WINDOW)
     try:
         return cache.incr(key)
-    except (
-        ValueError
-    ):  # the key expired between add and incr: this try starts a new window
-        cache.set(key, 1, LOGIN_WINDOW)
+    # The key expired between add and incr: this try starts a new window.
+    except ValueError:
+        cache.set(key, 1, TRIES_WINDOW)
         return 1
 
 
@@ -140,7 +140,6 @@ class LoginForm(AuthenticationForm):
         return clean_email(self.cleaned_data["username"])
 
     def clean(self):
-        # shortcut: counts per email and address in this process's memory (the image runs one worker), so a restart resets it; move to the database before a second worker.
         key = tries_key(
             "login-failures", str(self.data.get("username", "")), self.request
         )

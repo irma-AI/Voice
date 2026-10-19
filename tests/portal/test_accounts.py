@@ -9,7 +9,6 @@ from urllib.parse import urlsplit
 
 import pytest
 from django.core import mail
-from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
@@ -274,7 +273,6 @@ def test_an_invite_that_cannot_be_sent_leaves_no_account_and_does_not_name_the_a
 
 
 def test_login_is_refused_after_ten_wrong_passwords_even_with_the_right_one() -> None:
-    cache.clear()
     Account.objects.create_user(EMAIL, PASSWORD)
     client = Client()
     for _ in range(10):
@@ -283,11 +281,9 @@ def test_login_is_refused_after_ten_wrong_passwords_even_with_the_right_one() ->
     locked = client.post("/login/", {"username": EMAIL, "password": PASSWORD})
     assert locked.status_code == 200 and "Too many failed attempts" in locked.text
     assert "_auth_user_id" not in client.session
-    cache.clear()
 
 
 def test_a_right_password_resets_the_wrong_ones() -> None:
-    cache.clear()
     Account.objects.create_user(EMAIL, PASSWORD)
     client = Client()
     for _ in range(9):
@@ -296,11 +292,9 @@ def test_a_right_password_resets_the_wrong_ones() -> None:
         client.post("/login/", {"username": EMAIL, "password": PASSWORD}).status_code
         == 302
     )
-    cache.clear()
 
 
 def test_a_blank_password_does_not_clear_the_wrong_ones() -> None:
-    cache.clear()
     Account.objects.create_user(EMAIL, PASSWORD)
     client = Client()
     for _ in range(9):
@@ -309,11 +303,9 @@ def test_a_blank_password_does_not_clear_the_wrong_ones() -> None:
     client.post("/login/", {"username": EMAIL, "password": "not-it"})
     locked = client.post("/login/", {"username": EMAIL, "password": PASSWORD})
     assert "Too many failed attempts" in locked.text
-    cache.clear()
 
 
 def test_a_look_alike_spelling_of_the_email_shares_the_count() -> None:
-    cache.clear()
     Account.objects.create_user("a@b.se", PASSWORD)
     client = Client()
     for typed in [
@@ -323,7 +315,6 @@ def test_a_look_alike_spelling_of_the_email_shares_the_count() -> None:
         client.post("/login/", {"username": typed, "password": "not-it"})
     locked = client.post("/login/", {"username": "a@b.se", "password": PASSWORD})
     assert "Too many failed attempts" in locked.text
-    cache.clear()
 
 
 def test_ten_failures_lock_only_that_address_and_email() -> None:
@@ -342,9 +333,8 @@ def test_ten_failures_lock_only_that_address_and_email() -> None:
 
 def test_the_proxy_appended_address_counts_not_the_one_the_client_wrote() -> None:
     Account.objects.create_user(EMAIL, PASSWORD)
-    for n in range(
-        10
-    ):  # a new made-up address each try; the proxy appends the real one
+    # A new made-up address each try; the proxy appends the real one.
+    for n in range(10):
         Client(HTTP_X_FORWARDED_FOR=f"10.0.0.{n}, 203.0.113.7").post(
             "/login/", {"username": EMAIL, "password": "not-it"}
         )
@@ -358,9 +348,8 @@ def test_the_forwarded_header_is_ignored_locally_and_missing_falls_back(
     settings: Any,
 ) -> None:
     Account.objects.create_user(EMAIL, PASSWORD)
-    settings.DEBUG = (
-        True  # a local run: no proxy, so the header is the client's own words
-    )
+    # A local run: no proxy, so the header is the client's own words.
+    settings.DEBUG = True
     for n in range(10):
         Client(HTTP_X_FORWARDED_FOR=f"10.0.0.{n}").post(
             "/login/", {"username": EMAIL, "password": "not-it"}
@@ -370,9 +359,8 @@ def test_the_forwarded_header_is_ignored_locally_and_missing_falls_back(
         in Client().post("/login/", {"username": EMAIL, "password": PASSWORD}).text
     )
     settings.DEBUG = False
-    for _ in range(
-        10
-    ):  # no header behind the proxy: REMOTE_ADDR, the test client's 127.0.0.1
+    # No header behind the proxy: REMOTE_ADDR, the test client's 127.0.0.1.
+    for _ in range(10):
         Client().post("/login/", {"username": "b@example.com", "password": "not-it"})
     assert (
         "Too many failed attempts"
