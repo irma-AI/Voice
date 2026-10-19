@@ -8,7 +8,6 @@ import pytest
 from django.test import Client
 from django.urls import NoReverseMatch, get_resolver, reverse
 
-from portal.accounts.models import Business
 from tests.portal.helpers import business_with_login
 from tests.portal.test_routes import route_names
 
