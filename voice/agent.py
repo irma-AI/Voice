@@ -211,8 +211,6 @@ async def _run(
         pipeline,
         params=PipelineParams(enable_metrics=True, enable_usage_metrics=True),
         idle_timeout_secs=idle_timeout_secs,
-        # The eval harness waits for RTVI's bot-ready; no page speaks RTVI, and it logs each page message (a gap count) as a warning.
-        enable_rtvi=record_to is not None,
     )
     runner = WorkerRunner(handle_sigint=handle_sigint)
     await runner.add_workers(worker)
