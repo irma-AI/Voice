@@ -178,7 +178,7 @@ No tickets, and no new test unless the rendered content changes.
 - [ ] branch
 - [ ] add-baseline (a new guard), or the edit to a guard, CI workflow or ruleset
 - [ ] a baseline only shrinks; a raise gets a DECISIONS.md line with the reason ⏸
-- [ ] review → commit → pr → merge; code owners review it (.github/CODEOWNERS)
+- [ ] review → commit → pr → merge (code-owner review: not enforced, solo maintainer, see .github/CODEOWNERS)
 ```
 
 ### Huge effort

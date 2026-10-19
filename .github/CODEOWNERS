@@ -1,6 +1,5 @@
-# Not enforced: solo maintainer (the ruleset's require_code_owner_review is false). Turn that on with an owner below to make guardrail files need an owner's approval.
-# Replace @OWNER with a user or team and uncomment the lines this repo uses.
-# Solo maintainer: leave it all commented out, or you can't merge your own guardrail PRs (README step 8).
+# Not enforced: solo maintainer. Every line stays commented out and the ruleset's require_code_owner_review is false, so the one maintainer can merge guardrail PRs.
+# With a second maintainer: replace @OWNER with a user or team, uncomment the lines this repo uses, and turn require_code_owner_review on.
 # /scripts/checks/        @OWNER
 # /.github/               @OWNER
 # /.claude/rules/         @OWNER
