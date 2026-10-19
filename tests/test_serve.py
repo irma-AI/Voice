@@ -5,7 +5,9 @@ The Live transcript runs through a real Pipecat pipeline and socket, with a stan
 """
 
 import asyncio
+import contextlib
 import json
+import re
 import time
 
 import pytest
@@ -260,6 +262,29 @@ def test_the_call_page_wears_the_business_theme_and_says_it_is_an_ai(
     assert DISCLOSURE in page
 
 
+def test_the_call_page_links_the_business_privacy_notice_only_when_it_has_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    given = {**GOOD, "privacy_url": 'https://example.se/integritet?a=1&b="2"'}
+    with fake_portal(body=given) as url:
+        page = call_page(monkeypatch, portal_env(url))
+    link = re.search(
+        r'<p class="privacy"><a href="([^"]*)" ([^>]*)>Privacy notice</a>', page
+    )  # the words were approved by Petter 2026-10-18
+    assert link and link[1] == "https://example.se/integritet?a=1&amp;b=&quot;2&quot;"
+    # The page is often framed in the Business's own website: the notice opens outside the call, which goes on.
+    assert link[2] == 'target="_blank" rel="noopener"'
+    assert page.index(DISCLOSURE) < page.index(
+        'class="privacy"'
+    )  # beside the disclosure, after it
+    with fake_portal() as url:  # no notice given: no link at all
+        assert 'class="privacy"' not in call_page(monkeypatch, portal_env(url))
+    # An address that spells another page marker is filled in last, so it stays an address.
+    with fake_portal(body={**GOOD, "privacy_url": "https://x.se/__BRAND__"}) as url:
+        page = call_page(monkeypatch, portal_env(url))
+    assert 'href="https://x.se/__BRAND__"' in page and page.count("<h1") == 1
+
+
 def test_without_settings_the_call_page_shows_voices_own_look(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -354,7 +379,9 @@ def test_the_live_transcript_reaches_the_page_with_its_speaker_and_no_log() -> N
         async def _gone(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]
             await runner.cancel()
 
-        await runner.run()
+        # The TestClient cancels the app right after its disconnect, mid-teardown: the normal end here.
+        with contextlib.suppress(asyncio.CancelledError):
+            await runner.run()
 
     try:
         with TestClient(app).websocket_connect("/ws") as ws:

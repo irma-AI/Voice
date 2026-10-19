@@ -1,12 +1,14 @@
 {
   "files": {
-    "voice/agent.py": "bcdd5433f76cd0f00789563bdcb1e94cbac57c34cd861b89162afcf11f3288db",
+    "voice/agent.py": "2c3e7e86dee2e801e721747f39ac5edaee9ef94701dd03678ee66ab2e1443fea",
     "voice/bargein.py": "e069e4ae5fce8d70cdee5be5ad63e1fc9e2e1d4afb909c00aa7ec2a16e0e4ed5",
-    "voice/settings.py": "1ff86db42450230bf461f0ee0aa791217bfbed45d2b981aaf6568784b8e5cc18",
+    "voice/settings.py": "1e7bc4b940bd0036314075becc93cf0a7f9c6511e187fc2006eaa140cfed891d",
     "voice/modules.py": "d31c8cceaa9d7498d5392f9022efb8bf0e161334d5c5e44e2abcc9d7726cfebe",
     "modules/example.py": "55e636c4e0e0ceb3872bf8867d27870917105ac4a476c8ab56f88a1420591f31",
+    "modules/example_hostile.py": "0beea4a38b6a61bd52f03b5c4270014d084232264fffb6f956bea78d05091336",
     "tests/evals/business.json": "270e7b8dc7b18dda8772b76529cd5d0fdd8a44b931542442b98dd4596c09cb19",
     "tests/evals/business_module.json": "a5b05642df145464caa239159c212b61d240e26507f72c33a573bf50f70171a7",
+    "tests/evals/business_hostile.json": "3523e22c20f154fe3ef63c21966246f081dcb0b0e99e5d5e438c10013dcbceeb",
     "pyproject.toml": "a5a65f4704a85e1d63aecd363d6f6721893aad117e352ae180f3646b2d7c885e"
   }
 }

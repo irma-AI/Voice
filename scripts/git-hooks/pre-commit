@@ -1,4 +1,14 @@
 #!/bin/sh
 # Installed by the SessionStart hook in .claude/settings.json (core.hooksPath). Runs the ticket rule on the staged
 # files; exit 2 from the gate (and any crash) refuses the commit.
-node "$(git rev-parse --show-toplevel)/scripts/ticket-gate.js" --staged || exit 1
+root="$(git rev-parse --show-toplevel)"
+# Only the identity in scripts/git-identity.sh may author or commit (VOI-140): `git var` sees -c and environment
+# overrides, which is how another address got onto four branches on 2026-10-18.
+email=$(sed -n "s/^email='\(.*\)'$/\1/p" "$root/scripts/git-identity.sh")
+for ident in "$(git var GIT_AUTHOR_IDENT)" "$(git var GIT_COMMITTER_IDENT)"; do
+  case "$ident" in
+    *"<$email>"*) ;;
+    *) echo "commit refused: identity is not <$email>; run sh scripts/git-identity.sh and pass no -c user.name or user.email" >&2; exit 1 ;;
+  esac
+done
+node "$root/scripts/ticket-gate.js" --staged || exit 1

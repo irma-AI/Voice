@@ -5,21 +5,31 @@
 The ticket is checked by the core's own code (voice/ticket.py), as in tests/portal/test_test_call.py.
 """
 
+import base64
+import hashlib
+import json
 import re
 import time
+from datetime import datetime, timedelta
+from datetime import time as clock
 from html import unescape
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
+from zoneinfo import ZoneInfo
 
 import pytest
+from django.conf import settings as django_settings
+from django.contrib.staticfiles import finders
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.test import Client
+from django.utils import timezone
 
 from portal.accounts import domain as portal_domain
 from portal.accounts import theme
 from portal.accounts.models import Account, Business
 from tests.portal.helpers import business_with_login
+from tests.portal.test_recent_calls import a_call
 from voice import ticket as core_ticket
 from voice.ticket import Ticket, read_ticket
 
@@ -31,13 +41,27 @@ IN_A_FRAME = {"Sec-Fetch-Dest": "iframe"}
 SENTENCE = (
     "This call can't be opened from here. Start it from the company's own website."
 )
+BUDGET_SPENT = "Something went wrong. We can't take calls right now."
 
 
-def assert_the_refusal_page(page: str) -> None:
+def assert_the_refusal_page(page: str, sentence: str = SENTENCE) -> None:
     """The refusal shows in the Call button's panel: a page with its language and the sentence as its one heading."""
     assert '<html lang="en">' in page
     heading = re.search(r"<h1[^>]*>(.*?)</h1>", page, re.DOTALL)
-    assert heading and unescape(heading[1]).strip() == SENTENCE
+    assert heading and unescape(heading[1]).strip() == sentence
+
+
+def a_business_with_a_budget(usd: str) -> Business:
+    nth = Business.objects.count() + 1
+    business, _ = business_with_login(f"anna{nth}.testsson@example.com", "Anna's Salon")
+    Business.objects.filter(pk=business.pk).update(
+        website_domain="anna.example.se", daily_budget_usd=usd
+    )
+    return business
+
+
+def link(business: Business) -> Any:
+    return Client().get(f"/call/{business.call_slug}/", headers=IN_A_FRAME)
 
 
 @pytest.fixture(autouse=True)
@@ -119,6 +143,97 @@ def test_the_call_link_can_be_framed_but_nothing_else_of_the_portal_can() -> Non
     assert Client().get("/call-button.js")["X-Frame-Options"] == "DENY"
 
 
+def test_a_spent_daily_budget_refuses_with_no_ticket(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    anna = a_business_with_a_budget("1.00")
+    now = timezone.now()
+    a_call(anna, "priced-000000001", now, cost_usd="0.40")
+    assert link(anna).status_code == 302  # under
+
+    a_call(anna, "priced-000000002", now, cost_usd="0.60")  # at
+    response = link(anna)
+
+    assert response.status_code == 403 and "Location" not in response
+    assert_the_refusal_page(response.content.decode(), BUDGET_SPENT)
+    assert f"Business {anna.pk} has spent its daily budget" in caplog.text
+    assert "0.6" not in caplog.text and "1.0" not in caplog.text  # the id only
+    a_call(anna, "priced-000000003", now, cost_usd="5")  # over
+    assert link(anna).status_code == 403
+    bo = a_business_with_a_budget("0")  # no records: the off switch
+    assert link(bo).status_code == 403
+
+
+def test_a_call_with_no_cost_counts_at_the_rate_google_charged_the_priced_ones() -> (
+    None
+):
+    anna = a_business_with_a_budget("1.00")
+    unpriced = {
+        "cost_usd": None,
+        "price_date": None,
+        "cost_reason": "price_unavailable",
+    }
+    # Before the first priced call there is no rate: an unpriced call counts nothing.
+    a_call(anna, "unpriced-00000001", timezone.now(), length_seconds=6000, **unpriced)
+    assert link(anna).status_code == 302
+    # 100 s for $0.50 yesterday: half a cent a second, so 99 more unpriced seconds make $0.995 today.
+    a_call(
+        anna,
+        "priced-000000001",
+        timezone.now() - timedelta(days=1),
+        length_seconds=100,
+        cost_usd="0.50",
+    )
+    Business.objects.filter(pk=anna.pk).update(daily_budget_usd="30.50")
+    assert link(anna).status_code == 302  # 6000 s at the rate is $30, under
+    Business.objects.filter(pk=anna.pk).update(daily_budget_usd="30.00")
+    assert link(anna).status_code == 403  # at
+    # A call priced at nothing (its usage reports never came) counts like an unpriced one, not as free.
+    bo = a_business_with_a_budget("1.00")
+    a_call(bo, "priced-000000002", timezone.now(), length_seconds=100, cost_usd="0.50")
+    a_call(bo, "free-00000000001", timezone.now(), length_seconds=99, cost_usd="0")
+    assert link(bo).status_code == 302  # $0.995
+    a_call(bo, "free-00000000002", timezone.now(), length_seconds=1, cost_usd="0")
+    assert link(bo).status_code == 403  # $1.00
+    # A rate that does not terminate ($1.00 over 300 s) still lands exactly on the budget.
+    cem = a_business_with_a_budget("2.00")
+    a_call(cem, "priced-000000003", timezone.now(), length_seconds=300, cost_usd="1.00")
+    a_call(cem, "unpriced-00000003", timezone.now(), length_seconds=300, **unpriced)
+    assert link(cem).status_code == 403
+
+
+def test_a_test_call_neither_counts_nor_is_refused() -> None:
+    anna = a_business_with_a_budget("1.00")
+    client = Client()
+    client.force_login(anna.account)
+    a_call(anna, "test-00000000001", timezone.now(), kind="test", cost_usd="5")
+    assert link(anna).status_code == 302
+    a_call(anna, "priced-000000001", timezone.now(), cost_usd="1")
+    assert link(anna).status_code == 403
+    assert client.post("/test-call/").status_code == 302
+
+
+def test_the_day_is_counted_on_the_portal_clock(settings: Any) -> None:
+    settings.TIME_ZONE = "Europe/Stockholm"
+    anna = a_business_with_a_budget("1.00")
+    zone = ZoneInfo(settings.TIME_ZONE)
+    midnight = datetime.combine(datetime.now(zone).date(), clock.min, tzinfo=zone)
+    a_call(anna, "yesterday-000001", midnight - timedelta(minutes=1), cost_usd="1")
+    assert link(anna).status_code == 302
+    a_call(anna, "today-0000000001", midnight + timedelta(minutes=1), cost_usd="1")
+    assert link(anna).status_code == 403
+
+
+def test_every_business_starts_with_the_default_budget_and_the_database_refuses_a_negative_one() -> (
+    None
+):
+    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    anna.refresh_from_db()
+    assert anna.daily_budget_usd == 10
+    with pytest.raises(IntegrityError), transaction.atomic():
+        Business.objects.filter(pk=anna.pk).update(daily_budget_usd="-0.01")
+
+
 def test_the_core_and_the_portal_hold_the_same_rule_for_a_plain_hostname() -> None:
     assert core_ticket.DOMAIN_PATTERN == portal_domain.DOMAIN_PATTERN, (
         "voice/ticket.py and portal/accounts/domain.py disagree on DOMAIN_PATTERN: edit the one that changed"
@@ -153,6 +268,29 @@ def test_every_business_has_its_own_link_and_the_database_refuses_a_shared_one()
         Business.objects.filter(pk=bo.pk).update(call_slug=anna.call_slug)
 
 
+@pytest.mark.parametrize(
+    "slug",
+    [
+        'abcdefghijklmnopqrstu"',
+        "abcdefghijk lmnopqrstuv",
+        "abcdefghijk<lmnopqrstuv",
+        "abcdefghijklmnopqrstu",
+    ],
+    ids=["quote", "space", "angle bracket", "too short"],
+)
+def test_the_database_refuses_a_call_link_the_pasted_tag_could_not_carry(
+    slug: str,
+) -> None:
+    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    with (
+        pytest.raises(
+            IntegrityError, match="business_call_slug_must_be_22_to_40_url_safe_chars"
+        ),
+        transaction.atomic(),
+    ):
+        Business.objects.filter(pk=anna.pk).update(call_slug=slug)
+
+
 def snippet(page: str) -> str:
     """The script tag on the dashboard, as the Business would paste it."""
     return unescape(page).split("<code>")[1].split("</code>")[0]
@@ -170,7 +308,9 @@ def test_the_dashboard_shows_the_script_snippet_only_with_a_saved_website() -> N
     page = client.get("/dashboard/").content.decode()
     assert "closed" not in page
     assert snippet(page) == (
-        f'<script async src="https://portal.example.se/call-button.js?business={anna.call_slug}"></script>'
+        f'<script async src="https://portal.example.se/static/portal/call-button.v1.js?business={anna.call_slug}"'
+        f' data-core="https://voice.example.se" data-fill="{theme.DEEP_SEA}" data-ink="{theme.FOAM}"'
+        f' integrity="{served_file_hash()}" crossorigin="anonymous"></script>'
     )
     assert bo.call_slug not in page
     assert f"/call/{anna.call_slug}/" not in page
@@ -198,15 +338,69 @@ def test_the_dashboard_names_the_addresses_a_security_policy_must_allow() -> Non
     assert snippet(page).startswith("<script")  # the new text sits after the snippet
 
 
+def served_file() -> bytes:
+    """The versioned script as collectstatic ships it and WhiteNoise serves it."""
+    path = finders.find("portal/call-button.v1.js")
+    assert isinstance(path, str), (
+        "portal/static/portal/call-button.v1.js is not a static file"
+    )
+    with open(path, "rb") as f:
+        return f.read()
+
+
+def served_file_hash() -> str:
+    return "sha384-" + base64.b64encode(hashlib.sha384(served_file()).digest()).decode()
+
+
+def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw() -> (
+    None
+):
+    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    Business.objects.filter(pk=anna.pk).update(
+        website_domain="anna.example.se", accent="#ffd60a"
+    )
+    tag = snippet(client.get("/dashboard/").content.decode())
+
+    # A browser runs the file only when its bytes hash to this, and asks for it with CORS (WhiteNoise answers every origin).
+    assert (
+        f' integrity="{served_file_hash()}"' in tag
+        and ' crossorigin="anonymous"' in tag
+    )
+    # The hash `make generate` wrote is the file's (`make generate-check` keeps it current).
+    with open(django_settings.BASE_DIR / "call-button.v1.integrity") as f:
+        assert f.read().strip() == served_file_hash(), (
+            "portal/call-button.v1.integrity is stale: run make generate (a changed script belongs in call-button.v2.js)"
+        )
+    fill, ink = theme.on_accent("#ffd60a")
+    assert (
+        f' data-core="https://voice.example.se" data-fill="{fill}" data-ink="{ink}"'
+        in tag
+    )
+    # WhiteNoise serves the file with the CORS header a cross-origin integrity check needs (here from the source tree, as a local run does; the image serves the collected copy).
+    response = Client().get(
+        f"/static/portal/call-button.v1.js?business={anna.call_slug}"
+    )
+    assert (
+        response.status_code == 200 and response["Access-Control-Allow-Origin"] == "*"
+    )
+    assert b"".join(response.streaming_content) == served_file()  # pyright: ignore[reportAttributeAccessIssue]  # a FileResponse streams
+    # The file reads those attributes and writes nothing of its own in.
+    script = served_file().decode()
+    assert "tag.dataset.core" in script and "{ fill, ink } = tag.dataset" in script
+    assert "{{" not in script
+
+
 def test_the_script_is_served_with_the_core_it_lets_the_microphone_into() -> None:
     response = Client().get(
         "/call-button.js"
-    )  # no login: the Business's website loads it
+    )  # no login: the Business's website loads it, with a tag pasted before VOI-135
 
     assert response.status_code == 200
     assert response["Content-Type"] == "text/javascript; charset=utf-8"
     script = response.content.decode()
     assert '"https://voice.example.se"' in script  # CORE_URL's origin, no path
+    # The old route writes the tag's attributes in front of the very file a new tag names.
+    assert response.content.endswith(served_file())
     # The launcher's words are Swedish on any host page, so a screen reader is told so (WCAG 3.1.2).
     assert 'launcher.lang = "sv"' in script and 'panel.lang = "sv"' in script
     assert Client().post("/call-button.js").status_code == 405
@@ -229,13 +423,16 @@ def test_the_snippet_and_the_script_agree_on_the_tag_and_the_route() -> None:
 
 
 def launcher_colours(script: str) -> tuple[str, str]:
-    """The fill and the ink the Portal wrote into the script."""
-    fill = re.search(r'const fill = "([^"]*)";', script)
-    ink = re.search(r'const ink = "([^"]*)";', script)
-    assert fill and ink, (
-        "the script no longer names its fill and ink: edit launcher_colours"
+    """The fill and the ink the Portal wrote onto the tag in front of the script."""
+    written = re.search(
+        r"Object\.assign\(document\.currentScript\?\.dataset \?\? \{\}, (\{.*\})\);",
+        script,
     )
-    return fill[1], ink[1]
+    assert written, (
+        "the old route no longer writes the tag's attributes: edit launcher_colours"
+    )
+    data = json.loads(written[1])
+    return data["fill"], data["ink"]
 
 
 def test_the_launcher_carries_its_business_s_adjusted_accent_or_voice_s_own_look() -> (
@@ -273,14 +470,20 @@ def test_the_script_sends_no_message_to_every_site() -> None:
     )
 
 
-def test_a_business_cannot_set_its_own_link_from_the_settings_page() -> None:
+def test_a_business_cannot_set_its_own_link_or_budget_from_the_settings_page() -> None:
     anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     client.post(
         "/settings/",
-        {"name": "Anna's Salon", "facts": "", "languages": ["sv"], "call_slug": "mine"},
+        {
+            "name": "Anna's Salon",
+            "facts": "",
+            "languages": ["sv"],
+            "call_slug": "mine",
+            "daily_budget_usd": "999",
+        },
     )
     anna.refresh_from_db()
-    assert anna.call_slug != "mine"
+    assert anna.call_slug != "mine" and anna.daily_budget_usd == 10
 
 
 @pytest.mark.django_db(transaction=True)

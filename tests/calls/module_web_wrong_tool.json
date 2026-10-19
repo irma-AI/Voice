@@ -1,0 +1,24 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad: another Action was called.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Hur högt är Kaknästornet?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Kaknästornet är 123 meter högt."
+  }
+ ],
+ "events": [
+  {
+   "t": 2.0,
+   "e": "tool_call",
+   "name": "opening_hours"
+  }
+ ]
+}

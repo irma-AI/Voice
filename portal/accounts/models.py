@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
+from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
@@ -23,6 +24,11 @@ log = logging.getLogger(__name__)
 
 # The languages a Business may pick; contract/business-settings.schema.json lists the same two (tests/portal/test_settings_contract.py).
 LANGUAGES = {"sv": "Swedish", "en": "English"}
+
+# The Business's own privacy notice for its Callers, linked from the call page beside the AI disclosure: an https address with no
+# whitespace, or empty for none. contract/business-settings.schema.json carries the same rule; tests/portal/test_settings_contract.py reads both.
+PRIVACY_URL_MAX = 2000
+PRIVACY_URL_PATTERN = r"^https://\S+$"
 
 # A Call record holds numbers, codes and times only; contract/call-record.schema.json lists the same kinds and patterns (tests/portal/test_call_records.py).
 CALL_KINDS = {"test": "Test call", "call_link": "Call link"}
@@ -60,8 +66,16 @@ def _hash_of_the_logo() -> models.Func:
     )
 
 
+# Every new Business's daily budget (Petter, 2026-10-18, VOI-123; DECISIONS.md).
+DAILY_BUDGET_USD = Decimal(10)
+
+
 def swedish_only() -> list[str]:
     return ["sv"]
+
+
+# The URL-safe base64 alphabet new_call_slug writes, at its length or more: the slug goes unescaped into the Call button tag a Business pastes.
+CALL_SLUG_PATTERN = r"^[A-Za-z0-9_-]{22,40}$"
 
 
 def new_call_slug() -> str:
@@ -118,12 +132,25 @@ class Business(models.Model):
     call_slug = models.CharField(max_length=40, unique=True, default=new_call_slug)
     # The registrable domain of the Business's own website, or empty for none (domain.py). Portal-only: the settings contract does not carry it.
     website_domain = models.CharField(max_length=DOMAIN_MAX, blank=True, default="")
+    # US dollars of Call link calls per day (on TIME_ZONE) before the call link refuses (views.spent_today); 0 refuses every call. No Portal page sets it, so a Business cannot raise it (VOI-123). db_default: the previous Portal copy still invites while the migration runs (.claude/rules/data.md).
+    # shortcut: the operator changes it from a Django shell on the Portal host, add a management command when a second Business needs its own budget
+    daily_budget_usd = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=DAILY_BUDGET_USD,
+        db_default=DAILY_BUDGET_USD,
+    )
     # The Theme (theme.py): shown only to the Business's Callers. Empty or NULL is Voice's own look.
     logo = models.BinaryField(null=True, blank=True)
     # The logo's public address is /logo/<logo_key>/: the SHA-256 of its bytes, so it names no Business and a new logo is a new address.
     # Set only by set_logo; the database refuses a key that is not the hash of the bytes beside it.
     logo_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
     accent = models.CharField(max_length=7, blank=True, default="")
+    # The Business is the controller toward its Callers (docs/privacy/README.md), so the notice is its own page, linked, never text stored here.
+    # db_default too: the previous Portal copy still inserts Businesses without this column while the migration runs (.claude/rules/data.md).
+    privacy_url = models.CharField(
+        max_length=PRIVACY_URL_MAX, blank=True, default="", db_default=""
+    )
 
     class Meta:
         constraints = [
@@ -155,8 +182,21 @@ class Business(models.Model):
                 name="business_website_domain_must_be_empty_or_a_clean_domain",
             ),
             models.CheckConstraint(
+                condition=models.Q(privacy_url="")
+                | models.Q(privacy_url__regex=PRIVACY_URL_PATTERN),
+                name="business_privacy_url_must_be_empty_or_an_https_address",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(call_slug__regex=CALL_SLUG_PATTERN),
+                name="business_call_slug_must_be_22_to_40_url_safe_chars",
+            ),
+            models.CheckConstraint(
                 condition=models.Q(name__regex=r"\S"),
                 name="business_name_must_not_be_blank",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(daily_budget_usd__gte=0),
+                name="business_daily_budget_must_not_be_negative",
             ),
             models.CheckConstraint(
                 condition=models.Q(languages__len__gte=1)
@@ -178,6 +218,8 @@ class Business(models.Model):
         }
         if found := self.theme():
             served["theme"] = found
+        if self.privacy_url:
+            served["privacy_url"] = self.privacy_url
         return served
 
     def set_logo(self, data: bytes | None) -> None:
