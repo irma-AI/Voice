@@ -1,0 +1,23 @@
+# Dependabot (VOI-134): weekly grouped update PRs for the Python lock and the pinned Actions; security updates are a
+# repository setting (docs/agents/guardrails.md). Our guards refuse a PR by Dependabot (author, ticket, eval receipt),
+# so each one is a signal: an agent redoes it under a ticket (DECISIONS.md, 2026-10-19).
+version: 2
+updates:
+  - package-ecosystem: uv  # uv.lock; Dependabot's pip ecosystem does not read it
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7  # a release gets a week for its own fixes before we take it
+    groups:
+      python:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
