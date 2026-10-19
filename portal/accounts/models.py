@@ -371,6 +371,37 @@ class CallRecord(models.Model):
         ]
 
 
+class CallLog(models.Model):
+    """The barge-in events of one finished call, as the core logged them (VOI-153): timings, levels and codes only.
+
+    Final once stored, and kept 30 days after the call's start: a trigger (migration 0020) refuses UPDATE for every role and
+    DELETE before then, and a check refuses an event field that `.claude/rules/security.md` does not list for a barge-in line.
+    """
+
+    # Made by the core, so a retried send is the same row.
+    call_id = models.CharField(
+        max_length=64, unique=True, validators=[RegexValidator(CALL_ID_PATTERN)]
+    )
+    business = models.ForeignKey(
+        Business, on_delete=models.PROTECT, related_name="call_logs"
+    )
+    kind = models.CharField(max_length=20, choices=list(CALL_KINDS.items()))
+    started_at = models.DateTimeField()  # UTC (USE_TZ); the expiry counts from it
+    events = models.JSONField()
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(kind__in=list(CALL_KINDS)),
+                name="call_log_kind_must_be_a_known_kind",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(call_id__regex=CALL_ID_PATTERN),
+                name="call_log_id_must_be_a_plain_code",
+            ),
+        ]
+
+
 class AccessToken(models.Model):
     """What lets a Business's own agent act for it (ADR 0003). The secret is shown once and never stored, only its SHA-256. Once made, only `last_used_at` and a first `revoked_at` can change: a trigger (migration 0014) refuses the rest, for every role."""
 

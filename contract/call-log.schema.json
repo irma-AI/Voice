@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "call-log",
+  "title": "The barge-in events of one finished call, which the core sends the Portal",
+  "description": "The one definition of the Call log shape (VOI-153). The core sends it to POST /api/call-logs/ (voice/report.py) and the Portal stores it (portal/accounts/models.py CallLog) for 30 days after the call's start; tests/portal/test_call_logs.py fails when the Portal drifts from it, and tests/test_report.py when the core does. Each event is one barge-in line as the core logged it (voice/bargein.py): timings, levels and short codes only, never words or audio. An event's fields are the ones .claude/rules/security.md lists for a barge-in line, nothing else.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["call_id", "business", "kind", "started_at", "events"],
+  "properties": {
+    "call_id": { "type": "string", "pattern": "^[A-Za-z0-9-]{8,64}$" },
+    "business": { "type": "integer", "minimum": 1 },
+    "kind": { "enum": ["test", "call_link"] },
+    "started_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"
+    },
+    "events": { "type": "array", "items": { "$ref": "#/$defs/event" } }
+  },
+  "$defs": {
+    "code": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+    "number": { "type": "number" },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "call", "e"],
+      "properties": {
+        "t": { "$ref": "#/$defs/number" },
+        "call": { "$ref": "#/$defs/code" },
+        "e": { "$ref": "#/$defs/code" },
+        "vad": {
+          "description": "The detector settings sent to Gemini, by name.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z_]{1,40}$" },
+          "additionalProperties": {
+            "anyOf": [{ "type": ["number", "boolean"] }, { "$ref": "#/$defs/code" }]
+          }
+        },
+        "phase": { "$ref": "#/$defs/code" },
+        "played_ms": { "$ref": "#/$defs/number" },
+        "bot_speaking": { "type": "boolean" },
+        "bot_ms": { "$ref": "#/$defs/number" },
+        "peak_dbfs": { "$ref": "#/$defs/number" },
+        "rms_dbfs": { "$ref": "#/$defs/number" },
+        "src": { "$ref": "#/$defs/code" },
+        "words": { "description": "A count, never the words.", "type": "integer", "minimum": 0 },
+        "after_barge_in_ms": { "$ref": "#/$defs/number" },
+        "reason": { "$ref": "#/$defs/code" },
+        "secs": { "$ref": "#/$defs/number" }
+      }
+    }
+  }
+}

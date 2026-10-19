@@ -24,4 +24,5 @@ The Portal's system of record is Postgres (`DATABASE_URL`), with no cache or que
 - `tests/portal/test_modules_page.py`: a Module with no address or two, an address holding a user, password, query or key, a blank or repeated name, too many arguments, or an eleventh per Business.
 - `tests/portal/test_access_tokens.py`: an Access token with a scope other than read or full, a hash that is not a lower-case SHA-256 (the secret itself), a repeated hash or a blank label, a change to anything but `last_used_at` and a first `revoked_at`, and a revoked time that is not the database's clock or is set twice.
 - `tests/portal/test_call_records.py`: a Call record's update and delete, a Business with records, and a record that breaks a rule (no cost and no reason, an unknown kind, a call id that is words).
+- `tests/portal/test_call_logs.py`: a Call log's update, its delete before 30 days after the call's start, a Business with logs, and a log that breaks a rule (an unknown kind, a call id that is words, an event field the security rule does not list, a value with a space).
 - Catalog sweep tests: none yet.

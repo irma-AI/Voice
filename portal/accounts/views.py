@@ -52,6 +52,7 @@ from portal.accounts.models import (
     AccessToken,
     Account,
     Business,
+    CallLog,
     CallRecord,
     Module,
     clean_email,
@@ -862,4 +863,53 @@ def record_call(request: HttpRequest) -> HttpResponse:
     _, created = CallRecord.objects.get_or_create(
         call_id=values.pop("call_id"), defaults=values
     )
+    return JsonResponse({"stored": True}, status=201 if created else 200)
+
+
+class CallLogForm(CallRecordForm):
+    """A Call log's call fields as the core sends them (contract/call-log.schema.json), spelled as strictly as a Call record's. Its events are the database's to check."""
+
+    price_date = None  # pyright: ignore[reportAssignmentType, reportIncompatibleVariableOverride]  # not a Call log field
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        model = CallLog
+        exclude = ("events",)
+
+
+CALL_LOG_FIELDS = {*CallLogForm.base_fields, "events"}  # pyright: ignore[reportUnknownMemberType]
+
+
+@csrf_exempt  # the shared secret gates it, not a session
+@require_POST
+@never_cache
+def record_call_log(request: HttpRequest) -> HttpResponse:
+    """The one address the core sends a finished call's Call log to. Stores it once per call id; the database refuses every later change, and a delete before its expiry."""
+    if not core_secret_sent(request):
+        return JsonResponse({"error": "missing or wrong secret"}, status=401)
+    try:
+        body = json.loads(request.body)
+    except ValueError:
+        body = None
+    if not isinstance(body, dict) or body.keys() != CALL_LOG_FIELDS:
+        return JsonResponse({"error": "not a Call log"}, status=400)
+    form = CallLogForm(body)
+    if not form.is_valid():
+        # Field names only: a refused value never goes back out.
+        return JsonResponse(
+            {"error": "malformed Call log", "fields": sorted(form.errors)}, status=400
+        )
+    values = dict(form.cleaned_data)
+    try:
+        with transaction.atomic():
+            _, created = CallLog.objects.get_or_create(
+                call_id=values.pop("call_id"),
+                defaults={**values, "events": body["events"]},
+            )
+    except IntegrityError as e:
+        # The database is what checks an event (call_log_events_hold_only_listed_fields); this only says so.
+        if "call_log_events_hold_only_listed_fields" not in str(e):
+            raise
+        return JsonResponse(
+            {"error": "malformed Call log", "fields": ["events"]}, status=400
+        )
     return JsonResponse({"stored": True}, status=201 if created else 200)
