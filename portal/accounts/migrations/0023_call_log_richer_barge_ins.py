@@ -3,11 +3,12 @@ from django.db import migrations
 # VOI-154: the barge-in lines gain the echo signature, a level trace around each cut, a similarity score and a
 # summary in the end event. call_log_events_hold_only_listed_fields (migration 0020) now also lets an event hold
 # those fields; `caller_dbfs` and `bot_dbfs` are lists of at most 20 numbers (a level trace), still no words.
+# The list is in the order the recorder writes each event's fields (the Call log pages show them in it).
 # The constraint calls these functions, so redefining them changes the rule for every later write.
 FIELDS = """
 CREATE OR REPLACE FUNCTION accounts_call_log_fields() RETURNS text[] AS $$
     SELECT ARRAY['t', 'call', 'e', 'vad', 'phase', 'played_ms', 'bot_speaking', 'bot_ms', 'peak_dbfs', 'rms_dbfs',
-                 'src', 'echo_corr', 'echo_lag_ms', 'caller_dbfs', 'bot_dbfs', 'words', 'after_barge_in_ms',
+                 'src', 'echo_corr', 'echo_lag_ms', 'words', 'after_barge_in_ms', 'caller_dbfs', 'bot_dbfs',
                  'similarity', 'reason', 'secs', 'barge_ins', 'no_words', 'cut_share']
 $$ LANGUAGE sql IMMUTABLE;
 """
@@ -65,5 +66,5 @@ $$ LANGUAGE sql IMMUTABLE;
 
 
 class Migration(migrations.Migration):
-    dependencies = [("accounts", "0020_call_log_rules")]
+    dependencies = [("accounts", "0022_offboarding_blanks_access_token_labels")]
     operations = [migrations.RunSQL(FIELDS + EVENTS, OLD_EVENTS + OLD_FIELDS)]

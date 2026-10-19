@@ -204,7 +204,6 @@ def test_a_made_token_changes_only_in_its_last_use_and_its_first_revoke() -> Non
     token, _ = AccessToken.make(business, "x", "read", False)
     for change in (
         {"scope": "full"},
-        {"label": "y"},
         {"is_operator": True},
         {"token_hash": "b" * 64},
     ):
@@ -221,3 +220,46 @@ def test_a_made_token_changes_only_in_its_last_use_and_its_first_revoke() -> Non
     AccessToken.objects.filter(pk=token.pk).update(last_used_at=timezone.now())
     token.refresh_from_db()
     assert token.last_used_at and token.scope == "read" and token.revoked_at is None
+
+
+def test_a_token_is_never_deleted_only_revoked() -> None:
+    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    token, _ = AccessToken.make(business, "x", "read", False)
+    refused = "access_token_is_revoked_never_deleted"
+    with pytest.raises(IntegrityError, match=refused), transaction.atomic():
+        token.delete()
+    with (
+        pytest.raises(IntegrityError, match=refused),
+        transaction.atomic(),
+        connection.cursor() as cursor,
+    ):
+        cursor.execute("DELETE FROM accounts_accesstoken")
+    with pytest.raises(IntegrityError, match=refused), transaction.atomic():
+        business.delete()  # a Business's CASCADE takes no token with it
+    assert AccessToken.objects.filter(pk=token.pk).exists()
+
+
+def test_a_label_is_changed_only_when_offboarding_blanks_a_revoked_token() -> None:
+    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    token, _ = AccessToken.make(business, "Anna's laptop", "read", False)
+    refused = "access_token_label_is_blanked_only_by_offboarding"
+    placeholder = f"Token {token.pk}"
+
+    def update_label(label: str, switch: bool) -> None:
+        with connection.cursor() as cursor:
+            if switch:
+                cursor.execute(
+                    "SELECT set_config('voice.offboard_token_labels', 'on', true)"
+                )
+            AccessToken.objects.filter(pk=token.pk).update(label=label)
+
+    for label, switch in ((placeholder, False), ("y", False), (placeholder, True)):
+        # A plain update, and the switch on a token still live.
+        with pytest.raises(IntegrityError, match=refused), transaction.atomic():
+            update_label(label, switch)
+    token.revoke()
+    for label, switch in ((placeholder, False), ("Bo's laptop", True)):
+        with pytest.raises(IntegrityError, match=refused), transaction.atomic():
+            update_label(label, switch)
+    token.refresh_from_db()
+    assert token.label == "Anna's laptop"
