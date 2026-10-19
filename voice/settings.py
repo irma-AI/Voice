@@ -199,7 +199,7 @@ def _from_portal(env: Mapping[str, str], business_id: str) -> Settings:
     except SettingsRefused:
         raise
     except Exception as e:  # noqa: BLE001  fail closed: a reply parse() did not foresee refuses too, by kind only
-        host = urlsplit(env.get("SETTINGS_URL", "")).hostname
+        host = urlsplit(env.get("SETTINGS_URL", "").strip()).hostname
         raise SettingsRefused(
             f"the Portal at {host} gave no settings ({type(e).__name__})"
         ) from None
