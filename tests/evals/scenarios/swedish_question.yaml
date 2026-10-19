@@ -1,4 +1,4 @@
-# The Caller asks the price of a cleaning, which the Business's facts hold. The checks read the call record.
+# The Caller asks the price of a cleaning, which the Business's instructions hold. The checks read the call record.
 user:
   modality: audio
 judge:

@@ -71,7 +71,7 @@ class Command(BaseCommand):
                 token.revoke()
             deleted, _ = modules.delete()
             business.name = f"Business {business.pk}"
-            business.facts = business.website_domain = business.accent = ""
+            business.instructions = business.website_domain = business.accent = ""
             business.privacy_url = ""
             # Its call link may still sit on the Business's website: it spends nothing more.
             business.daily_budget_usd = Decimal(0)

@@ -476,7 +476,7 @@ def test_a_business_cannot_set_its_own_link_or_budget_from_the_settings_page() -
         "/settings/",
         {
             "name": "Anna's Salon",
-            "facts": "",
+            "instructions": "",
             "languages": ["sv"],
             "call_slug": "mine",
             "daily_budget_usd": "999",

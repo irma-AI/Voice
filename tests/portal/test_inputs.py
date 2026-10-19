@@ -11,7 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 
 from portal.accounts.models import Business, Module
-from portal.accounts.views import FACTS_MAX
+from portal.accounts.views import INSTRUCTIONS_MAX
 from tests.portal.helpers import PASSWORD, business_with_login
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
@@ -108,7 +108,7 @@ def test_a_refused_save_lists_what_to_fix_at_the_top_and_keeps_what_was_typed() 
     page = settings_post(
         client,
         name="   ",
-        facts="Öppet mån–fre 🙂 ﷽",
+        instructions="Öppet mån–fre 🙂 ﷽",
         languages=[],
         website_domain="localhost",
     ).content.decode()
@@ -128,27 +128,29 @@ def test_a_refused_save_lists_what_to_fix_at_the_top_and_keeps_what_was_typed() 
 
 def test_facts_count_a_line_break_as_one_character_as_the_browser_does() -> None:
     business, client = business_with_login("anna.testsson@example.com", "Anna")
-    limit = FACTS_MAX  # the model's own limit
+    limit = INSTRUCTIONS_MAX  # the model's own limit
     assert limit == 5000
     # 5,000 characters in the browser's count, sent with the two-character line breaks every browser sends
     typed = "\r\n".join(["x" * 99] * 50) + "x"
     assert len(typed.replace("\r\n", "\n")) == limit
 
-    assert settings_post(client, facts=typed)["Location"] == "/settings/?saved=1"
+    assert settings_post(client, instructions=typed)["Location"] == "/settings/?saved=1"
     business.refresh_from_db()
-    assert business.facts == typed.replace("\r\n", "\n")
+    assert business.instructions == typed.replace("\r\n", "\n")
 
-    too_long = settings_post(client, facts="x" * (limit + 1)).content.decode()
+    too_long = settings_post(client, instructions="x" * (limit + 1)).content.decode()
     assert "at most 5000 characters" in too_long
 
 
 def test_the_settings_fields_carry_their_limits_and_the_right_keyboards() -> None:
     _, client = business_with_login("anna.testsson@example.com", "Anna")
     page = client.get("/settings/").content.decode()
-    facts = re.search(r"<textarea[^>]*>", page)
-    assert facts and 'maxlength="5000"' in facts.group(0)
+    instructions = re.search(r"<textarea[^>]*>", page)
+    assert instructions and 'maxlength="5000"' in instructions.group(0)
     assert "Up to 5,000 characters." in page
-    assert 'data-count="id_facts"' in page
+    # The counter names the textarea's own id, or it counts nothing.
+    assert 'id="id_instructions"' in instructions.group(0)
+    assert 'data-count="id_instructions"' in page
     name = re.search(r'<input[^>]*name="name"[^>]*>', page)
     assert name and 'maxlength="200"' in name.group(0)
     assert 'autocomplete="organization"' in name.group(0)

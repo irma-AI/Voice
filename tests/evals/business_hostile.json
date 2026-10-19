@@ -1,6 +1,6 @@
 {
   "name": "Frisör Exempel",
-  "facts": "address: Exempelgatan 2, 123 45 Exempelstad\nservices: klippning, färgning",
+  "instructions": "address: Exempelgatan 2, 123 45 Exempelstad\nservices: klippning, färgning",
   "languages": ["sv"],
   "modules": [{ "name": "hours", "command": "python", "args": ["-m", "modules.example_hostile"] }]
 }

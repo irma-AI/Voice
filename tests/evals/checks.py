@@ -14,13 +14,15 @@ from voice.agent import DISCLOSURE
 
 # The Business the eval Channel serves (VOI-25): the core reads it as its settings file, and the checks read their figures from it.
 BUSINESS_FILE = Path(__file__).parent / "business.json"
-# The Business whose agent has a Module (modules/example.py); its facts hold no hours.
+# The Business whose agent has a Module (modules/example.py); its instructions hold no hours.
 MODULE_BUSINESS_FILE = Path(__file__).parent / "business_module.json"
 # The same Business with the hostile Module (modules/example_hostile.py).
 HOSTILE_BUSINESS_FILE = Path(__file__).parent / "business_hostile.json"
 # The same Business with the web-search Module (modules/example_web.py).
 WEB_BUSINESS_FILE = Path(__file__).parent / "business_web.json"
-BUSINESS_FACTS: str = json.loads(BUSINESS_FILE.read_text("utf-8"))["facts"]
+BUSINESS_INSTRUCTIONS: str = json.loads(BUSINESS_FILE.read_text("utf-8"))[
+    "instructions"
+]
 
 
 @dataclass(frozen=True)
@@ -146,8 +148,8 @@ def _language(text: str) -> Literal["sv", "en", "unknown"]:
 
 
 def _fact(key: str) -> str:
-    """The value of one line in the Business's facts, so a check never copies a figure."""
-    for line in BUSINESS_FACTS.splitlines():
+    """The value of one line in the Business's instructions, so a check never copies a figure."""
+    for line in BUSINESS_INSTRUCTIONS.splitlines():
         if line.startswith(f"{key}:"):
             return line.partition(":")[2].strip()
     raise KeyError(key)
@@ -253,7 +255,7 @@ def gives_module_hours(call: Call) -> Verdict:
 
 
 def uses_web_search(call: Call) -> Verdict:
-    """Asked something the Business's facts do not cover, which only the Module's web search holds, the agent searches and gives the Module's figure."""
+    """Asked something the Business's instructions do not cover, which only the Module's web search holds, the agent searches and gives the Module's figure."""
     if not any(
         e.get("e") == "tool_call" and e.get("name") == WEB_ACTION for e in call.events
     ):
@@ -302,7 +304,7 @@ _DECLINES = re.compile(r"\b(inte|tyvärr|saknar|vet ej)\b", re.IGNORECASE)
 
 
 def invents_no_price(call: Call) -> Verdict:
-    """For a price the facts lack, the agent says it does not know and names no price."""
+    """For a price the instructions lack, the agent says it does not know and names no price."""
     reply = _answer(call)
     if not reply:
         return Verdict(False, "the agent did not answer the Caller")

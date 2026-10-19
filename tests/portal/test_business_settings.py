@@ -36,7 +36,7 @@ def test_editing_in_the_portal_changes_what_the_core_is_told() -> None:
         "/settings/",
         {
             "name": "Anna's Hair",
-            "facts": "Open mon-fri 8-17. A cut costs 400 kr. Closed in July.",
+            "instructions": "Open mon-fri 8-17. A cut costs 400 kr. Closed in July.",
             "languages": ["sv", "en"],
         },
     )
@@ -46,7 +46,7 @@ def test_editing_in_the_portal_changes_what_the_core_is_told() -> None:
     told = ask_core(business.pk).json()
     assert told == {
         "name": "Anna's Hair",
-        "facts": "Open mon-fri 8-17. A cut costs 400 kr. Closed in July.",
+        "instructions": "Open mon-fri 8-17. A cut costs 400 kr. Closed in July.",
         "languages": ["sv", "en"],
         "modules": [],
     }
@@ -59,7 +59,7 @@ def test_a_bad_edit_is_refused_and_changes_nothing() -> None:
         {"name": "  ", "languages": ["sv"]},  # blank name
         {"name": "Anna", "languages": []},  # no language
         {"name": "Anna", "languages": ["de"]},  # not a known language
-        {"name": "Anna", "facts": "x" * 5001, "languages": ["sv"]},  # too long
+        {"name": "Anna", "instructions": "x" * 5001, "languages": ["sv"]},  # too long
     ]
     for bad in bad_edits:
         assert client.post("/settings/", bad).status_code == 200
@@ -155,7 +155,7 @@ def test_the_database_refuses_no_language_or_an_unknown_one(
 def test_the_database_refuses_a_setting_longer_than_the_contract_allows() -> None:
     account = Account.objects.create_user("anna.testsson@example.com")
     with pytest.raises(DataError, match="value too long"), transaction.atomic():
-        Business.objects.create(account=account, name="A", facts="x" * 5001)
+        Business.objects.create(account=account, name="A", instructions="x" * 5001)
 
 
 def test_the_response_is_plain_json() -> None:

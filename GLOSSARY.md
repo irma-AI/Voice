@@ -17,8 +17,12 @@ Passing a call to a person, or taking a message, when the agent cannot finish it
 _Avoid_: transfer, escalation
 
 **Business**:
-The business whose calls the agent answers, with its own facts and Modules. One Business is one Portal account. Its settings are a name, free-text facts, languages and a Theme; anything more structured for the agent comes as a Module, never as a fixed Portal field.
+The business whose calls the agent answers, with its own Instructions and Modules. One Business is one Portal account. Its settings are a name, Instructions, languages and a Theme; anything more structured for the agent comes as a Module, never as a fixed Portal field.
 _Avoid_: tenant, customer, clinic, client, agency
+
+**Instructions**:
+A Business's free text for its agent, in its own words: what the agent should know about the business and how it should act. The agent answers only from it and its Modules' Actions.
+_Avoid_: facts, prompt, knowledge base
 
 **Call link**:
 The address (`/call/<unguessable>/` on the Portal) a Business's Call button opens in its panel. It starts a call with the Business's settings only for a page loaded in a frame, and only once the Business has saved a Website domain; in a tab, or pasted anywhere else, it refuses a browser that says so (a script can send the header; not enforced).

@@ -26,7 +26,7 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
 
 def a_business_with_everything() -> Business:
     business, _ = business_with_login(EMAIL, "Anna's Salon")
-    business.facts = "Anna Testsson cuts hair on Tuesdays."
+    business.instructions = "Anna Testsson cuts hair on Tuesdays."
     business.website_domain = "anna.example.se"
     business.accent = "#2f6f4f"
     business.privacy_url = "https://anna.example.se/privacy"
@@ -96,7 +96,7 @@ def emptied(business: Business) -> dict[str, dict[str, Any]]:
         },
         "business": {
             "name": f"Business {business.pk}",
-            "facts": "",
+            "instructions": "",
             "website_domain": "",
             "logo": None,
             "logo_key": "",

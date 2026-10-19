@@ -331,7 +331,7 @@ class Text(forms.CharField):
         return str(super().to_python(value)).replace("\r\n", "\n").replace("\r", "\n")
 
 
-FACTS_MAX: int = Business._meta.get_field("facts").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
+INSTRUCTIONS_MAX: int = Business._meta.get_field("instructions").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
 
 
 class SettingsForm(forms.ModelForm):
@@ -341,11 +341,11 @@ class SettingsForm(forms.ModelForm):
         widget=forms.CheckboxSelectMultiple,
         error_messages={"required": "Pick at least one language."},
     )
-    facts = Text(
+    instructions = Text(
         required=False,
-        max_length=FACTS_MAX,
+        max_length=INSTRUCTIONS_MAX,
         widget=forms.Textarea(attrs={"rows": 12}),
-        help_text=f"Everything the agent should know about your business, in your own words: what you do, where, when you are open, what things cost. Up to {FACTS_MAX:,} characters.",
+        help_text=f"Everything the agent should know about your business, in your own words: what you do, where, when you are open, what things cost. Up to {INSTRUCTIONS_MAX:,} characters.",
     )
 
     # Portal-only: the contract the core reads does not carry it. What was typed is reduced once here to the domain the database stores.
@@ -460,7 +460,7 @@ class SettingsForm(forms.ModelForm):
 
     class Meta:
         model = Business
-        fields = ("name", "facts", "languages", "website_domain", "privacy_url")
+        fields = ("name", "instructions", "languages", "website_domain", "privacy_url")
 
 
 @login_required

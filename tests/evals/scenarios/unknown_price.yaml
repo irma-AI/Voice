@@ -1,4 +1,4 @@
-# The Caller asks the price of a listed service (lagning) whose price the Business's facts do not hold. The checks read the call record.
+# The Caller asks the price of a listed service (lagning) whose price the Business's instructions do not hold. The checks read the call record.
 user:
   modality: audio
 judge:
