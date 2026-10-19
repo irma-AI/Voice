@@ -7,8 +7,10 @@ import logging
 import re
 import unicodedata
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime, time
 from decimal import Decimal
+from functools import wraps
 from typing import Any
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -20,9 +22,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db import DataError, IntegrityError, transaction
+from django.db import DataError, IntegrityError, connection, transaction
 from django.db.models import Count, Q, Sum
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import Now, TruncMonth
 from django.http import (
     Http404,
     HttpRequest,
@@ -45,6 +47,7 @@ from portal.accounts import modules as module_rules
 from portal.accounts import probe, tokens
 from portal.accounts.domain import parse_domain, shown_domain
 from portal.accounts.models import (
+    BUDGET_COUNTED,
     CALL_KINDS,
     LANGUAGES,
     PRIVACY_URL_MAX,
@@ -277,11 +280,23 @@ def calls(request: HttpRequest) -> HttpResponse:
     )
 
 
-@login_required
+def operator_only(view: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
+    """The one gate for the operator's pages: behind the login, then only the Account whose email is `SUPER_ADMIN_EMAIL` (unset: nobody); anyone else gets 403."""
+
+    @login_required
+    @never_cache  # every Business's figures: no shared cache keeps them
+    @wraps(view)
+    def gated(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        if not sees_totals(request.user):
+            return HttpResponseForbidden("This page is not open to your account.")
+        return view(request, *args, **kwargs)
+
+    return gated
+
+
+@operator_only
 def totals(request: HttpRequest) -> HttpResponse:
-    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls. Only the Account whose email is `SUPER_ADMIN_EMAIL` may open it."""
-    if not sees_totals(request.user):
-        return HttpResponseForbidden("This page is not open to your account.")
+    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls."""
     month = TruncMonth("started_at", tzinfo=ZoneInfo(settings.TIME_ZONE))
     sums = (
         CallRecord.objects.annotate(month=month)
@@ -323,6 +338,103 @@ def totals(request: HttpRequest) -> HttpResponse:
             "time_zone": settings.TIME_ZONE,
         },
     )
+
+
+# What the timeline calls each event the recorder writes (voice/bargein.py); an event not here shows by its code.
+EVENT_NAMES = {
+    "config": "Call starts",
+    "bot_speech": "Agent speech",
+    "barge_in": "Barge-in",
+    "levels": "Levels around the cut",
+    "caller_words": "Caller's words",
+    "resumed": "Agent resumes",
+    "end": "Call ends",
+}
+LOGS_SHOWN = 100
+
+
+def log_summary(events: list[dict[str, Any]]) -> tuple[str, int, int]:
+    """Length (minutes:seconds, from the end event; "–" without one), barge-ins, and barge-ins with no Caller's words after: the recorder writes words only for the first words after a barge-in, so the difference is the count."""
+    # .get and the type check: the database checks field names and value shapes, not that a field is there or a number.
+    ends = [
+        e["secs"]
+        for e in events
+        if e.get("e") == "end"
+        and type(e.get("secs")) in (int, float)
+        and e["secs"] >= 0
+    ]
+    length = f"{int(ends[0]) // 60}:{int(ends[0]) % 60:02d}" if ends else "–"
+    barge_ins = sum(e.get("e") == "barge_in" for e in events)
+    words = sum(e.get("e") == "caller_words" for e in events)
+    return length, barge_ins, max(barge_ins - words, 0)
+
+
+def in_recorder_order(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The events with their fields in the order the recorder writes them: jsonb keeps no key order, and the database's field list (migrations 0023 and 0024) is in the recorder's order. A nested `vad` keeps jsonb's order."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT accounts_call_log_fields()")
+        order = cursor.fetchone()[0]
+    return [{**{k: e[k] for k in order if k in e}, **e} for e in events]
+
+
+@operator_only
+def call_logs(request: HttpRequest) -> HttpResponse:
+    """The latest stored Call logs of every Business, newest first."""
+    # shortcut: the newest LOGS_SHOWN only, no paging; add paging when Petter needs an older one before it expires.
+    logs = CallLog.objects.select_related("business").order_by("-started_at")[
+        :LOGS_SHOWN
+    ]
+    rows = [
+        (log.call_id, log.started_at, log.business.name, CALL_KINDS[log.kind])
+        + log_summary(log.events)
+        for log in logs
+    ]
+    return render(
+        request,
+        "accounts/call_logs.html",
+        {"rows": rows, "shown": LOGS_SHOWN, "time_zone": settings.TIME_ZONE},
+    )
+
+
+@operator_only
+def call_log(request: HttpRequest, call_id: str) -> HttpResponse:
+    """One Call log's events as a timeline: seconds since the call began, the event, and its logged fields."""
+    log = get_object_or_404(CallLog.objects.select_related("business"), call_id=call_id)
+    events = [
+        (
+            e.get("t"),
+            EVENT_NAMES.get(str(e.get("e")), e.get("e", "–")),
+            [(k, json.dumps(v)) for k, v in e.items() if k not in ("t", "call", "e")],
+        )
+        for e in in_recorder_order(log.events)
+    ]
+    length, barge_ins, no_words = log_summary(log.events)
+    return render(
+        request,
+        "accounts/call_log.html",
+        {
+            "log": log,
+            "kind": CALL_KINDS[log.kind],
+            "length": length,
+            "barge_ins": barge_ins,
+            "no_words": no_words,
+            "events": events,
+            "time_zone": settings.TIME_ZONE,
+        },
+    )
+
+
+@operator_only
+def call_log_text(request: HttpRequest, call_id: str) -> HttpResponse:
+    """The Call log as the server log's barge-in lines (`barge-in ` and the event's JSON), one per event, to hand to an agent."""
+    log = get_object_or_404(CallLog, call_id=call_id)
+    lines = ("barge-in " + json.dumps(e) for e in in_recorder_order(log.events))
+    response = HttpResponse(
+        "".join(line + "\n" for line in lines), content_type="text/plain; charset=utf-8"
+    )
+    # The call id is a plain code (the database refuses anything else), so it is safe in the header.
+    response["Content-Disposition"] = f'attachment; filename="call-log-{call_id}.txt"'
+    return response
 
 
 class Text(forms.CharField):
@@ -594,10 +706,12 @@ def modules(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
-    """The one way a Module goes: only one of the logged-in Business's own."""
+    """Remove on the Modules page: only one of the logged-in Business's own, through Module.remove."""
     if request.method != "POST":
         return back_to("modules")
-    get_object_or_404(Module, pk=module_id, business__account=request.user).delete()
+    mine = Module.objects.filter(pk=module_id, business__account=request.user)
+    if not Module.remove(mine):
+        raise Http404
     return redirect("modules")
 
 
@@ -686,10 +800,11 @@ def call_link_refused(
 
 
 def spent_today(business: Business) -> Decimal:
-    """Today's Call link spend in dollars, the day on TIME_ZONE like the totals page. A priced record counts as priced; one the core could not price, or priced at nothing (its usage reports never came), counts its seconds at the rate Google charged this Business's priced calls so far, and at nothing before the first priced call (Petter, 2026-10-18: no invented rate). Test calls do not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
+    """Today's spend in dollars on the kinds BUDGET_COUNTED counts, the day on TIME_ZONE like the totals page. A priced record counts as priced; one the core could not price, or priced at nothing (its usage reports never came), counts its seconds at the rate Google charged this Business's priced calls so far, and at nothing before the first priced call (Petter, 2026-10-18: no invented rate). An exempt kind does not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
     zone = ZoneInfo(settings.TIME_ZONE)
     today = datetime.combine(datetime.now(zone).date(), time.min, tzinfo=zone)
-    records = CallRecord.objects.filter(business=business, kind="call_link")
+    counted = [kind for kind, counts in BUDGET_COUNTED.items() if counts]
+    records = CallRecord.objects.filter(business=business, kind__in=counted)
     priced = Q(cost_usd__gt=0)
     charged = records.filter(priced).aggregate(
         usd=Sum("cost_usd"), seconds=Sum("length_seconds")
@@ -705,8 +820,17 @@ def spent_today(business: Business) -> Decimal:
     return spent
 
 
-def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
-    """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call."""
+def to_core(
+    request: HttpRequest, business: Business, kind: str, domain: str = ""
+) -> HttpResponse:
+    """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call. Once the Business's daily budget is spent (VOI-123), a kind BUDGET_COUNTED counts gets no ticket until the next day, whichever view mints it (VOI-172); a kind missing from it raises, so no ticket."""
+    if BUDGET_COUNTED[kind] and spent_today(business) >= business.daily_budget_usd:
+        log.warning(
+            "call refused: Business %s has spent its daily budget (kind %s)",
+            business.pk,
+            kind,
+        )
+        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
     # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
     if not settings.CORE_SECRET:
         return HttpResponse("Calls are not set up: CORE_SECRET is empty.", status=503)
@@ -719,7 +843,7 @@ def test_call(request: HttpRequest) -> HttpResponse:
     """A logged-in Business's own test call; it takes no Business from the request."""
     if request.method != "POST":
         return back_to("dashboard")
-    return to_core(get_object_or_404(Business, account=request.user), "test")
+    return to_core(request, get_object_or_404(Business, account=request.user), "test")
 
 
 @require_GET
@@ -729,7 +853,7 @@ def test_call(request: HttpRequest) -> HttpResponse:
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     """A Business's public call link, opened in the panel the Call button script builds on the Business's website (VOI-73).
 
-    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too. Once the Business's daily budget is spent (VOI-123), no ticket until the next day.
+    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too. Once the Business's daily budget is spent (VOI-123), `to_core` gives no ticket until the next day.
     """
     business = get_object_or_404(Business, call_slug=slug)
     if request.headers.get("Sec-Fetch-Dest") != "iframe":
@@ -740,12 +864,7 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     if not business.website_domain:
         log.warning("call link refused: Business %s has no website domain", business.pk)
         return call_link_refused(request)
-    if spent_today(business) >= business.daily_budget_usd:
-        log.warning(
-            "call link refused: Business %s has spent its daily budget", business.pk
-        )
-        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
-    return to_core(business, "call_link", business.website_domain)
+    return to_core(request, business, "call_link", business.website_domain)
 
 
 # The Call button script a Business's website loads, and the hash of its bytes that the pasted tag names (VOI-135):
@@ -844,31 +963,62 @@ class CallRecordForm(CoreReportForm):
         fields = "__all__"
 
 
+def store_core_report(
+    request: HttpRequest,
+    form_class: type[CoreReportForm],
+    name: str,
+    stored_as_sent: dict[str, type] | None = None,
+) -> JsonResponse:
+    """The one opening for every report the core sends: the secret before any lookup, then the body parsed once and stored once per call id. `stored_as_sent` names the keys the form leaves out and the type each must be."""
+    if not core_secret_sent(request):
+        return JsonResponse({"error": "missing or wrong secret"}, status=401)
+    stored_as_sent = stored_as_sent or {}
+    try:
+        body = json.loads(request.body)
+    except ValueError:
+        body = None
+    if (
+        not isinstance(body, dict)
+        or body.keys() != {*form_class.base_fields, *stored_as_sent}  # pyright: ignore[reportUnknownMemberType]
+        or not all(isinstance(body[key], kind) for key, kind in stored_as_sent.items())
+    ):
+        return JsonResponse({"error": f"not a {name}"}, status=400)
+    form = form_class(body)
+    if not form.is_valid():
+        # Field names only: a refused value never goes back out.
+        return JsonResponse(
+            {"error": f"malformed {name}", "fields": sorted(form.errors)}, status=400
+        )
+    values = dict(form.cleaned_data)
+    call_id = values.pop("call_id")
+    defaults = {**values, **{key: body[key] for key in stored_as_sent}}
+    try:
+        with transaction.atomic():  # a refusal from the database leaves the connection usable for the caller's answer
+            _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
+                call_id=call_id, defaults=defaults
+            )
+    except IntegrityError as e:
+        # The database refuses a Call record that starts in the future (migration 0021). Refusing the call would drop its
+        # cost from the daily budget (fail open), so it is stored at the database's clock instead, and the core's clock is logged as off.
+        if "call_record_must_not_start_in_the_future" not in str(e):
+            raise
+        log.warning(
+            "call record %s started in the future by the core's clock: stored at the database's",
+            call_id,
+        )
+        with transaction.atomic():
+            _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
+                call_id=call_id, defaults={**defaults, "started_at": Now()}
+            )
+    return JsonResponse({"stored": True}, status=201 if created else 200)
+
+
 @csrf_exempt  # the shared secret gates it, not a session
 @require_POST
 @never_cache
 def record_call(request: HttpRequest) -> HttpResponse:
     """The one address the core sends a finished call's record to. Stores it once per call id; the database refuses every later change."""
-    if not core_secret_sent(request):
-        return JsonResponse({"error": "missing or wrong secret"}, status=401)
-    try:
-        body = json.loads(request.body)
-    except ValueError:
-        body = None
-    if not isinstance(body, dict) or body.keys() != CallRecordForm.base_fields.keys():  # pyright: ignore[reportUnknownMemberType]
-        return JsonResponse({"error": "not a Call record"}, status=400)
-    form = CallRecordForm(body)
-    if not form.is_valid():
-        # Field names only: a refused value never goes back out.
-        return JsonResponse(
-            {"error": "malformed Call record", "fields": sorted(form.errors)},
-            status=400,
-        )
-    values = dict(form.cleaned_data)
-    _, created = CallRecord.objects.get_or_create(
-        call_id=values.pop("call_id"), defaults=values
-    )
-    return JsonResponse({"stored": True}, status=201 if created else 200)
+    return store_core_report(request, CallRecordForm, "Call record")
 
 
 class CallLogForm(CoreReportForm):
@@ -879,39 +1029,13 @@ class CallLogForm(CoreReportForm):
         exclude = ("events",)
 
 
-CALL_LOG_FIELDS = {*CallLogForm.base_fields, "events"}  # pyright: ignore[reportUnknownMemberType]
-
-
 @csrf_exempt  # the shared secret gates it, not a session
 @require_POST
 @never_cache
 def record_call_log(request: HttpRequest) -> HttpResponse:
     """The one address the core sends a finished call's Call log to. Stores it once per call id; the database refuses every later change, and a delete before its expiry."""
-    if not core_secret_sent(request):
-        return JsonResponse({"error": "missing or wrong secret"}, status=401)
     try:
-        body = json.loads(request.body)
-    except ValueError:
-        body = None
-    if (
-        not isinstance(body, dict)
-        or body.keys() != CALL_LOG_FIELDS
-        or not isinstance(body["events"], list)
-    ):
-        return JsonResponse({"error": "not a Call log"}, status=400)
-    form = CallLogForm(body)
-    if not form.is_valid():
-        # Field names only: a refused value never goes back out.
-        return JsonResponse(
-            {"error": "malformed Call log", "fields": sorted(form.errors)}, status=400
-        )
-    values = dict(form.cleaned_data)
-    try:
-        with transaction.atomic():
-            _, created = CallLog.objects.get_or_create(
-                call_id=values.pop("call_id"),
-                defaults={**values, "events": body["events"]},
-            )
+        return store_core_report(request, CallLogForm, "Call log", {"events": list})
     except (IntegrityError, DataError) as e:
         # The database is what checks the events and the start (migration 0020), or refuses text jsonb can't hold (a NUL); this only says so.
         if isinstance(e, DataError) or "call_log_events_hold_only_listed_fields" in str(
@@ -925,4 +1049,3 @@ def record_call_log(request: HttpRequest) -> HttpResponse:
         return JsonResponse(
             {"error": "malformed Call log", "fields": [field]}, status=400
         )
-    return JsonResponse({"stored": True}, status=201 if created else 200)

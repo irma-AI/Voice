@@ -37,7 +37,7 @@ from pipecat.utils.text.base_text_aggregator import AggregationType
 from pipecat.workers.runner import WorkerRunner
 from starlette.testclient import TestClient
 from starlette.types import Receive, Scope, Send
-from starlette.websockets import WebSocketDisconnect
+from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from tests.test_settings_port import GOOD, fake_portal, portal_env
 from voice import serve
@@ -632,7 +632,9 @@ def test_a_call_logs_the_browser_facts_and_its_playback_gaps_and_survives_a_bad_
         runner = WorkerRunner(handle_sigint=False)
         await runner.add_workers(worker)
         await runner.run()
-        await websocket.close()
+        # Pipecat's transport closes the socket itself when its input stops; closing twice raises.
+        if websocket.application_state != WebSocketState.DISCONNECTED:
+            await websocket.close()
 
     with warnings() as logged, TestClient(app).websocket_connect("/ws") as ws:
         ws.send_text(json.dumps({"type": "browser", **FACTS}))
