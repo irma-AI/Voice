@@ -25,7 +25,8 @@ from pipecat.workers.runner import WorkerRunner
 
 from voice import report
 from voice.bargein import BargeInRecorder
-from voice.report import UsageTally, build_record, deliver, report_call
+from voice.portal_client import post
+from voice.report import UsageTally, build_record, report_call
 from voice.ticket import Ticket
 
 ROOT = Path(__file__).parents[1]
@@ -86,6 +87,10 @@ def fake_portal(
     finally:
         server.shutdown()
         server.server_close()
+
+
+def portal_env(url: str) -> dict[str, str]:
+    return {"SETTINGS_URL": url, "CORE_SECRET": SECRET}
 
 
 @contextmanager
@@ -164,14 +169,19 @@ def test_the_tally_adds_up_every_usage_report_of_a_call() -> None:
 def test_a_record_is_delivered_with_the_secret() -> None:
     seen: list[Any] = []
     with fake_portal([], seen) as portal:
-        assert deliver(a_record(), portal + "/", SECRET) is True
+        assert (
+            post("/api/calls/", a_record(), "record", portal_env(portal + "/")) is True
+        )
     assert seen == [("/api/calls/", f"Bearer {SECRET}", a_record())]
 
 
 def test_delivery_tries_again_while_the_portal_fails() -> None:
     seen: list[Any] = []
     with fake_portal([503, 503], seen) as portal, log_lines() as lines:
-        assert deliver(a_record(), portal, SECRET, window_s=5, pause_s=0.01) is True
+        assert (
+            post("/api/calls/", a_record(), "record", portal_env(portal), 5, 0.01)
+            is True
+        )
     assert len(seen) == 3
     assert sum("trying again" in line for line in lines) == 2
 
@@ -180,7 +190,10 @@ def test_delivery_gives_up_when_the_window_ends_and_says_so() -> None:
     seen: list[Any] = []
     with fake_portal([503] * 1000, seen) as portal, log_lines() as lines:
         started = time.monotonic()
-        assert deliver(a_record(), portal, SECRET, window_s=0.3, pause_s=0.05) is False
+        assert (
+            post("/api/calls/", a_record(), "record", portal_env(portal), 0.3, 0.05)
+            is False
+        )
         assert time.monotonic() - started < 3  # the window, not forever
     assert len(seen) >= 2
     assert "gave up sending the record" in lines[-1] and "answered 503" in lines[-1]
@@ -191,7 +204,10 @@ def test_a_portal_that_is_down_is_the_same_as_one_that_fails() -> None:
     with fake_portal([], []) as portal:
         pass  # the server is closed again: nothing listens on this address
     with log_lines() as lines:
-        assert deliver(a_record(), portal, SECRET, window_s=0.2, pause_s=0.05) is False
+        assert (
+            post("/api/calls/", a_record(), "record", portal_env(portal), 0.2, 0.05)
+            is False
+        )
     assert "gave up" in lines[-1] and portal not in "".join(lines)
 
 
@@ -200,7 +216,7 @@ def test_the_record_is_logged_before_any_send_and_the_call_never_waits_on_it() -
     hold = threading.Event()
     env: dict[str, str] = {}
     with fake_portal([], seen, hold) as portal, log_lines() as lines:
-        env = {"SETTINGS_URL": portal, "CORE_SECRET": SECRET}
+        env = portal_env(portal)
 
         async def end_of_call() -> tuple[float, int]:
             began = time.monotonic()
@@ -227,7 +243,7 @@ def test_records_stuck_on_a_down_portal_leave_the_default_threads_to_call_starts
 ):
     hold = threading.Event()
     with fake_portal([], [], hold) as portal:
-        env = {"SETTINGS_URL": portal, "CORE_SECRET": SECRET}
+        env = portal_env(portal)
 
         async def six_calls_end_then_one_starts() -> tuple[float, int]:
             # asyncio's default executor on a 2 vCPU host: min(32, cpu + 4) threads.
@@ -279,7 +295,7 @@ def test_a_call_s_barge_in_lines_reach_the_portal_as_its_call_log_and_the_call_n
     seen: list[Any] = []
     hold = threading.Event()
     with fake_portal([], seen, hold) as portal, log_lines() as lines:
-        env = {"SETTINGS_URL": portal, "CORE_SECRET": SECRET}
+        env = portal_env(portal)
 
         async def a_call_ends() -> float:
             worker = PipelineWorker(Pipeline([BargeInRecorder(call)]))
@@ -326,7 +342,7 @@ def test_a_hung_up_call_keeps_its_end_line_and_ends_at_once_while_the_portal_han
     seen: list[Any] = []
     hold = threading.Event()
     with fake_portal([], seen, hold) as portal, log_lines() as lines:
-        env = {"SETTINGS_URL": portal, "CORE_SECRET": SECRET}
+        env = portal_env(portal)
 
         async def a_call_is_hung_up() -> float:
             worker = PipelineWorker(Pipeline([BargeInRecorder(call)]))
@@ -366,14 +382,13 @@ def test_a_call_log_the_portal_never_takes_is_given_up_and_said() -> None:
         pass  # nothing listens here any more
     with log_lines() as lines:
         assert (
-            deliver(
+            post(
+                "/api/call-logs/",
                 {"call_id": "c0ffee0123456789"},
-                portal,
-                SECRET,
-                window_s=0.2,
-                pause_s=0.05,
-                path="/api/call-logs/",
-                what="Call log",
+                "Call log",
+                portal_env(portal),
+                0.2,
+                0.05,
             )
             is False
         )

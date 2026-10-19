@@ -38,6 +38,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from voice.agent import run_call
 from voice.auth import FONTS_PATH, REFUSAL_PAGE, TicketGate
+from voice.portal_client import core_secret
 from voice.settings import Settings, SettingsRefused, describe_source, load_settings
 from voice.ticket import frame_ancestors, from_query, read_ticket
 
@@ -358,7 +359,7 @@ def main() -> None:
     load_dotenv()
     if not os.environ.get("GOOGLE_API_KEY", "").strip():
         sys.exit("GOOGLE_API_KEY is not set: put it in .env (see .env.example).")
-    secret = os.environ.get("CORE_SECRET", "")
+    secret = core_secret()
     if not secret.strip():  # fail closed: without it no call link can be checked
         sys.exit(
             "CORE_SECRET is not set: put the Portal's secret in .env (see .env.example)."
