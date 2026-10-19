@@ -60,6 +60,25 @@ def test_the_page_lists_label_scope_made_and_last_used_times_and_a_new_token_is_
     assert token.created_at and token.last_used_at is None and token.revoked_at is None
 
 
+def test_the_new_secret_has_a_copy_button_and_each_revoke_names_its_token_and_asks_first() -> (
+    None
+):
+    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    page = make(client, "Claude Code").content.decode()
+    secret = secret_in(page)
+    assert (
+        f'<pre id="new-token" tabindex="0" autofocus><code>{secret}</code></pre>'
+        in page
+    )
+    assert 'data-copy="new-token"' in page
+    make(client, "Reporting agent")
+    page = client.get("/tokens/").content.decode()
+    # Revoke opens a second step; the button that revokes says so and names the token, for a screen reader too.
+    for label in ("Claude Code", "Reporting agent"):
+        assert f'<summary>Revoke<span class="sr-only"> {label}</span></summary>' in page
+        assert f'Revoke for good<span class="sr-only"> {label}</span>' in page
+
+
 def test_a_refused_form_makes_no_token_and_shows_no_secret() -> None:
     business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     for label, scope in (
