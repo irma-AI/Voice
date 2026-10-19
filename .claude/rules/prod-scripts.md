@@ -5,7 +5,7 @@ paths:
 
 # Scripts that change shared or production data
 
-Every such script follows one contract, whatever its language. In the Portal that is a Django management command (`portal/accounts/management/commands/invite_business.py` is the example). Steps 2 and 3 live in `portal/accounts/prod_script.py` (`check_target`, `reviewed_digest`): a new command calls them instead of copying them.
+Every such script follows one contract, whatever its language. In the Portal that is a Django management command (`portal/accounts/management/commands/invite_business.py` is the example). The commands: `invite_business` (a new Business and its Account) and `offboard_business` (the one way a Business's personal data leaves: it empties the Business and closes its Account, keeping its Call records by number; VOI-126). Steps 2 and 3 live in `portal/accounts/prod_script.py` (`check_target`, `reviewed_digest`): a new command calls them instead of copying them.
 
 1. **Dry run by default.** With no flags it changes nothing: it prints the plan, each row or object it would change and how, in a stable order.
 2. **Execute only the reviewed plan.** `--execute` refuses to run anything but the plan a person reviewed: the command prints a sha256 of the dry run's plan, and `--execute --approved-hash=<sha256>` runs only if it matches.
@@ -15,3 +15,4 @@ Every such script follows one contract, whatever its language. In the Portal tha
 ## Enforced by
 
 - `tests/portal/test_accounts.py`: the invite command changes nothing without the reviewed hash or with the wrong target. A new command adds its own test.
+- `tests/portal/test_offboard.py`: the same for the offboarding command, and afterwards every column of the Account and the Business is emptied or listed as holding nothing about a person.
