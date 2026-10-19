@@ -7,13 +7,12 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
-const { readBaseJson } = require(path.join(__dirname, '..', '..', 'base-config.js'));
+const { readBaseJson, changedFiles, inFixture } = require(path.join(__dirname, '..', '..', 'base-config.js'));
 const ROOT = process.env.GUARD_ROOT || process.cwd();
 
 // A fixture has `.guard-changed-files` in place of a git diff and the CI env.
 const listed = path.join(ROOT, '.guard-changed-files');
-const fixture = fs.existsSync(listed);
+const fixture = inFixture(ROOT) && fs.existsSync(listed);
 if (!fixture && !process.env.GUARD_BASE) {
   console.log('#scanned 1');
   console.error('not a pull-request run (GUARD_BASE unset): frozen paths are checked in CI only');
@@ -27,15 +26,8 @@ try { frozen = readBaseJson(ROOT, 'scripts/low-risk-paths.json').frozen || []; }
   process.exit(1);
 }
 
-function changedFiles() {
-  if (fixture) return fs.readFileSync(listed, 'utf8').split('\n').filter(Boolean);
-  const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).trim();
-  const from = git('merge-base', process.env.GUARD_BASE, 'HEAD');
-  // No diff filter and no renames: a deleted or moved frozen file counts too.
-  return git('diff', '--name-only', '--no-renames', from, 'HEAD').split('\n').filter(Boolean);
-}
-
-const changed = changedFiles();
+let changed;
+try { changed = changedFiles(ROOT); } catch (e) { console.log('#scanned 1'); console.log(`base\t${e.message}`); process.exit(1); }
 console.log(`#scanned ${changed.length + 1}`); // +1: the change set itself, which may be empty
 for (const f of changed.filter((f) => frozen.some((g) => path.matchesGlob(f, g)))) {
   console.log(`${f}\t${f} is frozen: every pasted Call button tag names its hash, so put the change in the next version (call-button.v2.js, its own hash, the dashboard and CALL_BUTTON_FILE pointing at it) and leave this file as it is`);
