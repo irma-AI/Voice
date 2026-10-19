@@ -1,4 +1,4 @@
-# Guardrail files need an owner's approval (the ruleset turns on code owner review).
+# Not enforced: solo maintainer (the ruleset's require_code_owner_review is false). Turn that on with an owner below to make guardrail files need an owner's approval.
 # Replace @OWNER with a user or team and uncomment the lines this repo uses.
 # Solo maintainer: leave it all commented out, or you can't merge your own guardrail PRs (README step 8).
 # /scripts/checks/        @OWNER

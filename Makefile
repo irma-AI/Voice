@@ -1,7 +1,7 @@
 # The one command interface: CI, hooks, loops and agents call only these targets.
 # A target that does not apply here is `@echo "n/a: <reason>"`, which records the choice.
 .DEFAULT_GOAL := help
-.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio seed check lint typecheck test test-db guards archive-decisions generate generate-check build
+.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio seed check lint typecheck test test-db guards workflow-lint archive-decisions generate generate-check build
 
 help: ## List the targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -67,6 +67,10 @@ archive-decisions: ## Move DECISIONS.md lines older than KEEP_DAYS (7) into docs
 guards: ## Guard scripts, self-tests first (scripts/checks/README.md)
 	node scripts/checks/run.js
 
+# zizmor runs online audits when GH_TOKEN is set (CI), offline audits otherwise.
+workflow-lint: ## Lint the GitHub workflows, actions and Dependabot config for security holes (zizmor)
+	uvx zizmor@1.30.1 --min-severity high .github/workflows .github/actions .github/dependabot.yml
+
 tailwind := npx --no-install @tailwindcss/cli -i portal/static/portal/tailwind.css --minify
 
 # The hash the Call button tag names its script by (subresource integrity, VOI-135); an edit to the file breaks every pasted tag, so a changed script is a new version.
@@ -86,4 +90,4 @@ build: ## Build every configuration this repo ships
 	docker build -t voice .
 	docker build -f Dockerfile.portal -t voice-portal .
 
-check: lint typecheck test test-db guards generate-check build ## Everything CI runs
+check: lint typecheck test test-db guards workflow-lint generate-check build ## Everything CI runs
