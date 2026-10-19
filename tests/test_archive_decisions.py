@@ -12,6 +12,7 @@ Header text stays.
 [2026-09-01] Old decision: why.
 [2026-09-02] ESCALATED: answered question -> Petter
 [2026-09-03] RESOLVED 2026-09-02: the answer.
+[2026-09-04] RESOLVED 2026-09-10: an answer to nothing listed, which must not let the open question go.
 [2026-09-10] ESCALATED: still waiting -> Petter
 [2026-10-01] Another old one in a new month: why.
 [2026-10-15] This week: why.
@@ -25,20 +26,26 @@ def run(tmp_path: Path) -> str:
     return (tmp_path / "DECISIONS.md").read_text()
 
 
-def test_old_lines_move_to_their_month_and_the_week_and_open_questions_stay(
+def test_old_lines_move_to_their_month_and_questions_and_answers_always_stay(
     tmp_path: Path,
 ) -> None:
     kept = run(tmp_path)
     assert kept.startswith("# Decisions\n\nHeader text stays.\n")
-    assert "still waiting" in kept and "This week" in kept
-    assert "Old decision" not in kept and "answered question" not in kept
+    assert "This week" in kept and "Old decision" not in kept
+    # An answer to nothing listed must not let an open question go: questions and answers move only by hand.
+    for line in (
+        "answered question",
+        "the answer.",
+        "an answer to nothing",
+        "still waiting",
+    ):
+        assert line in kept
     september = (tmp_path / "docs/decisions/2026-09.md").read_text()
-    assert "Old decision" in september and "the answer." in september
-    assert "still waiting" not in september
+    assert "Old decision" in september and "ESCALATED" not in september
     assert "Another old one" in (tmp_path / "docs/decisions/2026-10.md").read_text()
 
 
-def test_a_second_run_moves_nothing_more_and_still_sees_the_archived_answers(
+def test_a_second_run_moves_nothing_more(
     tmp_path: Path,
 ) -> None:
     first = run(tmp_path)
