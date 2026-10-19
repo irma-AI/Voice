@@ -822,7 +822,11 @@ def to_core(
 ) -> HttpResponse:
     """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call. Once the Business's daily budget is spent (VOI-123), a kind BUDGET_COUNTED counts gets no ticket until the next day, whichever view mints it (VOI-172); a kind missing from it raises, so no ticket."""
     if BUDGET_COUNTED[kind] and spent_today(business) >= business.daily_budget_usd:
-        log.warning("call refused: Business %s has spent its daily budget", business.pk)
+        log.warning(
+            "call refused: Business %s has spent its daily budget (kind %s)",
+            business.pk,
+            kind,
+        )
         return call_link_refused(request, BUDGET_SPENT_REFUSAL)
     # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
     if not settings.CORE_SECRET:

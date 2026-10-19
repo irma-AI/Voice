@@ -214,7 +214,7 @@ def test_a_test_call_neither_counts_nor_is_refused() -> None:
 
 
 def test_the_mint_refuses_every_counted_kind_once_the_budget_is_spent(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """The refusal lives where every ticket is minted, so a counted kind from a view other than the call link is refused too, and an exempt one is not (VOI-172). The test call stands in for a future counted kind."""
     anna = a_business_with_a_budget("1.00")
@@ -228,6 +228,7 @@ def test_the_mint_refuses_every_counted_kind_once_the_budget_is_spent(
 
     assert response.status_code == 403 and "Location" not in response
     assert_the_refusal_page(response.content.decode(), BUDGET_SPENT)
+    assert f"Business {anna.pk} has spent its daily budget (kind test)" in caplog.text
 
 
 def test_every_call_kind_is_counted_toward_the_budget_or_named_exempt() -> None:
