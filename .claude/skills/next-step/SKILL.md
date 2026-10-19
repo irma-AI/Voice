@@ -37,6 +37,7 @@ The flows below name these:
 - **implement**: follow `implement`, with two overrides: its `/code-review` is the **review** step below, and its commit is the **commit** step.
 - **review**: `code-review` against `git merge-base origin/<default branch> HEAD`. Diff the working tree against the merge base (`git diff <merge-base>`), which covers commits and uncommitted changes, not `...HEAD`. Give it the ticket or spec as the spec, and `CLAUDE.md`, every `.claude/rules/` file whose `paths:` match the diff (plus `DESIGN.md` if the repo has one) as the standards. Fix what it finds that holds up; list anything you disagree with for the user, and log each finding you decline (`CLAUDE.md` § Decisions).
 - **commit**: commit on the branch as often as the work needs, never on the default branch.
+- **skeptic**: when the change touches a path in the `skeptic_pass` list or a `CLAUDE.md` § Stop and ask area (`CLAUDE.md` § Workflow holds the rule and the guard), run `skeptic-pass` on the frozen head and put its SHA and result in the PR body's `## Skeptic pass` section; otherwise skip it.
 - **pr**: walk `CLAUDE.md` § Definition of Done item by item; every item holds, or you name the one that doesn't and why. Then push and open the PR without asking, and `pr` writes the body, filling every section of `.github/pull_request_template.md`: the three first-principles answers and what is not live yet. The PR names every ticket it closes, with the tracker's closing keyword (`docs/agents/issue-tracker.md`).
 - **merge**: unless a `CLAUDE.md` § Stop and ask area applies, mark the PR ready and turn on auto-merge (`gh pr merge --auto --squash`, or the GitHub MCP `enable_pr_auto_merge`); GitHub merges once `ci-summary` passes, so end the turn instead of waiting on CI; if checks already passed, GitHub refuses auto-merge, so merge directly (squash). A PR in a Stop and ask area waits for the user's answer. Resolve open review threads first if the ruleset requires it.
 - **screenshot**: the one home for when agents use `playwright-cli`, a design and verification tool; tests stay at the seams in `CLAUDE.md` § Tests (Petter decided against a browser test seam, 2026-10-17), so a `playwright-cli` run never becomes a test. Start `make up` (core call page) or `make portal-up` (Portal) in the background (`make seed` first if the page needs data; the URLs are in `CLAUDE.md` § Commands), then use it for:
@@ -89,7 +90,7 @@ The UI flows (New view, New component, Visual tweak) apply only to repos with a 
 - [ ] research, only for an unverified external fact (an API, a third-party behaviour); wait for its file before the grilling closes
 - [ ] to-spec (seam check ⏸)
 - [ ] to-tickets ⏸
-- [ ] per ticket: /clear, /next-step <issue-id> → branch → ticket → implement → review → commit → skeptic-pass (when the ticket touches a CLAUDE.md § Stop and ask area) → pr → merge → in review
+- [ ] per ticket: /clear, /next-step <issue-id> → branch → ticket → implement → review → commit → skeptic → pr → merge → in review
 ```
 
 ### Small change
@@ -97,7 +98,7 @@ The UI flows (New view, New component, Visual tweak) apply only to repos with a 
 ```
 - [ ] grill-with-docs ⏸ (skip when the ask is already precise)
 - [ ] branch → ticket → implement → review, in this session
-- [ ] commit → pr → merge
+- [ ] commit → skeptic → pr → merge
 ```
 
 ### Bug
@@ -108,7 +109,7 @@ The UI flows (New view, New component, Visual tweak) apply only to repos with a 
 - [ ] tdd: regression test at the seam the bug shows through (CLAUDE.md § Tests)
 - [ ] fix → full suite green
 - [ ] guardrail-from-incident, when the mechanism can recur; otherwise say in one line why not
-- [ ] review → commit → pr → merge
+- [ ] review → commit → skeptic → pr → merge
 ```
 
 No seam to pin the bug to → stop and propose Code health instead of patching around it.
