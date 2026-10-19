@@ -1,9 +1,7 @@
-VOI-164: Drop the call log rules
+VOI-149: Touch the core auth
 ## What and why
 
-A migration only, and no skeptic pass.
-
-Closes VOI-164.
+Closes VOI-149.
 
 ## Not live yet
 
