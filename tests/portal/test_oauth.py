@@ -425,7 +425,7 @@ def test_the_operators_sign_in_gives_no_operator_powers(settings: Any) -> None:
     assert "list_totals" not in listed and "invite_business" not in listed
 
 
-def test_a_reused_refresh_token_ends_the_connection() -> None:
+def test_a_refresh_token_reused_after_the_grace_ends_the_connection() -> None:
     _, owner = business_with_login("user-a@example.com", "Owner A's Salon")
     client_id, first = signed_in(owner)
     renew = {
@@ -434,9 +434,19 @@ def test_a_reused_refresh_token_ends_the_connection() -> None:
         "client_id": client_id,
     }
     second = exchange(renew).json()
-    assert (
-        exchange(renew).json()["error"] == "invalid_grant"
-    )  # the old one again: someone else has it
+    # The swap was longer ago than the grace: the database's clock decides, so move it back.
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "ALTER TABLE accounts_oauthconnection DISABLE TRIGGER accounts_oauth_connection_is_kept"
+        )
+        cursor.execute(
+            "UPDATE accounts_oauthconnection SET refreshed_at = now() - interval '1 minute'"
+        )
+        cursor.execute(
+            "ALTER TABLE accounts_oauthconnection ENABLE TRIGGER accounts_oauth_connection_is_kept"
+        )
+    # The old one again, well after the swap: someone else has the chain.
+    assert exchange(renew).json()["error"] == "invalid_grant"
     assert OAuthConnection.objects.get().revoked_at is not None
     later = {**renew, "refresh_token": second["refresh_token"]}
     assert exchange(later).json()["error"] == "invalid_grant"
@@ -517,7 +527,7 @@ def test_the_database_refuses_what_a_sign_in_must_never_hold() -> None:
         ("DELETE FROM accounts_oauthcode", "oauth_code_is_kept"),
         ("DELETE FROM accounts_oauthclient", "oauth_client_is_kept"),
         (
-            "UPDATE accounts_oauthconnection SET refresh_hash = 'plain', previous_refresh_hash = refresh_hash",
+            "UPDATE accounts_oauthconnection SET refresh_hash = 'plain', previous_refresh_hash = refresh_hash, refreshed_at = statement_timestamp()",
             "refresh_hash",
         ),
     ):
@@ -531,3 +541,54 @@ def test_the_database_refuses_what_a_sign_in_must_never_hold() -> None:
             redirect_uri=BACK,
             code_challenge="c",
         )
+
+
+def test_a_refresh_token_used_again_within_the_grace_is_refused_without_ending_the_connection() -> (
+    None
+):
+    _, owner = business_with_login("user-a@example.com", "Owner A's Salon")
+    client_id, first = signed_in(owner)
+    renew = {
+        "grant_type": "refresh_token",
+        "refresh_token": first["refresh_token"],
+        "client_id": client_id,
+    }
+    second = exchange(renew).json()
+    assert (
+        exchange(renew).json()["error"] == "invalid_grant"
+    )  # a retry: its answer was lost
+    assert OAuthConnection.objects.get().revoked_at is None
+    assert (
+        exchange({**renew, "refresh_token": second["refresh_token"]}).status_code == 200
+    )
+
+
+@pytest.mark.parametrize(
+    "uris",
+    [
+        ["HTTPS://a.example/cb"],
+        ["http://LOCALHOST/cb"],
+        ["https://a.example/a b"],
+        ["https://a.example/" + "x" * 2100],
+        ["https://a.example/cb#"],
+        [123],
+    ],
+)
+def test_a_registration_the_store_refuses_is_a_plain_400(uris: list[Any]) -> None:
+    answer = Client().post(
+        "/oauth/register/",
+        json.dumps(
+            {
+                "client_name": "X",
+                "redirect_uris": uris,
+                "token_endpoint_auth_method": "none",
+            }
+        ),
+        content_type="application/json",
+        secure=True,
+    )
+    assert answer.status_code == 400 and answer.json()["error"] in (
+        "invalid_redirect_uri",
+        "invalid_client_metadata",
+    )
+    assert not OAuthClient.objects.exists()

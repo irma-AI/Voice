@@ -131,6 +131,9 @@ PASSWORD_RESET_TIMEOUT = (
 )  # an invite link lives a week; a reset link works the same way
 
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = not DEBUG
+if DEBUG:
+    # A local run serves plain http; Authlib refuses sign-in over it otherwise (VOI-119). Production is https only.
+    os.environ.setdefault("AUTHLIB_INSECURE_TRANSPORT", "1")
 if not DEBUG:
     # Behind the host's proxy, which ends TLS and says so in this header. HSTS is 30 days for now, subdomains included.
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

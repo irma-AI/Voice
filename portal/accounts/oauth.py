@@ -26,13 +26,17 @@ from authlib.oauth2 import OAuth2Error
 from authlib.oauth2.rfc6749 import ClientMixin, InvalidRequestError, grants
 from authlib.oauth2.rfc6750 import BearerTokenGenerator
 from authlib.oauth2.rfc7009 import RevocationEndpoint
-from authlib.oauth2.rfc7591 import ClientMetadataClaims, ClientRegistrationEndpoint
+from authlib.oauth2.rfc7591 import (
+    ClientMetadataClaims,
+    ClientRegistrationEndpoint,
+    InvalidClientMetadataError,
+)
 from authlib.oauth2.rfc7636 import CodeChallenge
 from authlib.oauth2.rfc9207 import IssuerParameter
 from django import forms
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.db import connection, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models.functions import Now
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -53,6 +57,8 @@ from portal.accounts.models import (
 
 # An Access token from a sign-in works for an hour; the client renews it with its refresh token.
 ACCESS_SECONDS = 3600
+# A refresh token used again within this long of its swap is refused without ending the connection (see OAuthConnection).
+REFRESH_GRACE_SECONDS = 30
 # A code is exchanged within 10 minutes of the approval, once.
 CODE_SECONDS = 600
 # Open registration writes a row per request: at most this many clients an hour, across everyone.
@@ -241,8 +247,12 @@ class RefreshGrant(grants.RefreshTokenGrant):
         )
         row = live.filter(refresh_hash=hashed(refresh_token)).first()
         if row is None:
-            # The one before, again: whoever else holds the chain stole it, so the connection ends (RFC 9700 §4.14.2).
-            for stolen in live.filter(previous_refresh_hash=hashed(refresh_token)):
+            # The one before, again, after the grace: whoever else holds the chain stole it, so the connection ends
+            # (RFC 9700 §4.14.2). Within the grace it is a retry or a race of the client's own, refused only (Petter, 2026-10-20).
+            for stolen in live.filter(
+                previous_refresh_hash=hashed(refresh_token),
+                refreshed_at__lt=Now() - timedelta(seconds=REFRESH_GRACE_SECONDS),
+            ):
                 stolen.revoke()
             return None
         return Refresh(row, refresh_token)
@@ -299,6 +309,7 @@ class Server(AuthorizationServer):
                 ).update(
                     refresh_hash=hashed(token["refresh_token"]),
                     previous_refresh_hash=hashed(old.presented),
+                    refreshed_at=Now(),
                 ):
                     raise OAuth2Error(
                         error="invalid_grant",
@@ -360,6 +371,12 @@ def redirect_problem(uri: str) -> str | None:
 
 
 class Register(ClientRegistrationEndpoint):
+    def extract_client_metadata(self, request: Any) -> dict[str, Any]:
+        uris = request.payload.data.get("redirect_uris")
+        if not isinstance(uris, list) or not all(isinstance(u, str) for u in uris):
+            raise InvalidClientMetadataError("redirect_uris is a list of addresses.")
+        return super().extract_client_metadata(request)
+
     def authenticate_token(self, request: Any) -> bool:
         return True  # open registration: a client gets nothing until a Business approves it on the consent page
 
@@ -376,7 +393,11 @@ class Register(ClientRegistrationEndpoint):
         self, client_info: dict[str, Any], client_metadata: dict[str, Any], request: Any
     ) -> OAuthClient:
         uris = client_metadata.get("redirect_uris") or []
-        if not uris or len(uris) > 5 or any(redirect_problem(u) for u in uris):
+        if (
+            not uris
+            or len(uris) > 5
+            or any(len(u) > 2000 or redirect_problem(u) for u in uris)
+        ):
             raise OAuth2Error(
                 error="invalid_redirect_uri",
                 description="Give one to five redirect_uris, each https or http to localhost.",
@@ -399,16 +420,25 @@ class Register(ClientRegistrationEndpoint):
                     description="Too many registrations. Try again later.",
                     status_code=503,
                 )
-            return OAuthClient.objects.create(
-                client_id=client_info["client_id"],
-                secret_hash=hashed(secret) if method != "none" and secret else "",
-                client_name=(
-                    str(client_metadata.get("client_name") or "").strip()
-                    or "An AI assistant"
-                )[:100],
-                redirect_uris=uris,
-                auth_method=method,
-            )
+            try:
+                with transaction.atomic():
+                    return OAuthClient.objects.create(
+                        client_id=client_info["client_id"],
+                        secret_hash=hashed(secret)
+                        if method != "none" and secret
+                        else "",
+                        client_name=(
+                            str(client_metadata.get("client_name") or "").strip()
+                            or "An AI assistant"
+                        )[:100],
+                        redirect_uris=uris,
+                        auth_method=method,
+                    )
+            except IntegrityError:  # the store's own rule for an address (migration 0031), stricter than the check above
+                raise OAuth2Error(
+                    error="invalid_redirect_uri",
+                    description="Give one to five redirect_uris, each https or http to localhost.",
+                ) from None
 
 
 def authorization_server_metadata() -> dict[str, Any]:

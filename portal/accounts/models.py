@@ -717,6 +717,9 @@ class OAuthConnection(models.Model):
     refresh_hash = models.CharField(max_length=64, unique=True)
     # The one before: a client that presents it again has lost a race to whoever stole it, so the connection ends (RFC 9700 §4.14.2).
     previous_refresh_hash = models.CharField(max_length=64, blank=True, default="")
+    # When the refresh token was last swapped (the database's clock): the one before is refused without ending the
+    # connection for REFRESH_GRACE_SECONDS (oauth.py), so a retry after a lost answer or two refreshes at once log no one out.
+    refreshed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(db_default=Now())
     revoked_at = models.DateTimeField(null=True, blank=True)
 

@@ -64,8 +64,9 @@ BEGIN
     END IF;
     IF (NEW.id, NEW.business_id, NEW.client_id, NEW.scope, NEW.created_at)
         IS DISTINCT FROM (OLD.id, OLD.business_id, OLD.client_id, OLD.scope, OLD.created_at)
-        OR ((NEW.refresh_hash, NEW.previous_refresh_hash) IS DISTINCT FROM (OLD.refresh_hash, OLD.previous_refresh_hash)
-            AND (OLD.revoked_at IS NOT NULL OR NEW.previous_refresh_hash IS DISTINCT FROM OLD.refresh_hash)) THEN
+        OR ((NEW.refresh_hash, NEW.previous_refresh_hash, NEW.refreshed_at) IS DISTINCT FROM (OLD.refresh_hash, OLD.previous_refresh_hash, OLD.refreshed_at)
+            AND (OLD.revoked_at IS NOT NULL OR NEW.previous_refresh_hash IS DISTINCT FROM OLD.refresh_hash
+                OR NEW.refreshed_at IS DISTINCT FROM statement_timestamp())) THEN
         RAISE EXCEPTION 'oauth_connection_is_fixed: only a live connection''s refresh token and a first revoked_at change'
             USING ERRCODE = 'restrict_violation';
     END IF;
@@ -232,6 +233,11 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name='oauthconnection',
             constraint=models.CheckConstraint(condition=models.Q(('scope__in', ['read', 'full'])), name='oauth_connection_scope_must_be_known'),
+        ),
+        migrations.AddField(
+            model_name='oauthconnection',
+            name='refreshed_at',
+            field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.RunSQL(CREATE, DROP),
     ]
