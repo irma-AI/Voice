@@ -25,6 +25,7 @@ from pipecat.tests.utils import SleepFrame, run_test
 
 from tests.evals.checks import (
     Call,
+    Turn,
     Verdict,
     agent_cut_off,
     agent_not_cut_off,
@@ -49,7 +50,7 @@ from tests.evals.checks import (
     states_listed_price,
     uses_web_search,
 )
-from voice.agent import opening
+from voice.agent import opening, refusal_instruction
 from voice.bargein import BargeInRecorder
 from voice.record import CallRecorder
 
@@ -364,6 +365,13 @@ def test_call_log_becomes_turns(tmp_path: Path) -> None:
         ("caller", "Hej"),
     ]
     assert disclosure_first(call).passed
+
+
+def test_the_refused_call_line_passes_disclosure_first() -> None:
+    line = refusal_instruction().split('"')[
+        1
+    ]  # the one quoted sentence the model is told to say
+    assert disclosure_first(Call((Turn("agent", line),))).passed
 
 
 def test_a_log_cut_short_by_a_killed_run_still_reads(tmp_path: Path) -> None:

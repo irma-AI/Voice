@@ -46,7 +46,7 @@ REFUSAL = "Tyvärr kan jag inte ta emot samtal just nu, försök igen om en stun
 
 def refusal_instruction() -> str:
     return f"""\
-Say exactly this, once, and nothing else: "{DISCLOSURE} {REFUSAL}"
+Say exactly this, once, and nothing else: "Hej! {DISCLOSURE} {REFUSAL}"
 Whatever the caller says afterwards, answer nothing."""
 
 

@@ -442,5 +442,5 @@ def test_a_refused_call_says_the_disclosure_then_the_reason_and_holds_no_facts()
     None
 ):
     prompt = refusal_instruction()
-    assert DISCLOSURE in prompt and REFUSAL in prompt
+    assert f'"Hej! {DISCLOSURE} {REFUSAL}"' in prompt
     assert "Business instructions" not in prompt
