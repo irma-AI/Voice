@@ -217,7 +217,7 @@ def stored_rates(model: str, stored: Path) -> tuple[str, dict[Kind, Decimal]] | 
         }
         per_token = {kind: Decimal(str(per_m[names[kind]])) / 10**6 for kind in KINDS}
         # A bad edit must leave the call unpriced (the Portal counts its seconds), never lose its record.
-        if not all(r.is_finite() and r >= 0 for r in per_token.values()):
+        if not all(r.is_finite() and r > 0 for r in per_token.values()):
             return None
         return datetime.fromisoformat(copy["as_of"]).date().isoformat(), per_token
     except (OSError, ValueError, KeyError, TypeError, ArithmeticError):

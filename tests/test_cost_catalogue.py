@@ -222,6 +222,7 @@ def test_a_stored_copy_for_another_model_prices_nothing() -> None:
         {"text_out": "n/a"},
         {"text_out": float("nan")},
         {"audio_in": -1.0},
+        {"audio_in": 0.0},  # a zeroed kind would undercount every call
         {"as_of": "soon"},
     ],
 )
