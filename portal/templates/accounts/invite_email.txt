@@ -1,7 +1,8 @@
-Hello {{ name }},
+{% autoescape off %}Hello {{ name }},
 
 You are invited to the Voice Portal. Set your password here:
 
 {{ link }}
 
 The link works for a week. If you did not expect this email, ignore it.
+{% endautoescape %}

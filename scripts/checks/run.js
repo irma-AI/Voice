@@ -87,7 +87,20 @@ for (const g of guards) {
     let problem = null;
     if (!fs.existsSync(fx)) problem = `no fixture: add scripts/checks/fixtures/${g.name}/ with input that must make this guard fail`;
     else {
-      const r = runGuard(g, fx, fs.existsSync(envFile) ? JSON.parse(fs.readFileSync(envFile, 'utf8')) : {});
+      const env = fs.existsSync(envFile) ? JSON.parse(fs.readFileSync(envFile, 'utf8')) : {};
+      // A fixture with .guard-outside runs from a copy outside fixtures/, a git repo committed once with its env,
+      // so it shows what a guard does with .guard-* files that count only under fixtures/.
+      let root = fx;
+      if (fs.existsSync(path.join(fx, '.guard-outside'))) {
+        root = fs.mkdtempSync(path.join(require('os').tmpdir(), 'guard-outside-'));
+        fs.cpSync(fx, root, { recursive: true });
+        const git = (...a) => execFileSync('git', ['-c', 'commit.gpgsign=false', ...a], { cwd: root, env: { ...process.env, ...env }, stdio: 'ignore' });
+        git('init', '-q');
+        git('add', '-A');
+        git('commit', '-q', '--no-verify', '-m', 'fixture');
+      }
+      const r = runGuard(g, root, env);
+      if (root !== fx) fs.rmSync(root, { recursive: true, force: true });
       if (r.status !== 1 || r.counts.size === 0) problem = `did not fail on its fixture (exit ${r.status}, ${r.counts.size} violations) ${r.stderr.trim().slice(0, 200)}`;
       // A fixture's .guard-expect (one violation id per line) says which ids it must fail with, not only that it fails.
       const expectFile = path.join(fx, '.guard-expect');

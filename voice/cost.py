@@ -174,7 +174,11 @@ def _per_token(price: dict[str, Any]) -> Decimal:
             Decimal(int(listed.get("units", 0)))
             + Decimal(int(listed.get("nanos", 0))) / 10**9
         )
-        return dollars / Decimal(rate["unitInfo"]["unitQuantity"]["value"])
+        per = dollars / Decimal(rate["unitInfo"]["unitQuantity"]["value"])
+        # No real token costs a dollar or more, nothing or less; such a rate would misprice a day of calls or overflow the sum.
+        if not (per.is_finite() and 0 < per < 1):
+            raise ValueError
+        return per
     except (KeyError, ValueError, TypeError, ArithmeticError):
         raise Unpriced(CostReason.SHAPE_UNKNOWN) from None
 
@@ -236,14 +240,19 @@ def price(
         if not key:
             raise Unpriced(CostReason.NO_KEY)
         date, per_token = rates(key, model, base)
-    except Unpriced as e:
+    except Exception as e:  # noqa: BLE001  a reply our parsing trips on must not lose the Call record
+        if isinstance(e, Unpriced):
+            reason = e.reason
+        else:
+            reason = CostReason.UNREADABLE
+            logger.warning("price catalogue unreadable ({})", type(e).__name__)
         fallback = stored_rates(model, stored) if stored else None
         if not fallback:
-            return {"cost_usd": None, "price_date": None, "cost_reason": e.reason.value}
+            return {"cost_usd": None, "price_date": None, "cost_reason": reason.value}
         date, per_token = fallback
         logger.warning(
             "price catalogue failed ({}): priced from the stored rates of {}",
-            e.reason.value,
+            reason.value,
             date,
         )
     total = sum(

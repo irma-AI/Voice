@@ -55,7 +55,12 @@ def merge_main_into(repo: Path, branch_file: str) -> subprocess.CompletedProcess
     git(repo, "update-ref", "refs/remotes/origin/main", "main")
     git(repo, "switch", "-q", "no-ticket-branch")
     git(repo, "merge", "--no-commit", "--no-ff", "-q", "origin/main")
-    env = {k: v for k, v in os.environ.items() if k != "NEXT_STEP_TICKET"}
+    # CI's GUARD_* (a merge queue run's base SHA) names commits this throwaway repo lacks.
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k != "NEXT_STEP_TICKET" and not k.startswith("GUARD_")
+    }
     return subprocess.run(
         ["node", str(GATE), "--staged"],
         cwd=repo,

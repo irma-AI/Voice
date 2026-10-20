@@ -168,7 +168,8 @@
   [data-state="live"] .chip .label { color: var(--color-foam); }
   [data-state="connecting"] .chip .dot { border-color: var(--live); animation: wait 1.4s ease-in-out infinite; }
   [data-state="blocked"] .chip .dot,
-  [data-state="failed"] .chip .dot { border-style: dashed; }
+  [data-state="failed"] .chip .dot,
+  [data-state="expired"] .chip .dot { border-style: dashed; }
   .speaker { visibility: hidden; }
   [data-state="live"] .speaker { visibility: visible; }
   @keyframes wait { 50% { opacity: 0.25; } }
@@ -237,6 +238,9 @@ const STATES = {
   ended: ["Call ended", "Thank you for calling.", "Call again"],
   blocked: ["Microphone blocked", "Your browser blocked the microphone. Allow it for this page, then try again.", "Try again"],
   failed: ["Couldn't connect", "The call couldn't connect. Check your connection and try again.", "Try again"],
+  // The ticket in this page's address has run out: the core would refuse the call, and a reload brings the same ticket
+  // (and the core's refusal page), so there is no button; the status line is read out instead.
+  expired: ["Link expired", "This call link has expired. Close this page and open the call again.", ""],
 };
 function show(state) {
   const [chip, message, button] = STATES[state];
@@ -244,6 +248,7 @@ function show(state) {
   document.getElementById("chip").textContent = chip;
   document.getElementById("message").textContent = message;
   go.textContent = button;
+  go.hidden = !button;
   // aria-disabled, not disabled: a disabled button drops the keyboard focus, and Hang up would have to be found again.
   go.setAttribute("aria-disabled", String(state === "connecting"));
 }
@@ -351,7 +356,13 @@ async function browserFacts(stream, ctx) {
   return facts;
 }
 
+// The ticket's expiry, unix seconds: its third field (voice/ticket.py sign), readable without the secret. It is read
+// against the core's clock when it served the page plus the time since, so a Caller's clock set wrong never blocks a call.
+const EXPIRES = Number(new URLSearchParams(location.search).get("ticket")?.split(".")[2]), SERVED_AT = __SERVED_AT__;
+
 async function start() {
+  // Checked before the microphone and the socket. No ticket gives NaN, which compares false: the core refuses it as before.
+  if (EXPIRES < SERVED_AT + performance.now() / 1000) return show("expired");
   show("connecting");
   speaking("");
   tick(0);
