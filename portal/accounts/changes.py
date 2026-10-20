@@ -8,7 +8,7 @@ from datetime import timedelta
 from typing import Any, Literal, assert_never
 
 from django.conf import settings
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import QuerySet
 from django.db.models.functions import Now
 from django.urls import reverse
@@ -29,8 +29,19 @@ RISK: dict[Kind, Literal["low", "medium", "high"]] = {
 def preview(change: PendingChange) -> str:
     kind: Kind = change.kind  # pyright: ignore[reportAssignmentType]
     match kind:
-        case "remove_module":
-            return f"Remove the Module “{change.target['name']}”"
+        case "remove_module":  # the name is read now: the change keeps only the id, so offboarding leaves no name behind
+            name = (
+                Module.objects.filter(
+                    pk=change.target["module"], business=change.token.business
+                )
+                .values_list("name", flat=True)
+                .first()
+            )
+            return (
+                f"Remove the Module “{name}”"
+                if name is not None
+                else "Remove a Module that is already gone"
+            )
         case _:
             assert_never(kind)
 
@@ -63,6 +74,7 @@ def waiting(account: Account) -> QuerySet[PendingChange]:
         token__business__account=account,
         decision="",
         staged_at__gt=Now() - WAITS,
+        token__revoked_at__isnull=True,  # the database refuses to approve those
     ).order_by("staged_at", "id")
 
 
@@ -90,13 +102,16 @@ def decide(
     change: PendingChange, account: Account, decision: Literal["approved", "rejected"]
 ) -> Decided:
     """The one way a change is decided, only by its own Business. "refused" when it was already decided or, for an approval,
-    has expired (the database refuses those) or is another Business's."""
+    has expired or its token was revoked (the database refuses those), or is another Business's."""
     applied = False
     try:
-        with transaction.atomic():
-            if not PendingChange.objects.filter(
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
+            decided = PendingChange.objects.filter(
                 pk=change.pk, token__business__account=account
-            ).update(decision=decision, decided_at=Now()):
+            ).update(decision=decision, decided_at=Now())
+            cursor.execute("SELECT set_config('voice.change_decide', '', true)")
+            if not decided:
                 return "refused"
             if decision == "approved":
                 applied = _apply(change)

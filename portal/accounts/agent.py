@@ -289,11 +289,7 @@ def remove_module(ctx: Context[Any, Any], name: str) -> CallToolResult:
     module = Module.objects.filter(business=token.business, name=name).first()
     if module is None:
         return failed("Your Business has no Module by that name.")
-    return as_answer(
-        changes.stage(
-            token, "remove_module", {"module": module.pk, "name": module.name}
-        )
-    )
+    return as_answer(changes.stage(token, "remove_module", {"module": module.pk}))
 
 
 served = mcp_view(server)

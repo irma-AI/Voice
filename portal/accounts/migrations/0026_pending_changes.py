@@ -5,7 +5,7 @@ import django.db.models.functions.datetime
 from django.db import migrations, models
 
 # A staged change applies once, and never after it was rejected or has expired (VOI-239, CLAUDE.md hard rule 1): triggers, for every role.
-# The 7 days are changes.WAITS; tests/portal/test_pending_changes.py fails when the two differ. TRUNCATE is not covered: the tests flush with it.
+# The 7 days (168 hours, so a session's time zone cannot stretch them) are changes.WAITS; tests/portal/test_pending_changes.py fails when the two differ. TRUNCATE is not covered: the tests flush with it.
 CREATE = """
 CREATE FUNCTION accounts_pending_change_is_staged() RETURNS trigger AS $$
 BEGIN
@@ -29,7 +29,7 @@ BEGIN
         RAISE EXCEPTION 'pending_change_is_kept: a staged change is never deleted, reject it instead'
             USING ERRCODE = 'restrict_violation';
     END IF;
-    IF OLD.decision <> '' OR NEW.decision = '' OR NEW.token_id IS DISTINCT FROM OLD.token_id OR NEW.kind IS DISTINCT FROM OLD.kind
+    IF OLD.decision <> '' OR NEW.decision = '' OR NEW.id IS DISTINCT FROM OLD.id OR NEW.token_id IS DISTINCT FROM OLD.token_id OR NEW.kind IS DISTINCT FROM OLD.kind
             OR NEW.target IS DISTINCT FROM OLD.target OR NEW.staged_at IS DISTINCT FROM OLD.staged_at THEN
         RAISE EXCEPTION 'pending_change_is_decided_once: a staged change is only approved or rejected, once'
             USING ERRCODE = 'restrict_violation';
@@ -38,8 +38,16 @@ BEGIN
         RAISE EXCEPTION 'pending_change_decided_at_is_the_databases_clock: leave decided_at to the database'
             USING ERRCODE = 'check_violation';
     END IF;
-    IF NEW.decision = 'approved' AND statement_timestamp() >= OLD.staged_at + interval '7 days' THEN
+    IF current_setting('voice.change_decide', true) IS DISTINCT FROM 'on' THEN
+        RAISE EXCEPTION 'pending_change_is_decided_in_the_portal: use changes.decide, which applies an approval in the same transaction'
+            USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF NEW.decision = 'approved' AND statement_timestamp() >= OLD.staged_at + interval '168 hours' THEN
         RAISE EXCEPTION 'pending_change_has_expired: a change waits 7 days for approval, then only a rejection is left'
+            USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF NEW.decision = 'approved' AND EXISTS (SELECT 1 FROM accounts_accesstoken WHERE id = OLD.token_id AND revoked_at IS NOT NULL) THEN
+        RAISE EXCEPTION 'pending_change_token_is_revoked: a change its token asked for before it was revoked can only be rejected'
             USING ERRCODE = 'restrict_violation';
     END IF;
     RETURN NEW;

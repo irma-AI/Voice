@@ -128,6 +128,10 @@ def stage_one() -> PendingChange:
     return PendingChange.objects.get()
 
 
+# What changes.decide sets before it decides; the database refuses a decision without it.
+GATE = "SELECT set_config('voice.change_decide', 'on', true); "
+
+
 def refused(statement: str, rule: str) -> None:
     with (
         pytest.raises(IntegrityError, match=rule),
@@ -140,10 +144,10 @@ def refused(statement: str, rule: str) -> None:
 def test_the_database_applies_a_change_once_and_never_after_it_was_rejected() -> None:
     stage_one()
     decide = "UPDATE accounts_pendingchange SET decision = '{}', decided_at = statement_timestamp()"
-    with connection.cursor() as cursor:
-        cursor.execute(decide.format("rejected"))
+    with transaction.atomic(), connection.cursor() as cursor:
+        cursor.execute(GATE + decide.format("rejected"))
     for decision in ("approved", "rejected"):
-        refused(decide.format(decision), "pending_change_is_decided_once")
+        refused(GATE + decide.format(decision), "pending_change_is_decided_once")
 
 
 def test_the_database_keeps_a_change_as_it_was_staged() -> None:
@@ -156,6 +160,15 @@ def test_the_database_keeps_a_change_as_it_was_staged() -> None:
         (
             "UPDATE accounts_pendingchange SET decision = 'approved', decided_at = now() - interval '1 day'",
             "pending_change_decided_at_is_the_databases_clock",
+        ),
+        (
+            GATE
+            + "UPDATE accounts_pendingchange SET id = id + 1000, decision = 'rejected', decided_at = statement_timestamp()",
+            "pending_change_is_decided_once",
+        ),
+        (  # an approval anywhere but changes.decide would leave the Module in place
+            "UPDATE accounts_pendingchange SET decision = 'approved', decided_at = statement_timestamp()",
+            "pending_change_is_decided_in_the_portal",
         ),
         ("DELETE FROM accounts_pendingchange", "pending_change_is_kept"),
     ):
@@ -175,7 +188,8 @@ def test_the_database_refuses_to_approve_an_expired_change() -> None:
         )
         cursor.execute("SET session_replication_role = DEFAULT")
     refused(
-        "UPDATE accounts_pendingchange SET decision = 'approved', decided_at = statement_timestamp()",
+        GATE
+        + "UPDATE accounts_pendingchange SET decision = 'approved', decided_at = statement_timestamp()",
         "pending_change_has_expired",
     )
     client = Client()
@@ -248,3 +262,21 @@ def test_approving_a_removal_whose_module_is_already_gone_changes_nothing_else(
         pk=again.pk
     ).exists()  # the change named the Module that was, not its name
     assert audited(caplog)[-1].endswith(": nothing left to change")
+
+
+def test_a_change_keeps_no_module_name_and_dies_with_its_token() -> None:
+    """Offboarding revokes every token and removes the Modules: a change it leaves holds no name and can no longer be approved."""
+    client, secret, module = a_business_with_a_module()
+    remove(secret, "Bookings")
+    change = PendingChange.objects.get()
+    assert change.target == {"module": module.pk}
+    change.token.revoke()
+    assert "Bookings" not in client.get("/changes/").content.decode()
+    assert client.post(f"/changes/{change.pk}/approve/").status_code == 409
+    assert Module.objects.filter(pk=module.pk).exists()
+    refused(
+        GATE
+        + "UPDATE accounts_pendingchange SET decision = 'approved', decided_at = statement_timestamp()",
+        "pending_change_token_is_revoked",
+    )
+    assert client.post(f"/changes/{change.pk}/reject/").status_code == 302
