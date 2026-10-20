@@ -1,7 +1,7 @@
 # The one command interface: CI, hooks, loops and agents call only these targets.
 # A target that does not apply here is `@echo "n/a: <reason>"`, which records the choice.
 .DEFAULT_GOAL := help
-.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio seed check lint typecheck test test-db guards workflow-lint archive-decisions generate generate-check build
+.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio voice-samples seed check lint typecheck test test-db guards workflow-lint archive-decisions generate generate-check build
 
 help: ## List the targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -41,6 +41,9 @@ eval: ## PAID, ask Petter first (local, or the manual Evals workflow): run the S
 
 eval-audio: ## PAID, local only, ask Petter first: render the Caller audio under tests/evals/audio/
 	uv run python -m tests.evals.render_audio
+
+voice-samples: ## PAID, local only, ask Petter first: one call per voice setup into eval-runs/voice-samples/ (SETUPS="A C" for some)
+	uv run python -m scripts.render_voice_samples $(SETUPS)
 
 seed: ## Load demo data into the local app (never a copy of production)
 	@echo "n/a: no demo data yet"

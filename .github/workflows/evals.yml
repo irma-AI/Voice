@@ -12,6 +12,11 @@ on:
         description: "One Scenario id (empty runs all)"
         required: false
         default: ""
+      target:
+        description: "eval, or voice-samples (VOI-156: one clip per voice setup, kept as an artifact)"
+        type: choice
+        options: [eval, voice-samples]
+        default: eval
 
 permissions:
   contents: read
@@ -31,6 +36,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - name: make eval
+        if: inputs.target != 'voice-samples'
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           SCENARIO: ${{ inputs.scenario }}
@@ -38,6 +44,17 @@ jobs:
           # The id reaches make's shell line unquoted, so allow only what a Scenario id can be.
           [[ "$SCENARIO" =~ ^[a-z0-9_]*$ ]] || { echo "bad Scenario id" >&2; exit 2; }
           make eval ONLY="$SCENARIO"
+      - name: make voice-samples
+        if: inputs.target == 'voice-samples'
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: make voice-samples
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.target == 'voice-samples'
+        with:
+          name: voice-samples
+          path: eval-runs/voice-samples/
+          retention-days: 7
       - name: Results
         if: always()
         run: |
