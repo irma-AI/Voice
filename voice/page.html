@@ -379,8 +379,12 @@ async function start() {
   // cut it off. The agent's audio therefore makes a round trip through a WebRTC connection to this page.
   const out = ctx.createMediaStreamDestination();
   const sender = new RTCPeerConnection(), receiver = new RTCPeerConnection();
-  let loopback = "set_up";
-  try {
+  // iOS (every browser there is WebKit): the loopback plays silence (VOI-222), and the system's voice processing
+  // cancels the phone's own output while the microphone is open, so the agent plays straight through Web Audio.
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let loopback = ios ? "skipped" : "set_up";
+  if (ios) out.connect(ctx.destination);
+  else try {
     sender.onicecandidate = (e) => e.candidate && receiver.addIceCandidate(e.candidate);
     receiver.onicecandidate = (e) => e.candidate && sender.addIceCandidate(e.candidate);
     // Still refused: play straight through Web Audio, as when the loopback fails, so the agent is heard.
