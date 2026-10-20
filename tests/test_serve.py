@@ -8,6 +8,7 @@ import asyncio
 import contextlib
 import json
 import re
+import threading
 import time
 from collections.abc import Callable, Generator
 from pathlib import Path
@@ -634,11 +635,19 @@ def test_a_call_logs_the_browser_facts_and_its_playback_gaps_and_survives_a_bad_
         )
         runner = WorkerRunner(handle_sigint=False)
         await runner.add_workers(worker)
-        await runner.run()
-        # Pipecat's transport closes the socket itself when its input stops; closing twice raises.
-        if websocket.application_state != WebSocketState.DISCONNECTED:
-            await websocket.close()
+        try:
+            await runner.run()
+            # Pipecat's transport closes the socket itself when its input stops; closing twice raises.
+            if websocket.application_state != WebSocketState.DISCONNECTED:
+                await websocket.close()
+        finally:
+            ended.set()
 
+    # Pipecat closes the socket before its runner has stopped. Leaving the client then cancels the
+    # runner mid-teardown, and the CancelledError that comes out is a Pipecat child task's, which
+    # the TestClient's cancel scope does not take as its own, so it fails the test (VOI-176).
+    # So the client waits for the call to end first.
+    ended = threading.Event()
     with warnings() as logged, TestClient(app).websocket_connect("/ws") as ws:
         ws.send_text(json.dumps({"type": "browser", **FACTS}))
         ws.send_text(json.dumps({"type": "user_agent", "ua": USER_AGENT}))
@@ -648,6 +657,7 @@ def test_a_call_logs_the_browser_facts_and_its_playback_gaps_and_survives_a_bad_
         ws.send_text('{"type": "playback_gaps", "count": 2}')
         with pytest.raises(WebSocketDisconnect):
             ws.receive_text()  # the call ends from its side, so the end event is written
+        assert ended.wait(10), "the call did not end within 10 s of closing the socket"
     events = [json.loads(line) for line in log.read_text("utf-8").splitlines()]
     config, end = events[0], events[-1]
     assert config == {**config, "e": "config", "page_facts": "sent", **FACTS}
