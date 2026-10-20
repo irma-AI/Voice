@@ -87,7 +87,11 @@ def test_adding_stores_and_refuses_the_same_as_the_modules_page(
     assert bool(answer.get("isError")) == bool(refused)
     if refused:
         assert text(answer) in refused  # the page's own sentence
-    assert CommandRecord.objects.filter(command="add_module").last().result == "done"
+    assert set(
+        CommandRecord.objects.filter(command="add_module").values_list(
+            "result", flat=True
+        )
+    ) == {"done"}
 
 
 def test_an_eleventh_module_is_refused_by_the_databases_limit_as_on_the_page() -> None:
