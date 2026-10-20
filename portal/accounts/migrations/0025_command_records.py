@@ -5,9 +5,21 @@ import django.db.models.deletion
 import django.db.models.functions.datetime
 from django.db import migrations, models
 
-# Every Command an assistant sends is kept as it was (ADR 0003, CLAUDE.md hard rule 1): a trigger, because a permission
+# Every Command an assistant sends is kept as it was, at the database's own clock (ADR 0003, CLAUDE.md hard rule 1): a trigger, because a permission
 # would only bind the roles we thought of. TRUNCATE is not covered: the transactional tests flush tables with it.
 CREATE = """
+CREATE FUNCTION accounts_command_record_sent_at_is_the_databases_clock() RETURNS trigger AS $$
+BEGIN
+    IF NEW.sent_at IS DISTINCT FROM statement_timestamp() THEN
+        RAISE EXCEPTION 'command_record_sent_at_is_the_databases_clock: leave sent_at to the database'
+            USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER accounts_command_record_sent_at_is_the_databases_clock BEFORE INSERT ON accounts_commandrecord
+    FOR EACH ROW EXECUTE FUNCTION accounts_command_record_sent_at_is_the_databases_clock();
+
 CREATE FUNCTION accounts_command_record_is_append_only() RETURNS trigger AS $$
 BEGIN
     RAISE EXCEPTION 'command_record_is_append_only: a Command record is never changed or deleted, record a new Command instead'
@@ -18,6 +30,8 @@ CREATE TRIGGER accounts_command_record_is_append_only BEFORE UPDATE OR DELETE ON
     FOR EACH ROW EXECUTE FUNCTION accounts_command_record_is_append_only();
 """
 DROP = """
+DROP TRIGGER accounts_command_record_sent_at_is_the_databases_clock ON accounts_commandrecord;
+DROP FUNCTION accounts_command_record_sent_at_is_the_databases_clock();
 DROP TRIGGER accounts_command_record_is_append_only ON accounts_commandrecord;
 DROP FUNCTION accounts_command_record_is_append_only();
 """

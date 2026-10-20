@@ -6,13 +6,15 @@ Every Command lives here, so a move to another framework or host only relocates 
 serves it, and `django-stateless-mcp` (pinned) runs the SDK inside a Django view under gunicorn.
 """
 
+import contextlib
 import functools
 import json
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import replace
 from typing import Any, Literal, assert_never
 
-from asgiref.sync import async_to_sync
+from asgiref.sync import async_to_sync, sync_to_async
 from django.conf import settings
 from django.db import DatabaseError, OperationalError, connection, transaction
 from django.db.models.functions import Now
@@ -40,7 +42,8 @@ COMMANDS: dict[str, Need] = {"list_recent_calls": "read"}
 COMMAND_TIMEOUT_MS = 5000
 
 # Requests served at once. gunicorn has 4 threads (Dockerfile.portal) and the core asks the Portal for settings at every
-# call start, so agents never hold more than half of them; the rest get a 503 at once (DECISIONS.md, VOI-112).
+# call start, so requests the endpoint is serving never hold more than half of them; the rest get a 503 at once
+# (DECISIONS.md, VOI-112). A client that sends its body slowly holds a thread before any view runs: not bounded here.
 AT_ONCE = 2
 _slots = threading.BoundedSemaphore(AT_ONCE)
 
@@ -95,15 +98,60 @@ def refused(name: str) -> CallToolResult:
     return failed(f"Unknown tool: {name}")
 
 
-async def list_follows_the_token(
+# No Command can have this name (COMMAND_NAME_PATTERN has no hyphen), so the SDK answers it as unknown.
+NO_COMMAND = "no-command"
+
+
+async def sdk_answer(
+    ctx: ServerRequestContext[Any, Any], call_next: CallNext, text: str
+) -> HandlerResult:
+    """The SDK's own error answer with its envelope for the request's era (a middleware that answers alone owns the
+    envelope, the SDK's docs say), carrying `text`: the SDK answers a Command that cannot exist, and the text is swapped."""
+    params = {**(ctx.params or {}), "name": NO_COMMAND, "arguments": {}}
+    answer = await call_next(replace(ctx, params=params))
+    assert (
+        isinstance(answer, dict)
+        and answer["content"][0]["text"] == f"Unknown tool: {NO_COMMAND}"
+    )
+    answer["content"][0]["text"] = text
+    return answer
+
+
+def refuse(token: AccessToken, name: str) -> None:
+    CommandRecord.objects.create(token=token, command=name, result="refused")
+
+
+async def follows_the_token(
     ctx: ServerRequestContext[Any, Any], call_next: CallNext
 ) -> HandlerResult:
-    """Hides from tools/list what the token may not run. Hiding is not the gate: every Command checks again (`command`)."""
+    """Hides from tools/list what the token may not run, and refuses a tools/call before the SDK reads its arguments, so
+    their errors never tell a hidden Command exists. Neither is the only gate: every Command checks again (`command`)."""
+    request = getattr(getattr(ctx.request, "state", None), "django_request", None)
+    token = getattr(request, "agent_token", None)
+    if ctx.method == "tools/call":
+        params = ctx.params or {}
+        name = params.get("name")
+        need = COMMANDS.get(name) if isinstance(name, str) else None
+        if (
+            need is not None
+        ):  # a name with no entry goes on, to the SDK's "Unknown tool" or the Command's own refusal
+            assert isinstance(name, str)
+            if token is None:
+                return await sdk_answer(ctx, call_next, f"Unknown tool: {name}")
+            if not may_use(token, need):
+                await sync_to_async(refuse)(token, name)
+                return await sdk_answer(ctx, call_next, f"Unknown tool: {name}")
+            tool = server._tool_manager.get_tool(name)  # pyright: ignore[reportPrivateUsage]
+            named = set(tool.parameters.get("properties", {})) if tool else set()
+            extra = sorted(set(params.get("arguments") or {}) - named)
+            if extra:  # the SDK would drop it and run; the schema says additionalProperties: false
+                await sync_to_async(refuse)(token, name)
+                return await sdk_answer(
+                    ctx, call_next, f"{name} takes no argument named {extra[0]}."
+                )
     result = await call_next(ctx)
     if ctx.method != "tools/list" or result is None:
         return result
-    request = getattr(getattr(ctx.request, "state", None), "django_request", None)
-    token = getattr(request, "agent_token", None)
     tools = result["tools"] if isinstance(result, dict) else result.tools  # pyright: ignore[reportAttributeAccessIssue]
     kept = [
         t for t in tools if may_see(token, t["name"] if isinstance(t, dict) else t.name)
@@ -115,7 +163,20 @@ async def list_follows_the_token(
     return result
 
 
-server = MCPServer("Voice", middleware=[list_follows_the_token])
+server = MCPServer("Voice", middleware=[follows_the_token])
+
+
+@contextlib.contextmanager
+def timed() -> Iterator[None]:
+    """A transaction whose every statement stops after COMMAND_TIMEOUT_MS, lock waits included."""
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT set_config('statement_timeout', %s, true)",
+                [str(COMMAND_TIMEOUT_MS)],
+            )
+        yield
+
 
 # The Commands `command` added, so a test can tell one added any other way (it would skip the gate and the record).
 GATED: set[str] = set()
@@ -144,18 +205,22 @@ def command(
             ):  # the endpoint answers a tools/call with no token with a 401; this is the second lock
                 return refused(name)
             if not may_use(token, COMMANDS.get(name)):
-                CommandRecord.objects.create(
-                    token=token, command=name, result="refused"
-                )
+                refuse(token, name)
                 return refused(name)
             try:
-                with transaction.atomic():
-                    with connection.cursor() as cursor:
-                        cursor.execute(
-                            "SELECT set_config('statement_timeout', %s, true)",
-                            [str(COMMAND_TIMEOUT_MS)],
+                with timed():
+                    # Revoked since the endpoint read it? The lock holds a revoke back until the Command ends.
+                    live = (
+                        AccessToken.objects.select_for_update(no_key=True)
+                        .filter(pk=token.pk, revoked_at__isnull=True)
+                        .first()
+                    )
+                    if live is not None:
+                        result = fn(ctx, **arguments)
+                        # In the Command's transaction: a Command whose record cannot be written does not happen.
+                        CommandRecord.objects.create(
+                            token=token, command=name, result="done"
                         )
-                    result = fn(ctx, **arguments)
             except OperationalError as error:
                 timed_out = isinstance(error.__cause__, QueryCanceled)
                 CommandRecord.objects.create(
@@ -169,7 +234,9 @@ def command(
             except BaseException:
                 CommandRecord.objects.create(token=token, command=name, result="failed")
                 raise
-            CommandRecord.objects.create(token=token, command=name, result="done")
+            if live is None:
+                refuse(token, name)
+                return refused(name)
             return result
 
         server.add_tool(gated, title=title, annotations=annotations)
@@ -217,6 +284,11 @@ def live_token(header: str) -> AccessToken | None:
     scheme, _, secret = header.partition(" ")
     if scheme.lower() != "bearer" or not secret.startswith(tokens.PREFIX):
         return None
+    with timed():
+        return looked_up(secret)
+
+
+def looked_up(secret: str) -> AccessToken | None:
     token = (
         AccessToken.objects.filter(
             token_hash=tokens.hash_of(secret), revoked_at__isnull=True

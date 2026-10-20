@@ -419,3 +419,66 @@ def test_agents_hold_at_most_half_of_the_portals_threads() -> None:
     )
     assert threads, "Dockerfile.portal no longer names gunicorn's --threads"
     assert 1 <= agent.AT_ONCE <= int(threads.group(1)) // 2
+
+
+def test_a_hidden_command_called_with_wrong_arguments_still_answers_like_an_unknown_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The token is checked before the arguments, so their errors never tell a hidden Command exists (skeptic pass, VOI-112)."""
+
+    @agent.command("Takes a number", ToolAnnotations(read_only_hint=True))
+    def takes_a_number(ctx: Context[Any, Any], number: int) -> int:
+        return number
+
+    monkeypatch.setitem(agent.COMMANDS, "takes_a_number", "operator_read")
+    try:
+        secret = a_token(a_business())
+        for arguments in ({}, {"number": "not a number"}, {"number": 1, "extra": 2}):
+            answer = ask(
+                "tools/call",
+                {"name": "takes_a_number", "arguments": arguments},
+                secret,
+            ).json()["result"]
+            nonexistent = ask(
+                "tools/call",
+                {"name": "no_such_command", "arguments": arguments},
+                secret,
+            ).json()["result"]
+            assert json.dumps(answer).replace(
+                "takes_a_number", "no_such_command"
+            ) == json.dumps(nonexistent), arguments
+        assert (
+            list(CommandRecord.objects.values_list("result", flat=True))
+            == ["refused"] * 3
+        )
+    finally:
+        agent.server.remove_tool("takes_a_number")
+
+
+def test_an_argument_the_schema_does_not_name_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """additionalProperties: false is kept, not only advertised: the SDK alone drops an unknown argument and runs."""
+    secret = a_token(a_business())
+    answer = ask(
+        "tools/call",
+        {"name": "list_recent_calls", "arguments": {"business": 1}},
+        secret,
+    ).json()["result"]
+    assert answer["isError"] and "business" in answer["content"][0]["text"]
+    assert CommandRecord.objects.get().result == "refused"
+
+
+def test_a_command_record_takes_the_databases_clock_only() -> None:
+    a_token(a_business())
+    token = AccessToken.objects.get()
+    for forged in ("2026-01-01T00:00:00Z", "2099-01-01T00:00:00Z"):
+        with (
+            pytest.raises(
+                IntegrityError, match="command_record_sent_at_is_the_databases_clock"
+            ),
+            transaction.atomic(),
+        ):
+            CommandRecord.objects.create(
+                token=token, command="list_recent_calls", result="done", sent_at=forged
+            )
