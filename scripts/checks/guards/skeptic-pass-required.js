@@ -9,15 +9,16 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { readBaseJson, changedFiles, inFixture } = require(path.join(__dirname, '..', '..', 'base-config.js'));
+const { readBaseJson, changedFiles, inFixture, mergeGroup } = require(path.join(__dirname, '..', '..', 'base-config.js'));
 const ROOT = process.env.GUARD_ROOT || process.cwd();
 
 // A fixture has `.guard-changed-files` and `.guard-pr-text` in place of a git diff and the CI env.
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const fixture = inFixture(ROOT) && fs.existsSync(path.join(ROOT, '.guard-changed-files'));
-if (!fixture && !process.env.GUARD_BASE) {
+if (!fixture && (!process.env.GUARD_BASE || mergeGroup)) {
   console.log('#scanned 1');
-  console.error('not a pull-request run (GUARD_BASE unset): the skeptic pass is checked in CI only');
+  console.error(mergeGroup ? 'merge queue run: a merge group has no PR body; the skeptic pass was checked on the PR\'s own run'
+    : 'not a pull-request run (GUARD_BASE unset): the skeptic pass is checked in CI only');
   process.exit(0);
 }
 
