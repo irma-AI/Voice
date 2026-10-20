@@ -320,6 +320,8 @@ def test_the_recorder_tells_its_own_echo_from_a_caller(tmp_path: Path) -> None:
     # The agent's own sound, 200 ms later and quieter.
     echo = [20 + AGENT[i - 10] // 4 if i >= 10 else 20 for i in range(80)]
     events = _a_cut(tmp_path, echo)
+    # The end-of-speech silence sent to Gemini (VOI-178), as the config event logs it.
+    assert events[0]["vad"]["silence_duration_ms"] == 500
     cut, pipecat = [e for e in events if e["e"] == "barge_in"]
     assert cut["src"] == "gemini" and cut["bot_speaking"] is True
     assert pipecat["src"] == "pipecat" and pipecat["t"] - cut["t"] > 1.0

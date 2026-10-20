@@ -301,7 +301,7 @@ def test_the_call_page_wears_the_business_theme_and_says_it_is_an_ai(
     assert "--action: #2f6b4f; --on-action: #ffffff" in page
     assert "--live: #2f6b4f" in page
     assert 'src="https://portal.example.se/logo/ab&quot;c.png"' in page  # escaped
-    assert 'alt="Anna&#x27;s Salon"' in page
+    assert 'alt="Owner A&#x27;s Salon"' in page
     assert DISCLOSURE in page
 
 
