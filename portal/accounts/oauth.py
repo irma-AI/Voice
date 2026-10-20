@@ -194,6 +194,7 @@ class CodeGrant(grants.AuthorizationCodeGrant):
         row = OAuthCode.objects.filter(
             code_hash=hashed(code),
             client=client.row,
+            business__account__is_active=True,  # offboarding closes the Account: a code approved just before is spent
             used_at__isnull=True,
             created_at__gt=Now() - timedelta(seconds=CODE_SECONDS),
         ).first()
@@ -415,7 +416,9 @@ class Register(ClientRegistrationEndpoint):
                         redirect_uris=uris,
                         auth_method=method,
                     )
-            except IntegrityError:  # the store's own rule for an address (migration 0031), stricter than the check above
+            except (
+                IntegrityError
+            ):  # the store's own rule for an address (migration 0031)
                 raise OAuth2Error(
                     error="invalid_redirect_uri",
                     description="Give one to five redirect_uris, each https or http to localhost.",

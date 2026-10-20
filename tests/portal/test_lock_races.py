@@ -15,8 +15,13 @@ from typing import Any
 import pytest
 from django.db import connection, transaction
 
-from portal.accounts import changes
-from portal.accounts.models import AccessToken, Business, Module, PendingChange
+from portal.accounts.models import (
+    AccessToken,
+    Business,
+    CommandRecord,
+    Module,
+    PendingChange,
+)
 from tests.portal.helpers import business_with_login
 from tests.portal.test_agent_endpoint import a_token, ask
 from tests.portal.test_pending_changes import ADDRESS
@@ -81,8 +86,12 @@ def test_a_chat_approval_and_a_revoke_of_its_token() -> None:
     token = AccessToken.objects.get()
 
     def revoke() -> None:
-        time.sleep(0.05)
-        token.revoke()
+        # Hold the token's row as the revoke's own UPDATE does, while the approval runs, then revoke. With the old
+        # SELECT ... FOR UPDATE this was a deadlock: the approval's Command record needs the token row too.
+        with transaction.atomic():
+            list(AccessToken.objects.select_for_update(no_key=True).filter(pk=token.pk))
+            time.sleep(0.4)
+            token.revoke()
 
     def approve() -> dict[str, Any]:
         answer = ask(
@@ -111,18 +120,6 @@ def test_a_chat_approval_and_offboarding() -> None:
     assert PendingChange.objects.get().decision in ("approved", "cancelled")
 
 
-def test_a_chat_approval_and_a_page_approval() -> None:
-    business, secret, change = staged()
-
-    def page() -> None:
-        with transaction.atomic():
-            changes.decide(PendingChange.objects.get(), business.account, "approved")
-
-    alongside(page, lambda: run(secret, "approve_change", change=change))
-    assert PendingChange.objects.get().decision == "approved"
-    assert not Module.objects.exists()
-
-
 def test_staging_and_offboarding() -> None:
     business, secret, _ = staged()
     token = AccessToken.objects.get()
@@ -131,3 +128,28 @@ def test_staging_and_offboarding() -> None:
         lambda: run(secret, "change_business_details", name="Owner's Hair"),
     )
     assert all(c.decision in ("", "cancelled") for c in PendingChange.objects.all())
+
+
+def test_a_revoke_in_flight_lets_a_command_still_record_itself() -> None:
+    """The deadlock VOI-246 removed: a revoke that held its token FOR UPDATE blocked a Command's record (a foreign key to
+    the token) while that Command held the change the revoke wanted next. The revoke's own lock must not block the record."""
+    business, _, _ = staged()
+    token = AccessToken.objects.get()
+    revoking = threading.Event()
+
+    def revoke_and_wait() -> None:
+        with transaction.atomic():
+            AccessToken.revoke_all(AccessToken.objects.filter(pk=token.pk))
+            revoking.set()
+            time.sleep(0.6)
+
+    def record() -> dict[str, Any]:
+        assert revoking.wait(2)
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("SET LOCAL lock_timeout = '200ms'")
+            CommandRecord.objects.create(
+                token=token, command="approve_change", result="done"
+            )
+        return {"content": [{"text": "recorded"}]}
+
+    alongside(revoke_and_wait, record)

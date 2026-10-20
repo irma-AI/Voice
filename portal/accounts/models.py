@@ -586,7 +586,7 @@ CHANGE_DECISIONS = {
 
 
 class PendingChange(models.Model):
-    """A destructive Command's change, waiting for the Business to approve or reject it in the Portal (VOI-239). Only an approval applies it, once: triggers (migration 0026) refuse a second decision, an approval after the change expired, any other change to it and its delete, for every role."""
+    """A destructive Command's change, waiting for the Business to approve or reject it, in the chat or the Portal (VOI-239). Only an approval applies it, once: triggers (migration 0026) refuse a second decision, an approval after the change expired, any other change to it and its delete, for every role."""
 
     token = models.ForeignKey(
         AccessToken, on_delete=models.PROTECT, related_name="pending_changes"
