@@ -15,7 +15,6 @@ from django.utils.http import urlsafe_base64_encode
 
 from portal.accounts.models import Account, Business, clean_email
 
-
 # The columns' own limits, so a refusal comes here in words, not from the database at approval.
 NAME_MAX: int = Business._meta.get_field("name").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
 EMAIL_MAX: int = Account._meta.get_field("email").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
