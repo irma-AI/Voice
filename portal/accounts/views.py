@@ -43,7 +43,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
-from portal.accounts import changes, probe, tokens
+from portal.accounts import changes, oauth, probe, tokens
 from portal.accounts import modules as module_rules
 from portal.accounts.domain import shown_domain
 from portal.accounts.models import (
@@ -636,8 +636,8 @@ def access_tokens(request: HttpRequest) -> HttpResponse:
 
 
 def agent_address() -> str:
-    """Where an assistant connects: the agent endpoint, on the Portal's own address."""
-    return settings.PORTAL_URL.rstrip("/") + reverse("agent_endpoint")
+    """Where an assistant connects: the resource a sign-in's tokens are for (oauth.resource), one fact in one place."""
+    return oauth.resource()
 
 
 @login_required

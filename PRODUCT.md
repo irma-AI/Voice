@@ -23,7 +23,7 @@ Voice answers a Business's callers with a live AI voice agent, in Swedish or Eng
 
 - **Open code.** The same core and Portal ship as the hosted service and as a self-hostable copy.
 - **The core takes no actions.** Everything the agent can do in a call is an Action from a Module, an MCP server the Business adds, combines or swaps (ADR 0001).
-- **Agent-operable by design (built).** Every action a Business can take in the Portal or the core is also exposed to that Business as an MCP tool (a Command at `/mcp/`, with a pasted Access token or by signing in from claude.ai or ChatGPT), so their own agents can run Voice as fully as a person in the Portal can. The user named Accounted as the model for this.
+- **Agent-operable by design (built; sign-in from claude.ai and ChatGPT not yet seen with a real client, VOI-120).** Every action a Business can take in the Portal or the core is also exposed to that Business as an MCP tool (a Command at `/mcp/`, with a pasted Access token or by signing in from claude.ai or ChatGPT), so their own agents can run Voice as fully as a person in the Portal can. The user named Accounted as the model for this.
 
 ## Operating Context
 
@@ -39,7 +39,7 @@ Voice answers a Business's callers with a live AI voice agent, in Swedish or Eng
 - Call languages: Swedish and English only.
 - Portal UI language: English, because the code is open and language-agnostic. Translations, Swedish first, are planned (VOI-67).
 - Stack: Django, Tailwind, htmx, Postgres (ADR 0002).
-- Undecided: phone Channel (later), daily call limits (none yet). Seen to work with Claude Code; claude.ai and ChatGPT sign-in not yet seen with a real client (VOI-120).
+- Undecided: phone Channel (later), daily call limits (none yet).
 
 ## Brand Commitments
 
