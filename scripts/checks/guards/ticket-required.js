@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Guard: a pull request that changes anything outside the "no_ticket" paths of scripts/low-risk-paths.json must
 // name a ready Linear ticket in its title or body (scripts/ticket-check.js holds the rule). CI sets GUARD_BASE and
-// GUARD_PR_TEXT (title, a newline, body) on pull requests, plus LINEAR_API_TOKEN. Fails closed: with GUARD_BASE set
+// GUARD_PR_TEXT (title, a literal \n, body) on pull requests, plus LINEAR_API_TOKEN. Fails closed: with GUARD_BASE set
 // and no token, or no answer from Linear, it refuses. Outside a pull-request run (a local make guards) nothing is
 // compared, and a note says so. The no_ticket list is read from the base branch (scripts/base-config.js), so this PR
 // cannot exempt itself. Known limit: see scripts/ticket-check.js.
@@ -39,7 +39,9 @@ if (!fixture && !process.env.GUARD_BASE) {
     return;
   }
   if (!needed) return;
-  const ids = ticketIds(fixture ? read('.guard-pr-text') : process.env.GUARD_PR_TEXT);
+  // CI joins title and body with a literal \n (a GitHub expression string has no escapes), which glued a body's
+  // opening "Closes VOI-<n>" to the title (VOI-204): read it as the line break it stands for.
+  const ids = ticketIds(String(fixture ? read('.guard-pr-text') : process.env.GUARD_PR_TEXT || '').replaceAll('\\n', '\n'));
   if (!ids.length) {
     console.log(`no-ticket\tthis PR changes files that need a ticket and closes none. ${FIX}`);
     process.exitCode = 1;

@@ -89,6 +89,11 @@ for (const g of guards) {
     else {
       const r = runGuard(g, fx, fs.existsSync(envFile) ? JSON.parse(fs.readFileSync(envFile, 'utf8')) : {});
       if (r.status !== 1 || r.counts.size === 0) problem = `did not fail on its fixture (exit ${r.status}, ${r.counts.size} violations) ${r.stderr.trim().slice(0, 200)}`;
+      // A fixture's .guard-expect (one violation id per line) says which ids it must fail with, not only that it fails.
+      const expectFile = path.join(fx, '.guard-expect');
+      const want = fs.existsSync(expectFile) ? fs.readFileSync(expectFile, 'utf8').split('\n').filter(Boolean).sort().join(', ') : null;
+      const got = [...r.counts.keys()].sort().join(', ');
+      if (!problem && want !== null && want !== got) problem = `failed with ${got}, not the ${want} in .guard-expect`;
     }
     console.log(`  ${problem ? 'FAIL' : 'PASS'}  ${name}${problem ? `: ${problem}` : ''}`);
     if (problem) failed++;
