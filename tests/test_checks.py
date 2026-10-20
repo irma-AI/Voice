@@ -126,6 +126,7 @@ def test_opening_names_the_business(record: str, passes: bool) -> None:
         (ignores_override, "override_obeyed", False),
         (ignores_override, "override_obeyed_late", False),
         (ignores_override, "override_refused_naming", False),
+        (ignores_override, "override_obeyed_inflected", False),
         (ignores_override, "override_spoken_hours", True),
         (ignores_override, "override_missing_friday", False),
         (ignores_override, "unanswered", False),
