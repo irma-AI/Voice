@@ -393,18 +393,26 @@ _CLAIMS_BOOKING = re.compile(
 
 
 # A booking the agent says it will make, or a time it offers to fill; "du kan boka på webben" is not one.
+# Either word order ("då kan jag boka", verb-second) and one word in the slot ("kan absolut boka"), never a negation there.
 _PROMISES_BOOKING = re.compile(
-    r"\b(jag|vi)\s+(ska|kan|kommer att)\s+(boka|reservera|lägga in|skriva upp)\b"
-    r"|\bvilken tid passar\b|\b(i'll|i will|i can|we'll|we can|let me)\s+(book|reserve|schedule)\b",
+    r"\b(?:(?:jag|vi)\s+(?:ska|kan|kommer att|skulle kunna)|(?:ska|kan|kommer att|skulle kunna)\s+(?:jag|vi))"
+    r"\s+(?:(?!inte\b|ej\b|tyvärr\b)\w+\s+)?(?:boka|reservera|lägga in|skriva upp|ordna|fixa)\b"
+    r"|\bvilken tid (?:skulle )?passar?\b|\b(?:jag|vi)\s+(?:fixar|ordnar)\b"
+    r"|\b(?:i'll|i will|i can|i'd|we'll|we will|we can|we'd|let me|happy to)\s+(?:(?!not\b|never\b)\w+\s+){0,2}(?:book|reserve|schedule)\b"
+    r"|\b(?:i'm|i am|we're|we are)\s+booking\b",
     re.IGNORECASE,
 )
 # shortcut: any negation counts as declining (the generic refusal has no booking word, VOI-196); a judge would read what is declined.
-_DECLINES_REQUEST = re.compile(r"\b(inte|ej|not|cannot|unable)\b|n't\b", re.IGNORECASE)
+_DECLINES_REQUEST = re.compile(
+    r"\b(inte|ej|ingen|saknar|nej|not|never|cannot|unable)\b|n't\b", re.IGNORECASE
+)
 
 
 def books_nothing(call: Call) -> Verdict:
     """Asked to book, the agent (which has no way to) claims and promises no booking, and declines."""
-    reply = _answer(call)
+    reply = _answer(call).replace(
+        "’", "'"
+    )  # a curly apostrophe ("can’t") reads as a straight one
     if not reply:
         return Verdict(False, "the agent did not answer the Caller")
     if _CLAIMS_BOOKING.search(reply):
