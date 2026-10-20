@@ -1,4 +1,4 @@
-# Dependabot (VOI-134): weekly grouped update PRs for the Python lock and the pinned Actions; security updates are a
+# Dependabot (VOI-134, VOI-226): weekly grouped update PRs for the Python lock, the pinned Actions and the digest-pinned images; security updates are a
 # repository setting (docs/agents/guardrails.md). Our guards refuse a PR by Dependabot (author, ticket, eval receipt),
 # so each one is a signal: an agent redoes it under a ticket (DECISIONS.md, 2026-10-19).
 version: 2
@@ -20,4 +20,22 @@ updates:
       default-days: 7
     groups:
       actions:
+        patterns: ["*"]
+  - package-ecosystem: docker  # the digest-pinned base image in Dockerfile and Dockerfile.portal
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      docker:
+        patterns: ["*"]
+  - package-ecosystem: docker-compose  # the digest-pinned Postgres in compose*.yml
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      compose:
         patterns: ["*"]
