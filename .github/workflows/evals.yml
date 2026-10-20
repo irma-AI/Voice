@@ -86,3 +86,5 @@ jobs:
           path: eval-runs/**/*.wav
           retention-days: 7
           if-no-files-found: warn
+          # Pipecat names each recording `.._.._voice_web.py__<scenario>.wav`, which the action treats as hidden.
+          include-hidden-files: true
