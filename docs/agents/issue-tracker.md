@@ -4,6 +4,7 @@ Issues and specs for this repo live in Linear: team `VOI` (Voice), project `Voic
 
 ## Conventions
 
+- **Make room first**: run `make linear-room` before creating issues (one or a batch). Linear's free plan refuses new issues once 250 are not archived; it archives the oldest closed ones, never deletes (VOI-254).
 - **Create an issue**: `linearis issues create "<title>" --team VOI --project Voice --description "..." --labels needs-triage`.
 - **Read an issue**: `linearis issues read VOI-<n>`, and `linearis issues discussions VOI-<n>` for its comments.
 - **List issues**: `linearis issues list --team VOI --project Voice`, with `--label` and `--status` filters.
