@@ -129,17 +129,15 @@ def test_a_demo_count_lives_until_local_midnight_even_on_a_25_hour_day(
     )
 
 
-def test_the_privacy_notice_is_open_in_swedish_and_english_and_linked_from_the_landing_page() -> (
-    None
-):
-    """VOI-245: a visitor reads the demo call's notice before calling; it names the controller and a contact in both languages."""
+def test_the_privacy_notice_is_open_and_linked_from_the_landing_page() -> None:
+    """VOI-245: a visitor reads the demo call's notice before calling; it names the controller, a contact and the supervisory authority."""
     response = Client().get(reverse("privacy"))
     assert response.status_code == 200
     page = response.content.decode()
-    assert 'lang="sv"' in page and 'lang="en"' in page
-    assert page.count("Irma AI AB") == 2 and page.count("559534-1586") == 2
+    assert "Privacy notice for the Voice demo call" in page
+    assert "Irma AI AB" in page and "559534-1586" in page
     assert 'href="mailto:privacy@getirma.ai"' in page
-    assert "Integritetsskyddsmyndigheten" in page
+    assert "Swedish Authority for Privacy Protection (IMY)" in page
     assert f'href="{reverse("privacy")}"' in landing()
 
 
