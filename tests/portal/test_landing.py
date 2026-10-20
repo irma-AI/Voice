@@ -129,6 +129,20 @@ def test_a_demo_count_lives_until_local_midnight_even_on_a_25_hour_day(
     )
 
 
+def test_the_privacy_notice_is_open_in_swedish_and_english_and_linked_from_the_landing_page() -> (
+    None
+):
+    """VOI-245: a visitor reads the demo call's notice before calling; it names the controller and a contact in both languages."""
+    response = Client().get(reverse("privacy"))
+    assert response.status_code == 200
+    page = response.content.decode()
+    assert 'lang="sv"' in page and 'lang="en"' in page
+    assert page.count("Irma AI AB") == 2 and page.count("559534-1586") == 2
+    assert 'href="mailto:privacy@getirma.ai"' in page
+    assert "Integritetsskyddsmyndigheten" in page
+    assert f'href="{reverse("privacy")}"' in landing()
+
+
 def test_without_a_demo_business_the_page_carries_no_call_button(settings: Any) -> None:
     settings.DEMO_BUSINESS_ID = None
     page = landing()

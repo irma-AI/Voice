@@ -219,6 +219,11 @@ def home(request: HttpRequest) -> HttpResponse:
     return csp_override(with_panel)(render)(request, "accounts/home.html", context)
 
 
+def privacy(request: HttpRequest) -> HttpResponse:
+    """The demo call's privacy notice, open to everyone (VOI-245): Swedish, then English. Its words are in the template and are Petter's (caller wording)."""
+    return render(request, "accounts/privacy.html")
+
+
 def demo_business() -> Business | None:
     """The Business whose Call button the landing page carries; None (the default, or an id that names no Business) means no button and no demo calls."""
     if settings.DEMO_BUSINESS_ID is None:
