@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Guard: a pull request that changes a fenced path (the "fenced" key in scripts/low-risk-paths.json,
-// today tests/evals/**) needs the label named there, which only Petter adds. CI sets GUARD_BASE on pull
+// today tests/evals/**, voice/prices.json and eval-receipt.json) needs the label named there, which only Petter adds. CI sets GUARD_BASE on pull
 // requests and GUARD_PR_LABELS to the PR's label names as JSON; with GUARD_BASE but no labels it refuses. The fence
 // is read from the base branch (scripts/base-config.js).
 // Outside a pull-request run (a local make guards) nothing is compared, and a note says so.
