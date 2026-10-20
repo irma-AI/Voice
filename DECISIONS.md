@@ -107,3 +107,5 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-19] VOI-159 after VOI-154's renumber: the migration is 0024 on 0023, its field lists keep 0023's recorder order; the socket test closes only a socket Pipecat's transport has not closed (CI's run failed on the second close).
 
 [2026-10-19] VOI-159 skeptic (5e86443): page_facts now writes the facts in PAGE_FACTS's order, the database list's, not the page's; declined: number fields' spare digits (only the Caller's own data, a modified page), iPad Safari logging macos, a browserFacts() hanging past 3 s.
+[2026-10-19] Call insights research: the first versions store codes and counts only (end code, Action names, fixed-list outcome and topic), no words and no voice sentiment: every competitor's topics come from stored transcripts, and tone-based sentiment is AI Act emotion recognition.
+[2026-10-19] ESCALATED: may insights ever store model-written words about real Callers (an unanswered question, a summary), and may health-care Businesses get per-call topic codes or counts only? Legal call, docs/research/call-insights.md § 3 -> Petter
