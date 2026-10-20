@@ -15,7 +15,7 @@ import time
 from typing import NamedTuple
 from urllib.parse import parse_qs
 
-# Where the call came from; contract/call-record.schema.json lists the same three (tests/test_ticket.py fails when they differ).
+# Where the call came from; contract/call-record.schema.json lists the same four (tests/test_ticket.py fails when they differ).
 # A demo call is a visitor's call from the landing page, capped shorter (voice/serve.py CALL_SECS); nothing mints one yet (VOI-243).
 # An agent test call is a test call from a link a Business's AI assistant asked for: it counts toward the daily budget (VOI-115).
 KINDS = ("test", "call_link", "demo", "agent_test")
