@@ -45,9 +45,9 @@ The deterministic scan found 2 overused-font warnings (Instrument Serif, Geist),
 
 ## Persona Red Flags
 
-- Jordan: "Press Start call" shows with no button in sight; the ring shows 0:00 before the call starts.
-- Sam: the transcript has no role; the label is at 3.9:1; the green live dot is at 2.95:1; Escape does nothing inside the panel.
-- Casey: Hang up is off-screen during a call, and in landscape less than half the panel shows.
+- Persona A: "Press Start call" shows with no button in sight; the ring shows 0:00 before the call starts.
+- Persona B: the transcript has no role; the label is at 3.9:1; the green live dot is at 2.95:1; Escape does nothing inside the panel.
+- Persona C: Hang up is off-screen during a call, and in landscape less than half the panel shows.
 
 ## Minor Observations
 
