@@ -80,9 +80,9 @@ jobs:
           if [ -e eval-receipt.json ]; then echo "== eval-receipt.json at $GITHUB_SHA"; cat eval-receipt.json; fi
       # Each call's audio (Caller and agent, both synthetic), to hear what the agent said when a transcript reads oddly.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
+        if: always() && inputs.target == 'eval'
         with:
-          name: eval-audio
+          name: eval-calls
           path: eval-runs/**/*.wav
           retention-days: 7
           if-no-files-found: warn
