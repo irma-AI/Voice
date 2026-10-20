@@ -22,7 +22,7 @@ from mcp.server.mcpserver import Context
 from mcp.types import ToolAnnotations
 
 from portal.accounts import agent, tokens
-from portal.accounts.models import AccessToken, Account, Business, CommandRecord
+from portal.accounts.models import AccessToken, Account, Business, CommandRecord, Module
 from tests.portal.helpers import PASSWORD, a_call
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db(transaction=True)]
@@ -92,7 +92,10 @@ CALL = {"name": "list_recent_calls", "arguments": {}}
 
 @pytest.mark.parametrize("era", ERAS)
 def test_an_assistant_with_no_token_sees_the_business_commands(era: str) -> None:
-    assert tool_names(ask("tools/list", era=era)) == ["list_recent_calls"]
+    assert tool_names(ask("tools/list", era=era)) == [
+        "list_recent_calls",
+        "remove_module",
+    ]
 
 
 @pytest.mark.parametrize("era", ERAS)
@@ -134,7 +137,9 @@ LIVE_KINDS = {
     "operator full": ("full", True),
 }
 # Arguments for a Command that needs some; one with required arguments and no entry here fails the sweep below.
-EXAMPLE_ARGUMENTS: dict[str, dict[str, Any]] = {}
+EXAMPLE_ARGUMENTS: dict[str, dict[str, Any]] = {"remove_module": {"name": "Bookings"}}
+# What a Command that ran leaves in its Command record: a destructive one only stages its change (VOI-239).
+STAGED = {"remove_module"}
 
 
 def same_as_no_such_command(name: str, secret: str, era: str = "2026-07-28") -> bool:
@@ -166,6 +171,7 @@ def test_every_command_against_every_kind_of_token(era: str) -> None:
         "add the new need to MAY_RUN"
     )
     business = a_business()
+    Module.objects.create(business=business, name="Bookings", url="https://8.8.8.8/mcp")
     for kind, (scope, operator) in LIVE_KINDS.items():
         secret = a_token(business, scope, operator)
         listed = tool_names(ask("tools/list", secret=secret, era=era))
@@ -186,7 +192,8 @@ def test_every_command_against_every_kind_of_token(era: str) -> None:
                 and newest.command == name
                 and newest.token.business == business
             )
-            assert newest.result == ("done" if need in MAY_RUN[kind] else "refused"), (
+            ran = "staged" if name in STAGED else "done"
+            assert newest.result == (ran if need in MAY_RUN[kind] else "refused"), (
                 kind,
                 name,
             )

@@ -27,15 +27,15 @@ from mcp.server.mcpserver import Context, MCPServer
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from psycopg.errors import QueryCanceled
 
-from portal.accounts import tokens
-from portal.accounts.models import AccessToken, CallRecord, CommandRecord
+from portal.accounts import changes, tokens
+from portal.accounts.models import AccessToken, CallRecord, CommandRecord, Module
 
 # What a Command needs from the token that sends it. An operator Command is split by read and write like a Business's,
 # so the operator's read-only token runs no operator write.
 Need = Literal["read", "write", "operator_read", "operator_write"]
 
 # Deny by default: every Command has an entry, and a Command with no entry is refused even with a full operator token.
-COMMANDS: dict[str, Need] = {"list_recent_calls": "read"}
+COMMANDS: dict[str, Need] = {"list_recent_calls": "read", "remove_module": "write"}
 
 # Each database statement of a Command stops after this (Postgres statement_timeout), so a stuck one gives its thread back.
 # shortcut: only each statement is timed, not the Command (a thread cannot be stopped); add a deadline of its own before a Command makes several slow queries or calls out to the network.
@@ -91,6 +91,14 @@ def caller(ctx: Context[Any, Any]) -> AccessToken | None:
 
 def failed(text: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=text)], is_error=True)
+
+
+def as_answer(staged: dict[str, Any]) -> CallToolResult:
+    """A staged change's answer, as data and as text, so no agent infers from prose that it is done."""
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps(staged))],
+        structured_content=staged,
+    )
 
 
 def refused(name: str) -> CallToolResult:
@@ -218,9 +226,15 @@ def command(
                     ).first()
                     if live is not None:
                         result = fn(ctx, **arguments)
+                        staged = (
+                            isinstance(result, CallToolResult)
+                            and (result.structured_content or {}).get("staged") is True
+                        )
                         # In the Command's transaction: a Command whose record cannot be written does not happen.
                         CommandRecord.objects.create(
-                            token=token, command=name, result="done"
+                            token=token,
+                            command=name,
+                            result="staged" if staged else "done",
                         )
             except OperationalError as error:
                 timed_out = isinstance(error.__cause__, QueryCanceled)
@@ -263,6 +277,23 @@ def list_recent_calls(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
             "-started_at"
         )[:20]
     ]
+
+
+@command(
+    "Remove a Module", ToolAnnotations(read_only_hint=False, destructive_hint=True)
+)
+def remove_module(ctx: Context[Any, Any], name: str) -> CallToolResult:
+    """Asks to remove one of your Business's Modules, by its name. Nothing changes until the Business approves it in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    module = Module.objects.filter(business=token.business, name=name).first()
+    if module is None:
+        return failed("Your Business has no Module by that name.")
+    return as_answer(
+        changes.stage(
+            token, "remove_module", {"module": module.pk, "name": module.name}
+        )
+    )
 
 
 served = mcp_view(server)

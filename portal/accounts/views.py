@@ -43,8 +43,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
+from portal.accounts import changes, probe, tokens
 from portal.accounts import modules as module_rules
-from portal.accounts import probe, tokens
 from portal.accounts.domain import parse_domain, shown_domain
 from portal.accounts.models import (
     BUDGET_COUNTED,
@@ -58,6 +58,7 @@ from portal.accounts.models import (
     CallLog,
     CallRecord,
     Module,
+    PendingChange,
     clean_email,
 )
 from portal.accounts.theme import (
@@ -724,6 +725,46 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     if not Module.remove(mine):
         raise Http404
     return redirect("modules")
+
+
+@login_required
+def pending_changes(request: HttpRequest, refused: bool = False) -> HttpResponse:
+    """The changes the Business's AI assistant asked for that wait for its approval (VOI-239)."""
+    rows = [
+        (change, changes.preview(change), changes.RISK[change.kind])  # pyright: ignore[reportArgumentType]
+        for change in changes.waiting(request.user).select_related("token")  # pyright: ignore[reportArgumentType]
+    ]
+    return render(
+        request,
+        "accounts/changes.html",
+        {
+            "rows": rows,
+            "refused": refused,
+            "nothing_left": "nothing_left" in request.GET,
+            "waits": changes.WAITS.days,
+            "time_zone": settings.TIME_ZONE,
+        },
+        status=409 if refused else 200,
+    )
+
+
+@login_required
+def decide_change(request: HttpRequest, change_id: int, decision: str) -> HttpResponse:
+    """Approve or Reject: only one of the logged-in Business's own changes, through changes.decide."""
+    if request.method != "POST":
+        return back_to("pending_changes")
+    change = get_object_or_404(
+        PendingChange.objects.select_related("token"),
+        pk=change_id,
+        token__business__account=request.user,
+    )
+    match changes.decide(change, request.user, decision):  # pyright: ignore[reportArgumentType]
+        case "refused":
+            return pending_changes(request, refused=True)
+        case "nothing_left":
+            return redirect(f"{reverse('pending_changes')}?nothing_left=1")
+        case "applied" | "rejected":
+            return redirect("pending_changes")
 
 
 class AccessTokenForm(forms.Form):

@@ -475,6 +475,7 @@ class AccessToken(models.Model):
 # How a Command ended. A Command refused for its token is recorded too; an unknown one never reaches a Command, so it is not.
 COMMAND_RESULTS = {
     "done": "Done",
+    "staged": "Staged",  # a destructive Command's change waits for the Business's approval (PendingChange)
     "refused": "Refused",
     "failed": "Failed",
     "timed_out": "Timed out",
@@ -503,5 +504,44 @@ class CommandRecord(models.Model):
             models.CheckConstraint(
                 condition=models.Q(command__regex=COMMAND_NAME_PATTERN),
                 name="command_record_command_must_be_a_command_name",
+            ),
+        ]
+
+
+# What a destructive Command may stage. tests/portal/test_pending_changes.py fails until a new kind is also in changes.Kind and changes.RISK, where the closed matches handle it.
+CHANGE_KINDS = {"remove_module": "Remove a Module"}
+CHANGE_DECISIONS = {"approved": "Approved", "rejected": "Rejected"}
+
+
+class PendingChange(models.Model):
+    """A destructive Command's change, waiting for the Business to approve or reject it in the Portal (VOI-239). Only an approval applies it, once: triggers (migration 0026) refuse a second decision, an approval after the change expired, any other change to it and its delete, for every role."""
+
+    token = models.ForeignKey(
+        AccessToken, on_delete=models.PROTECT, related_name="pending_changes"
+    )  # the token that staged it; its Business is the one that decides
+    kind = models.CharField(max_length=20, choices=list(CHANGE_KINDS.items()))
+    target = (
+        models.JSONField()
+    )  # what the change names, such as {"module": 5, "name": "Bookings"}
+    staged_at = models.DateTimeField(db_default=Now())  # the database's clock, UTC
+    decision = models.CharField(
+        max_length=10, choices=list(CHANGE_DECISIONS.items()), blank=True, default=""
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(kind__in=list(CHANGE_KINDS)),
+                name="pending_change_kind_must_be_a_known_kind",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(decision__in=["", *CHANGE_DECISIONS]),
+                name="pending_change_decision_must_be_approved_or_rejected",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(decision="", decided_at__isnull=True)
+                | (~models.Q(decision="") & models.Q(decided_at__isnull=False)),
+                name="pending_change_is_decided_with_its_time",
             ),
         ]
