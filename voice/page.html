@@ -352,10 +352,6 @@ async function browserFacts(stream, ctx) {
 }
 
 async function start() {
-  // Started inside the tap, before any wait: iOS WebKit lets an element play later only if play() first ran in a
-  // user gesture, and the loopback's track arrives seconds after it (VOI-221). The empty element's refusal is expected.
-  const speakerOut = new Audio();
-  speakerOut.play().catch(() => {});
   show("connecting");
   speaking("");
   tick(0);
@@ -380,7 +376,7 @@ async function start() {
   // Chrome's echo cancelling removes only audio that arrives over WebRTC and plays in a media element,
   // not what an AudioContext plays itself, so with the speaker on the microphone heard the agent and
   // cut it off. The agent's audio therefore makes a round trip through a WebRTC connection to this page.
-  const out = ctx.createMediaStreamDestination();
+  const out = ctx.createMediaStreamDestination(), speakerOut = new Audio();
   const sender = new RTCPeerConnection(), receiver = new RTCPeerConnection();
   // iOS (every browser there is WebKit): the loopback plays silence (VOI-222), and the system's voice processing
   // cancels the phone's own output while the microphone is open, so the agent plays straight through Web Audio.
@@ -390,8 +386,7 @@ async function start() {
   if (!IOS) try {
     sender.onicecandidate = (e) => e.candidate && receiver.addIceCandidate(e.candidate);
     receiver.onicecandidate = (e) => e.candidate && sender.addIceCandidate(e.candidate);
-    // Still refused: play straight through Web Audio, as when the loopback fails, so the agent is heard.
-    receiver.ontrack = (e) => { speakerOut.srcObject = e.streams[0]; speakerOut.play().catch(() => { sink = ctx.destination; }); };
+    receiver.ontrack = (e) => { speakerOut.srcObject = e.streams[0]; speakerOut.play().catch(() => {}); };
     out.stream.getTracks().forEach((t) => sender.addTrack(t, out.stream));
     await sender.setLocalDescription(await sender.createOffer());
     await receiver.setRemoteDescription(sender.localDescription);
