@@ -1,10 +1,30 @@
 from django.contrib.auth import views as auth
 from django.urls import path
 
-from portal.accounts import agent, views
+from portal.accounts import agent, oauth, views
 
 urlpatterns = [
     path("mcp/", agent.endpoint, name="agent_endpoint"),
+    # Sign-in with a click (VOI-119): discovery at the root, as RFC 9728 and RFC 8414 place it.
+    path(
+        ".well-known/oauth-protected-resource",
+        oauth.protected_resource,
+        name="oauth_protected_resource",
+    ),
+    path(
+        ".well-known/oauth-protected-resource/mcp/",
+        oauth.protected_resource,
+        name="oauth_protected_resource_mcp",
+    ),
+    path(
+        ".well-known/oauth-authorization-server",
+        oauth.authorization_server,
+        name="oauth_authorization_server",
+    ),
+    path("oauth/register/", oauth.register, name="oauth_register"),
+    path("oauth/authorize/", oauth.authorize, name="oauth_authorize"),
+    path("oauth/token/", oauth.token, name="oauth_token"),
+    path("oauth/revoke/", oauth.revoke, name="oauth_revoke"),
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("settings/", views.business_settings, name="business_settings"),
@@ -15,6 +35,11 @@ urlpatterns = [
         "tokens/<int:token_id>/revoke/",
         views.revoke_access_token,
         name="revoke_access_token",
+    ),
+    path(
+        "tokens/connections/<int:connection_id>/revoke/",
+        views.revoke_connection,
+        name="revoke_connection",
     ),
     path("changes/", views.pending_changes, name="pending_changes"),
     path(

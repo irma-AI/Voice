@@ -20,6 +20,7 @@ from typing import Any, Literal, assert_never
 from asgiref.sync import async_to_sync, sync_to_async
 from django.conf import settings
 from django.db import DatabaseError, OperationalError, connection, transaction
+from django.db.models import Q
 from django.db.models.functions import Now
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.urls import reverse
@@ -31,7 +32,7 @@ from mcp.server.mcpserver import Context, MCPServer
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from psycopg.errors import QueryCanceled
 
-from portal.accounts import changes, invite, probe, tokens, views
+from portal.accounts import changes, invite, oauth, probe, tokens, views
 from portal.accounts.domain import shown_domain
 from portal.accounts.models import (
     AccessToken,
@@ -255,9 +256,11 @@ def command(
             try:
                 with timed():
                     # Revoked since the endpoint read it? No lock: one would hold up the token's other requests (DECISIONS.md).
-                    live = AccessToken.objects.filter(
-                        pk=token.pk, revoked_at__isnull=True
-                    ).first()
+                    live = (
+                        AccessToken.objects.filter(pk=token.pk, revoked_at__isnull=True)
+                        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=Now()))
+                        .first()
+                    )
                     if live is not None:
                         result = fn(ctx, **arguments)
                         staged = (
@@ -548,8 +551,10 @@ def challenge(description: str) -> HttpResponse:
         status=401,
         content_type="application/json",
     )
+    # resource_metadata (RFC 9728) is where a client finds the sign-in (VOI-119).
     answer["WWW-Authenticate"] = (
-        f'Bearer error="invalid_token", error_description="{description}"'
+        f'Bearer error="invalid_token", error_description="{description}", '
+        f'resource_metadata="{oauth.resource_metadata_url()}"'
     )
     return answer
 
@@ -567,6 +572,7 @@ def looked_up(secret: str) -> AccessToken | None:
         AccessToken.objects.filter(
             token_hash=tokens.hash_of(secret), revoked_at__isnull=True
         )
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=Now()))
         .select_related("business__account")
         .first()
     )

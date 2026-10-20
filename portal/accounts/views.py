@@ -56,6 +56,7 @@ from portal.accounts.models import (
     CallLog,
     CallRecord,
     Module,
+    OAuthConnection,
     PendingChange,
     clean_email,
     operator_account,
@@ -616,10 +617,28 @@ def access_tokens(request: HttpRequest) -> HttpResponse:
         {
             "form": form,
             "made": made,
-            "rows": business.access_tokens.order_by("-created_at", "-id"),  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
+            # A sign-in's hourly tokens show as its connection, one row each.
+            "rows": AccessToken.objects.filter(
+                business=business, connection__isnull=True
+            ).order_by("-created_at", "-id"),
+            "connections": OAuthConnection.objects.filter(business=business)
+            .select_related("client")
+            .order_by("-created_at", "-id"),
             "time_zone": settings.TIME_ZONE,
         },
     )
+
+
+@login_required
+def revoke_connection(request: HttpRequest, connection_id: int) -> HttpResponse:
+    """Revoke on the Access tokens page for a sign-in: only the logged-in Business's own, through OAuthConnection.revoke."""
+    if request.method != "POST":
+        return back_to("access_tokens")
+    connection = get_object_or_404(
+        OAuthConnection, pk=connection_id, business__account=request.user
+    )
+    connection.revoke()
+    return redirect("access_tokens")
 
 
 @login_required

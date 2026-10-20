@@ -16,6 +16,7 @@ from portal.accounts.models import (
     Business,
     CallRecord,
     Module,
+    OAuthConnection,
     PendingChange,
     clean_email,
 )
@@ -48,6 +49,9 @@ class Command(BaseCommand):
         if business is None:
             raise CommandError("no Account with a Business has that email")
         tokens = AccessToken.objects.filter(business=business, revoked_at__isnull=True)
+        connections = OAuthConnection.objects.filter(
+            business=business, revoked_at__isnull=True
+        )
         labels = AccessToken.objects.filter(business=business)
         modules = Module.objects.filter(business=business)
         digest = reviewed_digest(
@@ -61,6 +65,7 @@ class Command(BaseCommand):
                 "account": str(business.account.pk),
                 "business": str(business.pk),
                 "access tokens to revoke": str(tokens.count()),
+                "sign-in connections to revoke": str(connections.count()),
                 # Revoking cancels them (AccessToken.revoke, VOI-239).
                 "pending changes to cancel": str(
                     PendingChange.objects.filter(token__in=tokens, decision="").count()
@@ -80,6 +85,11 @@ class Command(BaseCommand):
             revoked = list(tokens)
             for token in revoked:
                 token.revoke()
+            # A sign-in would mint new tokens: its connection ends too (VOI-119).
+            for sign_in in list(
+                connections
+            ):  # read again here: one approved since the plan ends too
+                sign_in.revoke()
             # A label may name a person: the one path that may blank it (migration 0022), once every token is revoked.
             with connection.cursor() as cursor:
                 cursor.execute(
