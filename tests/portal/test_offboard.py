@@ -36,6 +36,9 @@ def a_business_with_everything() -> Business:
         business=business, name="Bookings", url="https://mcp.example.se/"
     )
     AccessToken.make(business, "Anna's laptop", "read", is_operator=False)
+    AccessToken.make(business, "Anna's old phone", "full", is_operator=False)[
+        0
+    ].revoke()
     a_call(business, "c0ffee0123456789", datetime(2026, 10, 17, 9, tzinfo=UTC))
     return business
 
@@ -134,6 +137,9 @@ def test_offboarding_leaves_no_personal_data_and_keeps_the_call_records() -> Non
     assert not account.has_usable_password()
     assert not Module.objects.exists()
     assert not AccessToken.objects.filter(revoked_at__isnull=True).exists()
+    assert [(t.label, t.pk) for t in AccessToken.objects.all()] == [
+        (f"Token {t.pk}", t.pk) for t in AccessToken.objects.all()
+    ]  # a label may name a person
     assert list(CallRecord.objects.values()) == calls_before
 
 

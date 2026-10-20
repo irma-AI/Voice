@@ -8,7 +8,7 @@ from contextlib import closing
 from typing import Any
 
 import pytest
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import Client
 
 from portal.accounts import modules as module_rules
@@ -310,3 +310,24 @@ def test_an_address_typed_with_a_capital_scheme_is_stored_in_lower_case() -> Non
     assert told(business)["modules"] == [
         {"name": "shouted", "url": "https://8.8.8.8/Mcp"}
     ]
+
+
+def test_the_database_refuses_removing_a_module_any_way_but_module_remove() -> None:
+    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    module = Module.objects.create(business=business, name="a", url=PUBLIC)
+    refused = "module_is_removed_by_module_remove"
+    with pytest.raises(IntegrityError, match=refused), transaction.atomic():
+        module.delete()
+    with (
+        pytest.raises(IntegrityError, match=refused),
+        transaction.atomic(),
+        connection.cursor() as cursor,
+    ):
+        cursor.execute("DELETE FROM accounts_module")
+    with pytest.raises(IntegrityError, match=refused), transaction.atomic():
+        business.delete()  # a Business's CASCADE goes through no path
+    with pytest.raises(IntegrityError, match=refused), transaction.atomic():
+        Module.remove(Module.objects.filter(pk=module.pk))
+        Module.objects.create(business=business, name="b", url=PUBLIC).delete()
+    assert Module.remove(Module.objects.filter(pk=module.pk)) == 1
+    assert not Module.objects.exists()

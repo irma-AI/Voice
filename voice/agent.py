@@ -5,7 +5,7 @@ import os
 import sys
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -110,10 +110,12 @@ async def run_call(
     idle_timeout_secs: float | None = None,
     record_to: Path | None = None,
     handle_sigint: bool = False,
+    page: Mapping[str, object] | None = None,
 ) -> None:
     """Runs one call on any Channel's transport until the Caller leaves.
 
     `ticket` is what a Portal ticket named, the Business and the kind of call; the eval Channel names none and reads a settings file.
+    `page` is what the web Channel's call page said about the browser, checked, for the barge-in log; other Channels have none.
     """
     # Pipecat logs what the Caller said at DEBUG, and its dev runner resets the level to DEBUG
     # at startup; transcripts never go in logs (.claude/rules/security.md), so cap it per call.
@@ -145,6 +147,7 @@ async def run_call(
             idle_timeout_secs,
             record_to,
             handle_sigint,
+            page,
         )
     finally:
         await modules.close()  # a call that fails before its pipeline starts must not leave a Module running
@@ -159,6 +162,7 @@ async def _run(
     idle_timeout_secs: float | None,
     record_to: Path | None,
     handle_sigint: bool,
+    page: Mapping[str, object] | None,
 ) -> None:
     llm = GeminiLiveLLMService(
         api_key=os.environ["GOOGLE_API_KEY"],
@@ -178,15 +182,24 @@ async def _run(
         "content": "The call has just connected.",
     }
     user, assistant = LLMContextAggregatorPair(LLMContext(messages=[seed]))
-    steps = [transport.input(), user, llm, transport.output(), assistant]
+    call_id = uuid.uuid4().hex
+    barge_ins = BargeInRecorder(call_id, record_to, page)
+    # The recorder's output side hears the agent's audio as it is played, for the echo signature.
+    steps = [
+        transport.input(),
+        user,
+        llm,
+        transport.output(),
+        barge_ins.output_side,
+        assistant,
+    ]
     if record_to:  # only the eval Channel passes this: a real call is never recorded
         steps.insert(3, CallRecorder(record_to))  # what the model sends downstream
         steps.insert(
             2, CallRecorder(record_to)
         )  # the Caller's transcript, which travels upstream
     # The barge-in events (the first words after one, not the rest) go to the server log in production, with an id for the call (never a number).
-    call_id = uuid.uuid4().hex
-    steps.insert(2, BargeInRecorder(call_id, record_to))
+    steps.insert(2, barge_ins)
     tally = UsageTally(call_id)
     steps.insert(steps.index(llm) + 1, tally)
     if refused:

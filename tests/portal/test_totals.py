@@ -37,13 +37,13 @@ def test_each_month_is_by_call_start_on_the_portal_clock_and_kinds_stay_apart(
     settings.SUPER_ADMIN_EMAIL = EMAIL
     anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
     _, petter = business_with_login(EMAIL, "Petter's Business")
-    settings.TIME_ZONE = "Europe/Stockholm"  # CET from 2026-10-25: one hour ahead
+    settings.TIME_ZONE = "Europe/Stockholm"  # CET from 2025-10-26: one hour ahead
     # 23:30 UTC on 31 October is 00:30 on 1 November in Stockholm; 21:30 UTC is still October.
-    a_call(anna, "late-oct-000001", datetime(2026, 10, 31, 21, 30, tzinfo=UTC))
+    a_call(anna, "late-oct-000001", datetime(2025, 10, 31, 21, 30, tzinfo=UTC))
     a_call(
         anna,
         "new-month-00001",
-        datetime(2026, 10, 31, 23, 30, tzinfo=UTC),
+        datetime(2025, 10, 31, 23, 30, tzinfo=UTC),
         kind="test",
         length_seconds=90,
         cost_usd="0.5",
@@ -51,23 +51,23 @@ def test_each_month_is_by_call_start_on_the_portal_clock_and_kinds_stay_apart(
     a_call(
         anna,
         "unpriced-00000001",
-        datetime(2026, 11, 2, 9, 0, tzinfo=UTC),
+        datetime(2025, 11, 2, 9, 0, tzinfo=UTC),
         cost_usd=None,
         price_date=None,
         cost_reason="price_unavailable",
     )
 
     page = petter.get("/totals/").content.decode()
-    assert page.index("2026-11") < page.index("2026-10")  # newest month first
-    october = page[page.index("2026-10") :]
+    assert page.index("2025-11") < page.index("2025-10")  # newest month first
+    october = page[page.index("2025-10") :]
     assert "$0.0123" in october  # the 21:30 call, priced
-    november = page[page.index("2026-11") : page.index("2026-10")]
+    november = page[page.index("2025-11") : page.index("2025-10")]
     assert "$0.5000" in november and "1.5" in november  # the 23:30 test call lands here
     assert "Test calls" in page and "Call links" in page
 
     settings.TIME_ZONE = "UTC"  # on the UTC clock the 23:30 call is October
     rows = petter.get("/totals/").context["rows"]
-    october = [cells for month, _, cells in rows if month == "2026-10"]
+    october = [cells for month, _, cells in rows if month == "2025-10"]
     assert len(october) == 1 and "0.5000" in [c[2] for c in october[0]]
 
 

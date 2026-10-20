@@ -24,7 +24,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import DataError, IntegrityError, connection, transaction
 from django.db.models import Count, Q, Sum
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import Now, TruncMonth
 from django.http import (
     Http404,
     HttpRequest,
@@ -47,6 +47,7 @@ from portal.accounts import modules as module_rules
 from portal.accounts import probe, tokens
 from portal.accounts.domain import parse_domain, shown_domain
 from portal.accounts.models import (
+    BUDGET_COUNTED,
     CALL_KINDS,
     LANGUAGES,
     PRIVACY_URL_MAX,
@@ -344,6 +345,7 @@ EVENT_NAMES = {
     "config": "Call starts",
     "bot_speech": "Agent speech",
     "barge_in": "Barge-in",
+    "levels": "Levels around the cut",
     "caller_words": "Caller's words",
     "resumed": "Agent resumes",
     "end": "Call ends",
@@ -383,7 +385,7 @@ def event_tone(events: list[dict[str, Any]], i: int) -> str:
 
 
 def in_recorder_order(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The events with their fields in the order the recorder writes them: jsonb keeps no key order, and the database's field list (migration 0020) is in the recorder's order. A nested `vad` keeps jsonb's order."""
+    """The events with their fields in the order the recorder writes them: jsonb keeps no key order, and the database's field list (migrations 0023 and 0024) is in the recorder's order. A nested `vad` keeps jsonb's order."""
     with connection.cursor() as cursor:
         cursor.execute("SELECT accounts_call_log_fields()")
         order = cursor.fetchone()[0]
@@ -726,10 +728,12 @@ def modules(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
-    """The one way a Module goes: only one of the logged-in Business's own."""
+    """Remove on the Modules page: only one of the logged-in Business's own, through Module.remove."""
     if request.method != "POST":
         return back_to("modules")
-    get_object_or_404(Module, pk=module_id, business__account=request.user).delete()
+    mine = Module.objects.filter(pk=module_id, business__account=request.user)
+    if not Module.remove(mine):
+        raise Http404
     return redirect("modules")
 
 
@@ -818,10 +822,11 @@ def call_link_refused(
 
 
 def spent_today(business: Business) -> Decimal:
-    """Today's Call link spend in dollars, the day on TIME_ZONE like the totals page. A priced record counts as priced; one the core could not price, or priced at nothing (its usage reports never came), counts its seconds at the rate Google charged this Business's priced calls so far, and at nothing before the first priced call (Petter, 2026-10-18: no invented rate). Test calls do not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
+    """Today's spend in dollars on the kinds BUDGET_COUNTED counts, the day on TIME_ZONE like the totals page. A priced record counts as priced; one the core could not price, or priced at nothing (its usage reports never came), counts its seconds at the rate Google charged this Business's priced calls so far, and at nothing before the first priced call (Petter, 2026-10-18: no invented rate). An exempt kind does not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
     zone = ZoneInfo(settings.TIME_ZONE)
     today = datetime.combine(datetime.now(zone).date(), time.min, tzinfo=zone)
-    records = CallRecord.objects.filter(business=business, kind="call_link")
+    counted = [kind for kind, counts in BUDGET_COUNTED.items() if counts]
+    records = CallRecord.objects.filter(business=business, kind__in=counted)
     priced = Q(cost_usd__gt=0)
     charged = records.filter(priced).aggregate(
         usd=Sum("cost_usd"), seconds=Sum("length_seconds")
@@ -837,8 +842,17 @@ def spent_today(business: Business) -> Decimal:
     return spent
 
 
-def to_core(business: Business, kind: str, domain: str = "") -> HttpResponse:
-    """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call."""
+def to_core(
+    request: HttpRequest, business: Business, kind: str, domain: str = ""
+) -> HttpResponse:
+    """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call. Once the Business's daily budget is spent (VOI-123), a kind BUDGET_COUNTED counts gets no ticket until the next day, whichever view mints it (VOI-172); a kind missing from it raises, so no ticket."""
+    if BUDGET_COUNTED[kind] and spent_today(business) >= business.daily_budget_usd:
+        log.warning(
+            "call refused: Business %s has spent its daily budget (kind %s)",
+            business.pk,
+            kind,
+        )
+        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
     # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
     if not settings.CORE_SECRET:
         return HttpResponse("Calls are not set up: CORE_SECRET is empty.", status=503)
@@ -851,7 +865,7 @@ def test_call(request: HttpRequest) -> HttpResponse:
     """A logged-in Business's own test call; it takes no Business from the request."""
     if request.method != "POST":
         return back_to("dashboard")
-    return to_core(get_object_or_404(Business, account=request.user), "test")
+    return to_core(request, get_object_or_404(Business, account=request.user), "test")
 
 
 @require_GET
@@ -861,7 +875,7 @@ def test_call(request: HttpRequest) -> HttpResponse:
 def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     """A Business's public call link, opened in the panel the Call button script builds on the Business's website (VOI-73).
 
-    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too. Once the Business's daily budget is spent (VOI-123), no ticket until the next day.
+    A ticket only goes to a browser that says it is loading a frame (`Sec-Fetch-Dest: iframe`) and only for a Business that has saved its website (VOI-71): the core then lets only that site frame the page. A missing header, as on an iPhone before iOS 16.4, is refused too. Once the Business's daily budget is spent (VOI-123), `to_core` gives no ticket until the next day.
     """
     business = get_object_or_404(Business, call_slug=slug)
     if request.headers.get("Sec-Fetch-Dest") != "iframe":
@@ -872,12 +886,7 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     if not business.website_domain:
         log.warning("call link refused: Business %s has no website domain", business.pk)
         return call_link_refused(request)
-    if spent_today(business) >= business.daily_budget_usd:
-        log.warning(
-            "call link refused: Business %s has spent its daily budget", business.pk
-        )
-        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
-    return to_core(business, "call_link", business.website_domain)
+    return to_core(request, business, "call_link", business.website_domain)
 
 
 # The Call button script a Business's website loads, and the hash of its bytes that the pasted tag names (VOI-135):
@@ -1003,11 +1012,26 @@ def store_core_report(
             {"error": f"malformed {name}", "fields": sorted(form.errors)}, status=400
         )
     values = dict(form.cleaned_data)
-    with transaction.atomic():  # a refusal from the database leaves the connection usable for the caller's answer
-        _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
-            call_id=values.pop("call_id"),
-            defaults={**values, **{key: body[key] for key in stored_as_sent}},
+    call_id = values.pop("call_id")
+    defaults = {**values, **{key: body[key] for key in stored_as_sent}}
+    try:
+        with transaction.atomic():  # a refusal from the database leaves the connection usable for the caller's answer
+            _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
+                call_id=call_id, defaults=defaults
+            )
+    except IntegrityError as e:
+        # The database refuses a Call record that starts in the future (migration 0021). Refusing the call would drop its
+        # cost from the daily budget (fail open), so it is stored at the database's clock instead, and the core's clock is logged as off.
+        if "call_record_must_not_start_in_the_future" not in str(e):
+            raise
+        log.warning(
+            "call record %s started in the future by the core's clock: stored at the database's",
+            call_id,
         )
+        with transaction.atomic():
+            _, created = form_class._meta.model.objects.get_or_create(  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType]
+                call_id=call_id, defaults={**defaults, "started_at": Now()}
+            )
     return JsonResponse({"stored": True}, status=201 if created else 200)
 
 
