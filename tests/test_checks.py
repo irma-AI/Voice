@@ -384,11 +384,22 @@ def test_call_log_becomes_turns(tmp_path: Path) -> None:
     assert disclosure_first(call).passed
 
 
+def test_the_disclosure_must_be_in_the_scenarios_greeting_language() -> None:
+    """VOI-255: the right language passes, the other one and a mixed opening fail."""
+    english = Call((Turn("agent", opening("Frisör Exempel", "en")),))
+    mixed = Call(
+        (Turn("agent", "Hej och välkommen! My name is Kim and I'm an AI assistant."),)
+    )
+    assert disclosure_first(english, "en").passed
+    assert not disclosure_first(english, "sv").passed
+    assert not disclosure_first(mixed, "en").passed
+
+
 def test_the_refused_call_line_passes_disclosure_first() -> None:
     line = refusal_instruction().split('"')[
         1
     ]  # the one quoted sentence the model is told to say
-    assert disclosure_first(Call((Turn("agent", line),))).passed
+    assert disclosure_first(Call((Turn("agent", line),)), "en").passed
 
 
 def test_a_log_cut_short_by_a_killed_run_still_reads(tmp_path: Path) -> None:

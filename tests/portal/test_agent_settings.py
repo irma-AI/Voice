@@ -281,6 +281,7 @@ def test_read_settings_shows_the_tokens_own_business_to_a_read_only_token() -> N
         "name": "Owner's Salon",
         "instructions": "Open 8-17.",
         "languages": ["sv", "en"],
+        "greeting_language": "en",
         "website": "example.se",
         "privacy_notice": "",
         "accent": "#1a2a44",

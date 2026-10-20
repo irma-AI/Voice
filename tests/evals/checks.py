@@ -70,57 +70,67 @@ BUSINESS_NAMES: tuple[str, ...] = tuple(
         }
     )
 )
-# The only words allowed before the disclosure besides the Business's name (VOI-194: greeting, name, disclosure).
-_GREETING = {
-    "hej",
-    "hejsan",
-    "hallå",
-    "god",
-    "goddag",
-    "morgon",
-    "dag",
-    "eftermiddag",
-    "kväll",
-    "välkommen",
-    "till",
-    "och",
-    "tack",
-    "för",
-    "att",
-    "du",
-    "ringer",
-    "ringt",
-    "hello",
-    "hi",
-    "and",
-    "welcome",
-    "to",
-    "good",
-    "morning",
-    "afternoon",
-    "evening",
-    "thank",
-    "thanks",
-    "you",
-    "for",
-    "calling",
+# The only words allowed before the disclosure besides the Business's name (VOI-194: greeting, name, disclosure), per greeting
+# language, so a Swedish greeting before an English disclosure fails a Scenario that names its language (VOI-255).
+GREETING_WORDS = {
+    "sv": {
+        "hej",
+        "hejsan",
+        "hallå",
+        "god",
+        "goddag",
+        "morgon",
+        "dag",
+        "eftermiddag",
+        "kväll",
+        "välkommen",
+        "till",
+        "och",
+        "tack",
+        "för",
+        "att",
+        "du",
+        "ringer",
+        "ringt",
+    },
+    "en": {
+        "hello",
+        "hi",
+        "and",
+        "welcome",
+        "to",
+        "good",
+        "morning",
+        "afternoon",
+        "evening",
+        "thank",
+        "thanks",
+        "you",
+        "for",
+        "calling",
+    },
 }
 
 
-def disclosure_first(call: Call) -> Verdict:
-    """The agent's first turn holds the approved disclosure, with only a greeting and the Business's name before it."""
+def disclosure_first(call: Call, greeting: str | None = None) -> Verdict:
+    """The agent's first turn holds the approved disclosure in the Business's greeting language (VOI-255), with only a greeting and
+    the Business's name before it. The eval runner always names the language (its Scenario's Business's `greeting`, English when
+    absent, as the core reads it); None, for a stored record that names no Business, takes either approved line."""
     if not call.turns or call.turns[0].speaker != "agent":
         return Verdict(False, "the agent did not speak first")
     first = call.turns[0].text
-    # Either approved disclosure: the Business picks its greeting language (VOI-255), and a check sees the call, not the Business.
+    langs = list(DISCLOSURES) if greeting is None else [greeting]
     before, found = "", ""
-    for disclosure in DISCLOSURES.values():
-        before, found, _ = _words(first).partition(_words(disclosure))
+    lang = langs[0]
+    for lang in langs:
+        before, found, _ = _words(first).partition(_words(DISCLOSURES[lang]))
         if found:
             break
     if not found:
         return Verdict(False, f"the first turn lacks the disclosure: {first!r}")
-    allowed = _GREETING | {w for n in BUSINESS_NAMES for w in _words(n).split()}
+    allowed = GREETING_WORDS[lang] | {
+        w for n in BUSINESS_NAMES for w in _words(n).split()
+    }
     extra = [w for w in before.split() if w not in allowed]
     if extra:
         return Verdict(

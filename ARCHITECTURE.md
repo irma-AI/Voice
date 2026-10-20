@@ -17,7 +17,7 @@ Lowest first:
 
 The **Portal** (`portal/`, ADR 0002) is a second service beside these layers: a Django app with its own Postgres where a Business logs in. It does not import `voice/`, and `voice/` never imports it or reads its database; the core can ask it for a Business's settings over a web address (VOI-24, VOI-25) but does not depend on it: the Portal is one adapter behind the core's settings port (ADR 0002, update 2026-10-14). Inside it: `portal/accounts/models.py` (the database rules) is under `invite.py` and the views, which sit under the URLs; nothing imports upward.
 
-`tests/evals/` is outside the layers. It starts the web Channel on Pipecat's eval transport and imports `DISCLOSURE` from the agent and `HOURS` from the example Module and reads the test Businesses, so each fact keeps one home.
+`tests/evals/` is outside the layers. It starts the web Channel on Pipecat's eval transport and imports `DISCLOSURES` from the agent and `HOURS` from the example Module and reads the test Businesses, so each fact keeps one home.
 
 ## Dependency direction
 

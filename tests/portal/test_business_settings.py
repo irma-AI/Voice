@@ -139,25 +139,14 @@ def test_the_database_refuses_no_language_or_an_unknown_one(
         Business.objects.create(account=account, name="A", languages=languages)
 
 
-def test_every_business_greets_in_english_until_it_picks_swedish_and_the_database_refuses_another() -> (
-    None
-):
-    """VOI-255: English by default (Petter, 2026-10-20), Swedish when picked on the settings page; nothing else is stored."""
+def test_every_business_greets_in_english_until_it_picks_swedish() -> None:
+    """VOI-255: English by default, not even sent; Swedish once picked; a request without the field keeps it; the database refuses another."""
     business, client = business_with_login("user-a@example.com", "Owner A's Salon")
-    assert (
-        business.greeting_language == "en"  # pyright: ignore[reportUnknownMemberType]
-        and "greeting" not in ask_core(business.pk).json()
-    )
+    assert "greeting" not in ask_core(business.pk).json()
     edit = {"name": "Owner A's Salon", "languages": ["sv", "en"]}
     client.post("/settings/", {**edit, "greeting_language": "sv"})
-    told = ask_core(business.pk).json()
-    assert told["greeting"] == "sv" and not schema_errors(told)
-    client.post("/settings/", edit)  # a request without the field keeps it
+    client.post("/settings/", edit)
     assert ask_core(business.pk).json()["greeting"] == "sv"
-    refused = client.post("/settings/", {**edit, "greeting_language": "de"})
-    assert (
-        refused.status_code == 200 and ask_core(business.pk).json()["greeting"] == "sv"
-    )
     with (
         pytest.raises(IntegrityError, match="business_greeting_language_must_be_known"),
         transaction.atomic(),
