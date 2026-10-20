@@ -39,7 +39,6 @@ TOTALS = {
 }
 # 1000 audio in at $3/M, 200 text in at $0.75/M, 300 audio out at $12/M, 40 + 10 thinking text out at $4.5/M.
 COST = "0.00697500"
-PRICE_DATE = datetime.now(UTC).date().isoformat()
 
 
 @pytest.fixture(autouse=True)
@@ -115,7 +114,7 @@ def test_the_cost_is_worked_out_by_token_kind_from_the_catalogue() -> None:
     with google([SKUS[:half], SKUS[half:]]) as (base, seen):
         assert the_cost(base) == {
             "cost_usd": COST,
-            "price_date": PRICE_DATE,
+            "price_date": datetime.now(UTC).date().isoformat(),
             "cost_reason": None,
         }
     listed = [q for p, q in seen if p == "/v2beta/skus"]
@@ -238,7 +237,8 @@ def test_the_log_says_what_google_said_and_what_matched_and_never_the_key() -> N
 
 def test_the_security_rule_lists_the_price_log_lines() -> None:
     rule = (ROOT / ".claude/rules/security.md").read_text()
+    record = next(l for l in rule.splitlines() if l.startswith("- The Call record log"))
     for line in ("price match", "price catalogue"):
-        assert f"`{line}`" in rule, (
+        assert f"`{line}`" in record, (
             f"add `{line}` to the Call record line in .claude/rules/security.md"
         )
