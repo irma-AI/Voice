@@ -98,7 +98,7 @@ Invite yourself into the local Portal with `DJANGO_SETTINGS_MODULE=portal.settin
 - **Core**: Python 3.13, [Pipecat](https://github.com/pipecat-ai/pipecat) 1.12, Gemini Live, FastAPI and uvicorn
 - **Portal**: Django, Postgres, Tailwind CSS, gunicorn and WhiteNoise
 - **Modules**: the Model Context Protocol (MCP)
-- **Deploy**: Docker images (`Dockerfile` for the core, `Dockerfile.portal` for the Portal), built from `main` on every merge; both carry a health check, and the core waits for open calls to end, at most 630 s, before a deploy stops the core
+- **Deploy**: Docker images (`Dockerfile` for the core, `Dockerfile.portal` for the Portal), built from `main` on every merge; both carry a health check, and the core waits for open calls to end, at most 630 s, before a deploy stops the core. Hosted at https://voice.petterannerwall.se (Portal) and https://call.petterannerwall.se (call page)
 
 ## Repository map
 
