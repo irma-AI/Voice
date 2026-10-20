@@ -235,6 +235,7 @@ def test_the_database_keeps_staged_values_as_they_were_staged() -> None:
     run(secret, "change_business_details", name="Owner's Hair")
     for statement in (
         """UPDATE accounts_stagedvalues SET "values" = '{"name": "Someone Else"}'""",
+        "DELETE FROM accounts_stagedvalues",
         "INSERT INTO accounts_stagedvalues (change_id, \"values\") SELECT id + 1000, '{}' FROM accounts_pendingchange",
     ):
         with (

@@ -362,12 +362,11 @@ def change_settings(
         fields.update(use_accent="on" if accent else "", accent=accent)
     if remove_logo:
         fields["remove_logo"] = "on"
-    business = locked(token)
     try:
         upload = None if logo is None else base64.b64decode(logo, validate=True)
     except binascii.Error:
         return failed("That logo is not base64. Send the image's bytes as base64.")
-    form = changed(business, logo=upload, **fields)
+    form = changed(locked(token), logo=upload, **fields)
     if not form.is_valid():
         return failed(problems(form))
     return as_answer(settings_of(form.save()))

@@ -4,10 +4,17 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 # What a Business approves is what it was shown (VOI-113, CLAUDE.md hard rule 1): staged values are added only to a change that
-# still waits and never changed after; a delete is allowed (deciding, a revoke's cancel or offboarding removes them).
+# still waits, never changed after, and deleted only once it is decided or cancelled (changes.decide, AccessToken.revoke).
 CREATE = """
 CREATE FUNCTION accounts_staged_values_are_kept_as_staged() RETURNS trigger AS $$
 BEGIN
+    IF TG_OP = 'DELETE' THEN
+        IF EXISTS (SELECT 1 FROM accounts_pendingchange WHERE id = OLD.change_id AND decision = '') THEN
+            RAISE EXCEPTION 'staged_values_stay_while_their_change_waits: decide or cancel the change first'
+                USING ERRCODE = 'restrict_violation';
+        END IF;
+        RETURN OLD;
+    END IF;
     IF TG_OP = 'UPDATE' THEN
         RAISE EXCEPTION 'staged_values_are_kept_as_staged: what the Business approves is what it was shown'
             USING ERRCODE = 'restrict_violation';
@@ -19,7 +26,7 @@ BEGIN
     RETURN NEW;
 END
 $$ LANGUAGE plpgsql;
-CREATE TRIGGER accounts_staged_values_are_kept_as_staged BEFORE INSERT OR UPDATE ON accounts_stagedvalues
+CREATE TRIGGER accounts_staged_values_are_kept_as_staged BEFORE INSERT OR UPDATE OR DELETE ON accounts_stagedvalues
     FOR EACH ROW EXECUTE FUNCTION accounts_staged_values_are_kept_as_staged();
 """
 DROP = """

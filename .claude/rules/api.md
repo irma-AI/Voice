@@ -3,6 +3,7 @@ paths:
   - "portal/urls.py"
   - "portal/**/views.py"
   - "portal/**/forms.py"
+  - "portal/accounts/settings_form.py"
 ---
 
 # Request handlers

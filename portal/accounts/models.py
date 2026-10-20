@@ -575,7 +575,7 @@ class PendingChange(models.Model):
 class StagedValues(models.Model):
     """What a staged settings change would write (VOI-113): a name or instructions may be personal data, so they live apart from
     their PendingChange, which is kept for good. Deleted once the change is decided or cancelled, or its Business offboarded; never
-    changed, and added only to a change that waits (triggers, migration 0027), so what is approved is what was shown."""
+    changed, deleted only once the change is decided, and added only to a change that waits (triggers, migration 0027), so what is approved is what was shown."""
 
     change = models.OneToOneField(
         PendingChange,
