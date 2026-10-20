@@ -13,13 +13,12 @@ from django.test import Client
 
 from portal.accounts import modules as module_rules
 from portal.accounts import probe
-from portal.accounts.models import Business, Module
+from portal.accounts.models import Module
 from tests.portal.contract import schema_errors
-from tests.portal.helpers import business_with_login
+from tests.portal.helpers import SECRET, ask_core, business_with_login
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
-SECRET = "a-secret-for-tests"
 PUBLIC = (
     "https://8.8.8.8/mcp"  # a literal public address, so the form's check needs no DNS
 )
@@ -32,13 +31,6 @@ EXAMPLE = (
 def core_secret(settings: Any) -> None:
     settings.CORE_SECRET = SECRET
     settings.ALLOW_LOCAL_MODULES = False  # hosted, unless a test says it is self-hosted
-
-
-def told(business: Business) -> dict[str, Any]:
-    reply = Client().get(
-        f"/api/settings/{business.pk}/", headers={"Authorization": f"Bearer {SECRET}"}
-    )
-    return reply.json()
 
 
 def add(client: Client, name: str, address: str) -> Any:
@@ -59,11 +51,11 @@ def refused(client: Client, name: str, address: str) -> str:
 
 
 def test_several_modules_can_be_added_and_the_core_is_told_about_all_of_them() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     assert add(client, "bookings", PUBLIC)["Location"] == "/modules/"
     assert add(client, "hours", "https://1.1.1.1/hours/mcp")["Location"] == "/modules/"
 
-    settings_told = told(business)
+    settings_told = ask_core(business.pk).json()
     assert settings_told["modules"] == [
         {"name": "bookings", "url": PUBLIC},
         {"name": "hours", "url": "https://1.1.1.1/hours/mcp"},
@@ -74,12 +66,12 @@ def test_several_modules_can_be_added_and_the_core_is_told_about_all_of_them() -
 
 
 def test_a_business_with_no_modules_is_told_an_empty_list() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    assert told(business)["modules"] == []
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    assert ask_core(business.pk).json()["modules"] == []
 
 
 def test_hosted_refuses_what_could_reach_our_network_or_hold_a_password() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     for address in (
         "http://8.8.8.8/mcp",  # not https
         "https://127.0.0.1/mcp",  # this machine
@@ -97,15 +89,15 @@ def test_hosted_refuses_what_could_reach_our_network_or_hold_a_password() -> Non
 def test_a_local_module_is_refused_by_the_settings_check_itself_not_only_by_the_form(
     settings: Any,
 ) -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     Module.objects.create(
         business=business, name="sneaky", command="python", args=["-m", "x"]
     )
     Module.objects.create(business=business, name="ok", url=PUBLIC)
 
-    assert told(business)["modules"] == [{"name": "ok", "url": PUBLIC}]
+    assert ask_core(business.pk).json()["modules"] == [{"name": "ok", "url": PUBLIC}]
     settings.ALLOW_LOCAL_MODULES = True  # self-hosting serves it
-    assert told(business)["modules"] == [
+    assert ask_core(business.pk).json()["modules"] == [
         {"name": "sneaky", "command": "python", "args": ["-m", "x"]},
         {"name": "ok", "url": PUBLIC},
     ]
@@ -115,11 +107,11 @@ def test_a_self_hosted_portal_accepts_a_local_module_and_a_plain_http_address(
     settings: Any,
 ) -> None:
     settings.ALLOW_LOCAL_MODULES = True
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     add(client, "local", "python -m modules.example --port '8 8'")
     add(client, "mine", "http://127.0.0.1:9000/mcp")
 
-    assert told(business)["modules"] == [
+    assert ask_core(business.pk).json()["modules"] == [
         {
             "name": "local",
             "command": "python",
@@ -127,13 +119,13 @@ def test_a_self_hosted_portal_accepts_a_local_module_and_a_plain_http_address(
         },
         {"name": "mine", "url": "http://127.0.0.1:9000/mcp"},
     ]
-    assert not schema_errors(told(business))
+    assert not schema_errors(ask_core(business.pk).json())
     refused(client, "pw", "http://u:secret@127.0.0.1:9000/mcp")  # even here
 
 
 def test_the_page_lists_the_actions_a_module_offers(settings: Any) -> None:
     settings.ALLOW_LOCAL_MODULES = True
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     add(client, "hours", EXAMPLE)
     page = checked(client)
     assert "opening_hours" in page and "cannot be used" not in page
@@ -147,7 +139,7 @@ def closed_port() -> int:
 
 def test_opening_the_page_does_not_ask_the_modules(settings: Any) -> None:
     settings.ALLOW_LOCAL_MODULES = True
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     with closing(socket.socket()) as listening:
         listening.bind(("127.0.0.1", 0))
         listening.listen()
@@ -163,7 +155,7 @@ def test_a_module_that_cannot_be_reached_says_so_and_the_others_still_show(
     settings: Any,
 ) -> None:
     settings.ALLOW_LOCAL_MODULES = True
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     add(client, "dead", f"http://127.0.0.1:{closed_port()}/mcp")
     add(client, "missing", "no-such-program-voice")
     add(client, "hours", EXAMPLE)
@@ -174,7 +166,7 @@ def test_a_module_that_cannot_be_reached_says_so_and_the_others_still_show(
 
 def test_a_module_that_never_answers_says_so(settings: Any) -> None:
     settings.ALLOW_LOCAL_MODULES = True
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     with closing(socket.socket()) as hung:
         hung.bind(("127.0.0.1", 0))
         hung.listen()
@@ -186,7 +178,7 @@ def test_a_module_that_never_answers_says_so(settings: Any) -> None:
 def test_a_module_whose_address_lookup_hangs_gives_up_within_the_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     Module.objects.create(
         business=business, name="slow", url="https://slow.example/mcp"
     )
@@ -209,7 +201,7 @@ def test_a_module_whose_address_lookup_hangs_gives_up_within_the_limit(
 
 
 def test_a_hosted_page_does_not_reach_into_our_network_for_a_stored_address() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     Module.objects.create(
         business=business, name="inside", url="https://127.0.0.1:1/mcp"
     )
@@ -217,29 +209,35 @@ def test_a_hosted_page_does_not_reach_into_our_network_for_a_stored_address() ->
 
 
 def test_a_module_can_be_removed_and_swapped() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     add(client, "old", PUBLIC)
     old = Module.objects.get(name="old")
     assert client.post(f"/modules/{old.pk}/remove/")["Location"] == "/modules/"
     add(client, "new", "https://1.1.1.1/mcp")
-    assert told(business)["modules"] == [{"name": "new", "url": "https://1.1.1.1/mcp"}]
+    assert ask_core(business.pk).json()["modules"] == [
+        {"name": "new", "url": "https://1.1.1.1/mcp"}
+    ]
 
 
 def test_a_business_sees_and_removes_only_its_own_modules() -> None:
-    anna, anna_client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    bo, bo_client = business_with_login("bo.testsson@example.com", "Bo's Bikes")
-    add(anna_client, "annas", PUBLIC)
-    theirs = Module.objects.get(name="annas")
+    business_a, client_a = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_b, client_b = business_with_login("user-b@example.com", "Owner B's Bikes")
+    add(client_a, "module_a", PUBLIC)
+    theirs = Module.objects.get(name="module_a")
 
-    assert "annas" not in bo_client.get("/modules/").content.decode()
-    assert bo_client.post(f"/modules/{theirs.pk}/remove/").status_code == 404
+    assert "module_a" not in client_b.get("/modules/").content.decode()
+    assert client_b.post(f"/modules/{theirs.pk}/remove/").status_code == 404
     assert Module.objects.filter(pk=theirs.pk).exists()
-    assert told(anna)["modules"] == [{"name": "annas", "url": PUBLIC}]
-    assert told(bo)["modules"] == []  # never served to the core for another Business
+    assert ask_core(business_a.pk).json()["modules"] == [
+        {"name": "module_a", "url": PUBLIC}
+    ]
+    assert (
+        ask_core(business_b.pk).json()["modules"] == []
+    )  # never served to the core for another Business
 
 
 def test_a_removal_must_be_a_post_behind_the_login() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     module = Module.objects.create(business=business, name="a", url=PUBLIC)
     # A link removes nothing; it goes back to the Modules page (where a login after an ended session lands).
     assert client.get(f"/modules/{module.pk}/remove/")["Location"] == "/modules/"
@@ -250,7 +248,7 @@ def test_a_removal_must_be_a_post_behind_the_login() -> None:
 
 
 def test_the_form_refuses_a_repeated_name() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     add(client, "bookings", PUBLIC)
     assert "already have a Module with that name" in refused(
         client, "bookings", "https://1.1.1.1/mcp"
@@ -259,7 +257,7 @@ def test_the_form_refuses_a_repeated_name() -> None:
 
 
 def test_the_page_stops_offering_the_form_at_ten_and_the_post_adds_none() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     for i in range(module_rules.MODULES_MAX):
         Module.objects.create(
             business=business, name=f"m{i}", url=f"https://8.8.8.8/{i}"
@@ -272,7 +270,7 @@ def test_the_page_stops_offering_the_form_at_ten_and_the_post_adds_none() -> Non
 
 
 def test_the_database_refuses_a_bad_module_whoever_writes_it() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     good: dict[str, Any] = {"business": business, "name": "a", "url": PUBLIC}
     Module.objects.create(**good)
     bad: list[dict[str, Any]] = [
@@ -293,29 +291,29 @@ def test_the_database_refuses_a_bad_module_whoever_writes_it() -> None:
 
 
 def test_the_database_refuses_an_eleventh_module() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     for i in range(module_rules.MODULES_MAX):
         Module.objects.create(
             business=business, name=f"m{i}", url=f"https://8.8.8.8/{i}"
         )
     with pytest.raises(IntegrityError, match="module_limit"), transaction.atomic():
         Module.objects.create(business=business, name="eleven", url=PUBLIC)
-    other, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
+    other, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
     Module.objects.create(
         business=other, name="m0", url=PUBLIC
     )  # the limit is per Business
 
 
 def test_an_address_typed_with_a_capital_scheme_is_stored_in_lower_case() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     add(client, "shouted", "HTTPS://8.8.8.8/Mcp")
-    assert told(business)["modules"] == [
+    assert ask_core(business.pk).json()["modules"] == [
         {"name": "shouted", "url": "https://8.8.8.8/Mcp"}
     ]
 
 
 def test_the_database_refuses_removing_a_module_any_way_but_module_remove() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     module = Module.objects.create(business=business, name="a", url=PUBLIC)
     refused = "module_is_removed_by_module_remove"
     with pytest.raises(IntegrityError, match=refused), transaction.atomic():

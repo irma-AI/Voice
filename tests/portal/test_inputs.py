@@ -29,7 +29,7 @@ def hosted(settings: Any) -> None:
 
 def settings_post(client: Client, **fields: Any) -> Any:
     return client.post(
-        "/settings/", {"name": "Anna's Salon", "languages": ["sv"], **fields}
+        "/settings/", {"name": "Owner A's Salon", "languages": ["sv"], **fields}
     )
 
 
@@ -37,20 +37,20 @@ def settings_post(client: Client, **fields: Any) -> Any:
 
 
 def test_a_wrong_password_is_said_once_and_the_email_is_kept() -> None:
-    business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_with_login("user-a@example.com", "Owner A's Salon")
     page = (
         Client()
-        .post("/login/", {"username": "Anna.Testsson@example.com", "password": "wrong"})
+        .post("/login/", {"username": "User-A@example.com", "password": "wrong"})
         .content.decode()
     )
     assert page.count("That email and password do not match") == 1
     assert "case-sensitive" not in page  # the email is not
-    assert 'value="Anna.Testsson@example.com"' in page
+    assert 'value="User-A@example.com"' in page
     assert "wrong" not in page  # a password is never sent back
 
 
 def test_an_ended_session_says_so_and_a_pressed_button_lands_on_its_page() -> None:
-    business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_with_login("user-a@example.com", "Owner A's Salon")
     visitor = Client()
 
     # The session ended while the Test call button was on screen: the press goes to the login, which says why.
@@ -61,7 +61,7 @@ def test_an_ended_session_says_so_and_a_pressed_button_lands_on_its_page() -> No
 
     # Logging in goes back to the address, which starts no call on a GET but shows the button again.
     after = visitor.post(
-        sent_to, {"username": "anna.testsson@example.com", "password": PASSWORD}
+        sent_to, {"username": "user-a@example.com", "password": PASSWORD}
     )
     assert after["Location"] == "/test-call/"
     back = visitor.get("/test-call/")
@@ -75,7 +75,7 @@ def test_an_ended_session_says_so_and_a_pressed_button_lands_on_its_page() -> No
 def test_a_form_without_a_valid_token_is_refused_with_a_page_that_says_what_to_do(
     path: str,
 ) -> None:
-    business, logged_in = business_with_login("anna.testsson@example.com", "Anna")
+    business, logged_in = business_with_login("user-a@example.com", "Owner A")
     strict = Client(enforce_csrf_checks=True)
     strict.cookies = logged_in.cookies
 
@@ -89,11 +89,11 @@ def test_a_form_without_a_valid_token_is_refused_with_a_page_that_says_what_to_d
     assert "Nothing was changed" in page
     assert f'href="{path}"' in page
     assert "CSRF" not in page  # Django's own page names the mechanism, not the remedy
-    assert Business.objects.get(pk=business.pk).name == "Anna"
+    assert Business.objects.get(pk=business.pk).name == "Owner A"
 
 
 def test_a_refused_log_out_links_to_a_page_that_opens() -> None:
-    _, logged_in = business_with_login("anna.testsson@example.com", "Anna")
+    _, logged_in = business_with_login("user-a@example.com", "Owner A")
     strict = Client(enforce_csrf_checks=True)
     strict.cookies = logged_in.cookies
     page = strict.post("/logout/").content.decode()
@@ -104,7 +104,7 @@ def test_a_refused_log_out_links_to_a_page_that_opens() -> None:
 
 
 def test_a_refused_save_lists_what_to_fix_at_the_top_and_keeps_what_was_typed() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     page = settings_post(
         client,
         name="   ",
@@ -123,13 +123,12 @@ def test_a_refused_save_lists_what_to_fix_at_the_top_and_keeps_what_was_typed() 
     assert "Öppet mån–fre 🙂 ﷽" in page  # kept, unicode and all
     assert 'value="localhost"' in page
     assert "Saved." not in page
-    assert Business.objects.get().name == "Anna's Salon"
+    assert Business.objects.get().name == "Owner A's Salon"
 
 
-def test_facts_count_a_line_break_as_one_character_as_the_browser_does() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna")
+def test_instructions_count_a_line_break_as_one_character_as_the_browser_does() -> None:
+    business, client = business_with_login("user-a@example.com", "Owner A")
     limit = INSTRUCTIONS_MAX  # the model's own limit
-    assert limit == 5000
     # 5,000 characters in the browser's count, sent with the two-character line breaks every browser sends
     typed = "\r\n".join(["x" * 99] * 50) + "x"
     assert len(typed.replace("\r\n", "\n")) == limit
@@ -143,7 +142,7 @@ def test_facts_count_a_line_break_as_one_character_as_the_browser_does() -> None
 
 
 def test_the_settings_fields_carry_their_limits_and_the_right_keyboards() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna")
+    _, client = business_with_login("user-a@example.com", "Owner A")
     page = client.get("/settings/").content.decode()
     instructions = re.search(r"<textarea[^>]*>", page)
     assert instructions and 'maxlength="5000"' in instructions.group(0)
@@ -160,7 +159,7 @@ def test_the_settings_fields_carry_their_limits_and_the_right_keyboards() -> Non
 
 
 def test_an_international_domain_is_shown_as_its_owner_writes_it() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna")
+    business, client = business_with_login("user-a@example.com", "Owner A")
     settings_post(client, website_domain="https://www.Räksmörgås.SE/boka")
     business.refresh_from_db()
     assert business.website_domain == "xn--rksmrgs-5wao1o.se"  # what browsers send
@@ -173,7 +172,7 @@ def test_an_international_domain_is_shown_as_its_owner_writes_it() -> None:
 
 
 def test_a_logo_picked_in_a_refused_save_is_asked_for_again() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna")
+    _, client = business_with_login("user-a@example.com", "Owner A")
     page = settings_post(
         client,
         name="",
@@ -184,7 +183,7 @@ def test_a_logo_picked_in_a_refused_save_is_asked_for_again() -> None:
 
 
 def test_remove_my_logo_stays_ticked_after_a_refused_save() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna")
+    business, client = business_with_login("user-a@example.com", "Owner A")
     business.set_logo(PNG)
     business.save()
     page = settings_post(client, name="", remove_logo="on").content.decode()
@@ -197,7 +196,7 @@ def test_remove_my_logo_stays_ticked_after_a_refused_save() -> None:
 
 
 def test_a_refused_module_says_what_is_missing_once_and_keeps_what_was_typed() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna")
+    _, client = business_with_login("user-a@example.com", "Owner A")
     page = client.post("/modules/", {"name": "  ", "address": ""}).content.decode()
     assert "Give the Module a name." in page
     assert "Give the Module&#x27;s address." in page
@@ -212,7 +211,7 @@ def test_a_refused_module_says_what_is_missing_once_and_keeps_what_was_typed() -
 
 
 def test_a_long_module_name_is_kept_whole_and_wraps() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna")
+    business, client = business_with_login("user-a@example.com", "Owner A")
     name = "Bokningssystemets-integrationsmodul-" * 2 + "x" * 28
     assert len(name) == 100
     assert (
@@ -226,7 +225,7 @@ def test_a_long_module_name_is_kept_whole_and_wraps() -> None:
 
 
 def test_every_page_loads_the_script_that_sends_a_form_once() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna")
+    _, client = business_with_login("user-a@example.com", "Owner A")
     for path in ("/settings/", "/modules/", "/tokens/", "/dashboard/"):
         assert "portal/portal.js" in client.get(path).content.decode(), path
     assert "portal/portal.js" in Client().get("/login/").content.decode()
