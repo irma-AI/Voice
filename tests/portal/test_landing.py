@@ -106,7 +106,7 @@ def test_request_access_mails_contact_email_when_it_is_set(settings: Any) -> Non
 @pytest.mark.db
 @pytest.mark.django_db
 def test_a_logged_in_business_sees_its_dashboard_link_instead_of_log_in() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     page = client.get(reverse("home")).content.decode()
     assert f'href="{reverse("dashboard")}"' in page
     assert f'href="{reverse("login")}"' not in page
