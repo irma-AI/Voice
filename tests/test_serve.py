@@ -51,7 +51,7 @@ from voice.serve import (
     create_app,
     same_site,
 )
-from voice.ticket import sign
+from voice.ticket import KINDS, sign
 
 
 def test_microphone_bytes_become_a_caller_audio_frame() -> None:
@@ -232,6 +232,23 @@ def test_the_call_page_says_which_site_may_frame_it() -> None:
         page("call_link", "example.se")
         == "frame-ancestors https://example.se https://*.example.se"
     )
+
+
+def test_a_call_ends_at_its_kinds_cap_and_the_page_ring_fills_over_the_same_time() -> (
+    None
+):
+    """A demo call gets 180 s and a call link call 600 s (VOI-243): the ticket's kind picks the model session's timeout and the page's ring."""
+    assert set(serve.CALL_SECS) == set(KINDS), (
+        "give every kind of voice/ticket.py KINDS a cap in voice/serve.py CALL_SECS"
+    )
+    client = TestClient(
+        create_app("portal-secret"), base_url="https://voice.example.se"
+    )
+    expires = int(time.time()) + 60
+    for kind, secs in (("demo", 180), ("call_link", 600)):
+        assert serve.call_params(kind).session_timeout == secs
+        ticket = sign("portal-secret", 7, kind, expires, "example.se")
+        assert f"MAX_CALL_SECS = {secs};" in client.get(f"/?ticket={ticket}").text
 
 
 def test_the_socket_refuses_a_call_with_no_ticket() -> None:
