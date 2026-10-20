@@ -186,16 +186,21 @@ def plan(only: str | None) -> list[tuple[str, str]] | None:
     return [(only, only)] if only in SCENARIOS else None
 
 
+def batch_at(pairs: list[tuple[str, str]], i: int) -> list[tuple[str, str]] | None:
+    """The batch that starts at pair i, or None mid-batch: the first Scenario alone, then PARALLEL at a time.
+
+    Alone first, so a price is known and a harness that never reaches the agent shows before any parallel spend.
+    """
+    if i == 0:
+        return pairs[:1]
+    return pairs[i : i + PARALLEL] if (i - 1) % PARALLEL == 0 else None
+
+
 def batch_stop(
-    caps: Caps,
-    runs: Path,
-    spent: float,
-    worst: float,
-    size: int,
-    loop_id: str,
-    today: str,
+    caps: Caps, runs: Path, spent: float, size: int, loop_id: str, today: str
 ) -> str | None:
-    """The cap a batch of `size` Scenarios could reach if each cost `worst` (the dearest so far), or None."""
+    """The cap a batch of `size` Scenarios could reach if each cost as much as the dearest call in the ledger, or None."""
+    worst = max((e["sek"] for e in _ledger(runs)), default=0.0)
     return stopped_by(caps, **_totals(runs, spent + worst * size, loop_id, today))
 
 
@@ -226,13 +231,11 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
     spent, rows, stopped = 0.0, list[Row](), None
     played: dict[str, tuple[int, Path]] = {}
     for i, (sc, base) in enumerate(pairs):
-        if i % PARALLEL == 0:
+        if batch := batch_at(pairs, i):
             # Fail closed: a cap already reached, or one this batch could reach, stops it before any spend.
-            # shortcut: the first batch has no cost seen yet, so only SCENARIO_TIMEOUT_S bounds it; upgrade with a per-Scenario price bound.
-            worst = max((r.sek for r in rows), default=0.0)
-            batch = pairs[i : i + PARALLEL]
+            # shortcut: a call dearer than any in the ledger can pass a cap by up to a batch; upgrade with a per-Scenario bound in caps.json.
             if stopped := batch_stop(
-                caps, runs, spent, worst, len(batch), loop_id, now.strftime("%Y-%m-%d")
+                caps, runs, spent, len(batch), loop_id, now.strftime("%Y-%m-%d")
             ):
                 break
             names, bases = [n for n, _ in batch], [b for _, b in batch]
@@ -266,6 +269,13 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
             # a call without its Module looks like a model miss; say what the bot logged about it
             for line in module_log(run_dir, sc) or ["no Module line in the bot log"]:
                 print(f"{sc}: {line}", file=sys.stderr)
+        stopped = stopped_by(
+            caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))
+        )
+        # Stop only between batches: the rest of a batch is already paid for and must reach the ledger.
+        batch_end = i + 1 == len(pairs) or batch_at(pairs, i + 1) is not None
+        if stopped and batch_end:
+            break
     return report(rows, run_dir, spent, stopped, skipped=len(ids) - len(rows))
 
 

@@ -14,10 +14,12 @@ from tests.evals.checks import (
 from tests.evals.render_audio import LINES
 from tests.evals.run import (
     MAX_REPEATS,
+    PARALLEL,
     ROOT,
     SCENARIOS,
     SETTINGS_FILES,
     Row,
+    batch_at,
     batch_stop,
     main,
     missing_audio,
@@ -113,10 +115,26 @@ def test_a_module_line_in_the_bot_log_is_found(tmp_path: Path) -> None:
     assert module_log(tmp_path, "module_hours_2") == []
 
 
+def test_the_first_scenario_plays_alone_then_parallel_at_a_time() -> None:
+    pairs = plan(None)
+    assert pairs
+    got = [b for i in range(len(pairs)) if (b := batch_at(pairs, i)) is not None]
+    assert got[0] == pairs[:1]
+    assert all(len(b) <= PARALLEL for b in got)
+    assert [p for b in got for p in b] == pairs  # every Scenario once, in order
+
+
 def test_a_batch_starts_only_if_its_worst_case_fits_under_the_caps(
     tmp_path: Path,
 ) -> None:
+    entry = {
+        "ts": "2026-10-19T08:00:00+00:00",
+        "run": "earlier",
+        "loop": "",
+        "sek": 0.2,
+    }
+    (tmp_path / "ledger.jsonl").write_text(json.dumps(entry) + "\n", "utf-8")
     caps = Caps(per_run_sek=1, per_loop_sek=30, per_day_sek=50)
-    # 0.5 spent, the dearest Scenario so far cost 0.2: three more could reach 1.1
-    assert batch_stop(caps, tmp_path, 0.5, 0.2, 3, "", "2026-10-20") == "run cap 1 SEK"
-    assert batch_stop(caps, tmp_path, 0.5, 0.2, 2, "", "2026-10-20") is None
+    # 0.5 spent, the dearest call in the ledger cost 0.2: three more could reach 1.1
+    assert batch_stop(caps, tmp_path, 0.5, 3, "", "2026-10-20") == "run cap 1 SEK"
+    assert batch_stop(caps, tmp_path, 0.5, 2, "", "2026-10-20") is None
