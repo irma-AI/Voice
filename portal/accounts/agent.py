@@ -495,18 +495,6 @@ def decided(
     )
     if found is None:
         return failed("Your Business has no pending change with that number.")
-    # The Business, then the token, shared: the order staging and offboarding lock them, so a revoke of the token waits for
-    # this decision and nothing waits on another in a ring (decide locks the Business again, then the change).
-    list(Business.objects.select_for_update().filter(pk=token.business.pk))
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT 1 FROM accounts_accesstoken WHERE id = %s AND revoked_at IS NULL FOR SHARE",
-            [token.pk],
-        )
-        if cursor.fetchone() is None:
-            return refused(
-                "approve_change" if decision == "approved" else "reject_change"
-            )
     outcome = changes.decide(found, token.business.account, decision, by=token)
     if outcome not in DONE:
         return failed(views.OUTCOMES[outcome])
@@ -615,7 +603,9 @@ def change_business_details(
     }
     if not given:
         return failed("Name at least one of name, instructions or languages.")
-    form = changed(locked(token), **given)
+    form = changed(
+        Business.objects.get(pk=token.business.pk), **given
+    )  # staging writes no Business row: no lock
     if not form.is_valid():
         return failed(problems(form))
     values = {k: form.cleaned_data[k] for k in given}

@@ -140,9 +140,9 @@ def _apply(change: PendingChange) -> bool:
             values = _values(change)
             if not values:
                 return False
-            business = Business.objects.select_for_update().get(
+            business = Business.objects.get(
                 pk=change.token.business.pk
-            )  # as stored now: the form writes every setting
+            )  # as stored now; decide already holds its lock
             form = changed(business, **values)
             if (
                 not form.is_valid()
@@ -207,7 +207,7 @@ def decide(
     applied = False
     try:
         with transaction.atomic(), connection.cursor() as cursor:
-            # The Business first, then the change, as a Command and offboarding lock them, so none waits on another in a ring.
+            # The Business, then the change: the one lock order (offboarding and a settings Command lock the Business first too).
             list(Business.objects.select_for_update().filter(account=account))
             cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
             decided = PendingChange.objects.filter(

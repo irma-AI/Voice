@@ -507,12 +507,14 @@ class AccessToken(models.Model):
     def revoke_all(cls, chosen: models.QuerySet[AccessToken]) -> None:
         """revoke() for many tokens at once, in two statements whatever their number (a sign-in leaves one an hour)."""
         with transaction.atomic(), connection.cursor() as cursor:
-            ids = list(
-                chosen.filter(revoked_at__isnull=True)
-                .select_for_update()
-                .values_list("pk", flat=True)
+            # A plain UPDATE, not SELECT ... FOR UPDATE: its lighter row lock lets a Command in flight still record itself
+            # against the token (a foreign key), which FOR UPDATE would block into a deadlock. RETURNING: only what this revoked.
+            cursor.execute(
+                "UPDATE accounts_accesstoken SET revoked_at = statement_timestamp()"
+                " WHERE id = ANY(%s) AND revoked_at IS NULL RETURNING id",
+                [list(chosen.values_list("pk", flat=True))],
             )
-            cls.objects.filter(pk__in=ids).update(revoked_at=Now())
+            ids = [row[0] for row in cursor.fetchall()]
             # Each change's row lock orders this against an approval in flight: whichever decides first wins, the other is refused.
             cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
             # Only the rows this revoke cancelled: an approval that won a change's row lock is not one of them.
@@ -524,11 +526,13 @@ class AccessToken(models.Model):
             cancelled = sorted(row[0] for row in cursor.fetchall())
             cursor.execute("SELECT set_config('voice.change_decide', '', true)")
             StagedValues.objects.filter(change__in=cancelled).delete()
-        if cancelled:
-            audit.info(
-                "cancelled pending changes %s with the revoke of token %s",
-                cancelled,
-                ", ".join(str(i) for i in ids),
+        if cancelled:  # on commit: offboarding's transaction may still roll back
+            transaction.on_commit(
+                lambda: audit.info(
+                    "cancelled pending changes %s with the revoke of token %s",
+                    cancelled,
+                    ", ".join(str(i) for i in ids),
+                )
             )
 
 
