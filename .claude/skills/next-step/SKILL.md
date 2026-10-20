@@ -22,7 +22,8 @@ Repo specifics live in `CLAUDE.md` and `docs/agents/`; this skill names the sect
 Stop and wait for the user. Pushing, opening a PR and merging a green one are not gates (`CLAUDE.md` § Workflow):
 
 - after picking the flow: show its checklist and wait for the go before the first step, unless the user already asked for this flow or gave `/next-step <issue-id>`
-- during an interview or a question a skill asks (`grill-with-docs`, `impeccable shape`, `impeccable` choices such as the decision page or `quieter`'s questions, `triage`, `wayfinder`)
+- during an interview or a question a skill asks (`grill-with-docs`, `impeccable shape`, `impeccable critique`'s closing question, `impeccable` choices such as the decision page or `quieter`'s questions, `triage`, `wayfinder`)
+- at a Design review's pick (which findings to fix) and its ship-or-iterate on the after screenshots
 - at `to-spec`'s and `tdd`'s seam checks, unless the spec already agreed the seams
 - after `to-tickets`: the user approves the tickets
 - when a step fails twice, or a skill or `CLAUDE.md` says to ask first (`CLAUDE.md` § Stop and ask)
@@ -74,6 +75,7 @@ A flow's state lives in the tracker (`docs/agents/issue-tracker.md`) and git, ne
 | A new page or screen | New view |
 | A new part inside an existing page | New component |
 | Spacing, type, colour, motion or copy | Visual tweak |
+| Reviewing an existing page or surface as a whole | Design review |
 | Tidying structure or finding what to delete | Code health |
 | Changing a guard, baseline, CI workflow or ruleset | Guardrail change |
 | Too big or foggy to plan in one session | Huge effort |
@@ -163,6 +165,23 @@ In a cloud session you can't open a page served in the container: present the de
 ```
 
 No tickets, and no new test unless the rendered content changes.
+
+### Design review
+
+Impeccable's Evaluate commands judge a surface that exists, then one fix command per finding, and a ponytail-review closes it, so a design that grew by patches gets one look as a whole.
+
+```
+- [ ] impeccable critique <surface> ⏸: its two isolated assessments, its report, its closing question
+- [ ] impeccable audit <surface>: the scored technical report; it fixes nothing
+- [ ] pick ⏸: the findings to fix, in order; none picked ends the review here, with no branch or PR
+- [ ] branch → ticket
+- [ ] screenshot: "before"
+- [ ] per finding, the one command that fits: too much → distill · unclear words → clarify · real data and errors → harden · spacing, type, colour → layout, typeset, colorize · phone → adapt · loud or flat → quieter, bolder
+- [ ] impeccable polish
+- [ ] screenshot: "after" at 390px and 1280px; show both, ship or iterate ⏸
+- [ ] ponytail-review over the whole design the work touched, the page and the code behind it, not only the diff
+- [ ] review → commit → pr → merge
+```
 
 ### Code health
 
