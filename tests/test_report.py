@@ -25,6 +25,7 @@ from pipecat.workers.runner import WorkerRunner
 
 from voice import report
 from voice.bargein import BargeInRecorder
+from voice.cost import MODEL, price
 from voice.portal_client import post
 from voice.report import UsageTally, build_record, report_call
 from voice.ticket import Ticket
@@ -49,8 +50,8 @@ TOTALS = {
 }
 
 
-# No Google key in these tests' environment: the record is priced as far as the key (the pricing itself is tests/test_cost_catalogue.py).
-NO_KEY = {"cost_usd": None, "price_date": None, "cost_reason": "no_billing_key"}
+# No Google key in these tests' environment: the record is priced from the stored official rates (the pricing itself is tests/test_cost_catalogue.py).
+NO_KEY = price(TOTALS, MODEL, "")
 
 
 def a_record() -> dict[str, Any]:
@@ -113,7 +114,7 @@ def test_a_finished_call_makes_a_record_the_contract_accepts() -> None:
         "call_link",
         184,
     )
-    assert record["cost_usd"] is None and record["cost_reason"] == "no_billing_key"
+    assert record["cost_usd"] and record["cost_reason"] is None
 
 
 def test_the_tally_adds_up_every_usage_report_of_a_call() -> None:
@@ -253,8 +254,9 @@ def test_the_record_is_logged_before_any_send_and_the_call_never_waits_on_it() -
         took, logged_before_send = asyncio.run(end_of_call())
 
     assert took < 0.1  # the Portal held its answer; the call did not
-    assert lines[0] == "call record " + json.dumps(a_record())
-    assert logged_before_send == 1  # the line was written when the send had not started
+    # The stored-rates line, then the record, both written when the send had not started.
+    assert lines[1] == "call record " + json.dumps(a_record())
+    assert logged_before_send == 2
     assert [s[2] for s in seen if s[0] == "/api/calls/"] == [a_record()]
     assert any("record delivered" in line for line in lines)
 
