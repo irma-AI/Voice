@@ -5,6 +5,9 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
+from pipecat.evals.scenario import EvalScenarioFile
+from pipecat.evals.script import EvalScriptScenario
+
 from tests.evals.checks import (
     HOSTILE_BUSINESS_FILE,
     MODULE_BUSINESS_FILE,
@@ -88,6 +91,20 @@ def test_the_module_scenarios_each_play_their_own_business() -> None:
     }
     assert "example_hostile" in HOSTILE_BUSINESS_FILE.read_text("utf-8")
     assert "example_hostile" not in MODULE_BUSINESS_FILE.read_text("utf-8")
+
+
+def test_the_module_scenarios_end_on_the_speech_after_the_tool_result() -> None:
+    # A holding line before the Action is speech too: stopping on its end would cut off the answer (VOI-206).
+    for sc in SETTINGS_FILES:
+        path = ROOT / "tests" / "evals" / "scenarios" / f"{sc}.yaml"
+        (scenario,) = EvalScenarioFile.load(path).scenarios
+        assert isinstance(scenario, EvalScriptScenario)
+        last = [e.event for e in scenario.turns[-1].expect]
+        assert last == [
+            "function_call_stopped",
+            "bot_started_speaking",
+            "bot_stopped_speaking",
+        ], f"{sc}'s last turn must wait for the tool result, then the speech after it"
 
 
 def test_missing_audio_is_found_before_any_scenario_is_played(tmp_path: Path) -> None:
