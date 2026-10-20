@@ -70,11 +70,9 @@ def test_every_page_has_the_csp_the_logo_its_own_and_the_call_link_no_frame_rule
         "a-secret-for-tests",
         "https://voice.example.se/",
     )
-    business, logged_in = business_with_login(
-        "anna.testsson@example.com", "Anna's Salon"
-    )
+    business, logged_in = business_with_login("user-a@example.com", "Owner A's Salon")
     business.set_logo(b"\x89PNG\r\n\x1a\n" + b"\x00" * 40)
-    business.website_domain = "anna.example.se"
+    business.website_domain = "site-a.example.se"
     business.save()
     special = {"logo", "call_link"}
     names = [n for n in route_names(get_resolver().url_patterns) if n not in special]

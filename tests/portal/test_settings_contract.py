@@ -29,8 +29,8 @@ def test_the_schema_itself_is_valid() -> None:
 @pytest.mark.django_db
 def test_what_the_portal_serves_matches_the_schema() -> None:
     business = Business.objects.create(
-        account=Account.objects.create_user("anna.testsson@example.com", "x" * 20),
-        name="Anna's Salon",
+        account=Account.objects.create_user("user-a@example.com", "x" * 20),
+        name="Owner A's Salon",
         instructions="Öppet mån-fre 8-17.",
         languages=["sv", "en"],
     )
@@ -66,8 +66,8 @@ def test_the_editable_fields_are_exactly_the_schema_properties() -> None:
 @pytest.mark.django_db
 def test_what_the_portal_serves_for_a_theme_matches_the_schema() -> None:
     business = Business.objects.create(
-        account=Account.objects.create_user("anna.testsson@example.com", "x" * 20),
-        name="Anna's Salon",
+        account=Account.objects.create_user("user-a@example.com", "x" * 20),
+        name="Owner A's Salon",
         accent="#1c7ed6",
     )
     business.set_logo(b"\x89PNG\r\n\x1a\n" + b"\x00" * 40)

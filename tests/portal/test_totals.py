@@ -18,7 +18,7 @@ EMAIL = "petter.testsson@example.com"  # synthetic
 
 def test_only_the_account_named_in_the_setting_sees_the_page(settings: Any) -> None:
     _, client = business_with_login(EMAIL, "Petter's Business")
-    _, other = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, other = business_with_login("user-a@example.com", "Owner A's Salon")
     settings.SUPER_ADMIN_EMAIL = ""  # unset: nobody, not even the right account
     assert client.get("/totals/").status_code == 403
     assert "Totals for every Business" not in client.get("/dashboard/").content.decode()
@@ -32,13 +32,13 @@ def test_each_month_is_by_call_start_on_the_portal_clock_and_kinds_stay_apart(
     settings: Any,
 ) -> None:
     settings.SUPER_ADMIN_EMAIL = EMAIL
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     _, petter = business_with_login(EMAIL, "Petter's Business")
     settings.TIME_ZONE = "Europe/Stockholm"  # CET from 2025-10-26: one hour ahead
     # 23:30 UTC on 31 October is 00:30 on 1 November in Stockholm; 21:30 UTC is still October.
-    a_call(anna, "late-oct-000001", datetime(2025, 10, 31, 21, 30, tzinfo=UTC))
+    a_call(business_a, "late-oct-000001", datetime(2025, 10, 31, 21, 30, tzinfo=UTC))
     a_call(
-        anna,
+        business_a,
         "new-month-00001",
         datetime(2025, 10, 31, 23, 30, tzinfo=UTC),
         kind="test",
@@ -46,7 +46,7 @@ def test_each_month_is_by_call_start_on_the_portal_clock_and_kinds_stay_apart(
         cost_usd="0.5",
     )
     a_call(
-        anna,
+        business_a,
         "unpriced-00000001",
         datetime(2025, 11, 2, 9, 0, tzinfo=UTC),
         cost_usd=None,
@@ -70,12 +70,12 @@ def test_each_month_is_by_call_start_on_the_portal_clock_and_kinds_stay_apart(
 
 def test_calls_without_a_cost_are_counted_and_add_no_dollars(settings: Any) -> None:
     settings.SUPER_ADMIN_EMAIL = EMAIL
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     _, petter = business_with_login(EMAIL, "Petter's Business")
     when = datetime(2026, 10, 17, 5, 0, tzinfo=UTC)
-    a_call(anna, "priced-000000001", when, cost_usd="0.25")
+    a_call(business_a, "priced-000000001", when, cost_usd="0.25")
     a_call(
-        anna,
+        business_a,
         "unpriced-00000001",
         when,
         cost_usd=None,
@@ -83,7 +83,7 @@ def test_calls_without_a_cost_are_counted_and_add_no_dollars(settings: Any) -> N
         cost_reason="price_unavailable",
     )
     row = petter.get("/totals/").context["rows"][0]
-    assert row[:2] == ("2026-10", "Anna's Salon")
+    assert row[:2] == ("2026-10", "Owner A's Salon")
     test_cells, link_cells = row[2]
     assert test_cells == (0, "0.0", "0.0000", 0)
     assert link_cells == (2, "6.1", "0.2500", 1)  # two 184 s calls, one with no cost
@@ -100,10 +100,10 @@ def test_the_table_scrolls_by_keyboard_and_says_what_it_is(settings: Any) -> Non
 def test_phones_get_every_figure_without_the_wide_table(settings: Any) -> None:
     """Below the md breakpoint the wide table is hidden; each month and Business is a block of its own with the same figures."""
     settings.SUPER_ADMIN_EMAIL = EMAIL
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     _, petter = business_with_login(EMAIL, "Petter's Business")
     a_call(
-        anna,
+        business_a,
         "priced-000000001",
         datetime(2026, 10, 17, 5, 0, tzinfo=UTC),
         cost_usd="0.25",
@@ -119,7 +119,7 @@ def test_phones_get_every_figure_without_the_wide_table(settings: Any) -> None:
     for part in (phone, wide):
         for figure in (
             "2026-10",
-            "Anna&#x27;s Salon",
+            "Owner A&#x27;s Salon",
             "Test calls",
             "Call links",
             "3.1",
