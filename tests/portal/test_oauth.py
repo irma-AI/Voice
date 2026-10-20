@@ -414,3 +414,120 @@ def test_offboarding_ends_a_sign_in(settings: Any) -> None:
         }
     )
     assert renew.json()["error"] == "invalid_grant"
+
+
+def test_the_operators_sign_in_gives_no_operator_powers(settings: Any) -> None:
+    settings.SUPER_ADMIN_EMAIL = "user-a@example.com"
+    _, owner = business_with_login("user-a@example.com", "Voice")
+    _, tokens = signed_in(owner, "full")
+    assert AccessToken.objects.get(connection__isnull=False).is_operator is False
+    listed = tool_names(ask("tools/list", secret=tokens["access_token"]))
+    assert "list_totals" not in listed and "invite_business" not in listed
+
+
+def test_a_reused_refresh_token_ends_the_connection() -> None:
+    _, owner = business_with_login("user-a@example.com", "Owner A's Salon")
+    client_id, first = signed_in(owner)
+    renew = {
+        "grant_type": "refresh_token",
+        "refresh_token": first["refresh_token"],
+        "client_id": client_id,
+    }
+    second = exchange(renew).json()
+    assert (
+        exchange(renew).json()["error"] == "invalid_grant"
+    )  # the old one again: someone else has it
+    assert OAuthConnection.objects.get().revoked_at is not None
+    later = {**renew, "refresh_token": second["refresh_token"]}
+    assert exchange(later).json()["error"] == "invalid_grant"
+    assert ask("tools/list", secret=second["access_token"]).status_code == 401
+
+
+def test_a_blank_client_name_is_shown_as_an_ai_assistant() -> None:
+    _, owner = business_with_login("user-a@example.com", "Owner A's Salon")
+    client_id = register(client_name="   ")["client_id"]
+    verifier, challenge = pkce()
+    assert "An AI assistant" in html.unescape(
+        owner.get(authorize_url(client_id, challenge), secure=True).content.decode()
+    )
+    code = approve(owner, authorize_url(client_id, challenge))["code"][0]
+    form = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": BACK,
+        "client_id": client_id,
+        "code_verifier": verifier,
+    }
+    assert exchange(form).status_code == 200
+
+
+def test_the_answer_names_its_issuer() -> None:
+    _, owner = business_with_login("user-a@example.com", "Owner A's Salon")
+    client_id = register()["client_id"]
+    _, challenge = pkce()
+    assert approve(owner, authorize_url(client_id, challenge))["iss"] == [PORTAL]
+
+
+def test_the_database_refuses_what_a_sign_in_must_never_hold() -> None:
+    business, owner = business_with_login("user-a@example.com", "Owner A's Salon")
+    other, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
+    signed_in(owner, "read")
+    sign_in = OAuthConnection.objects.get()
+    good = {
+        "label": "x",
+        "scope": "read",
+        "connection": sign_in,
+        "expires_at": timezone.now() + timedelta(minutes=30),
+    }
+    for bad, rule in (
+        ({"business": other}, "access_token_matches_its_sign_in"),
+        ({"business": business, "scope": "full"}, "access_token_matches_its_sign_in"),
+        (
+            {"business": business, "is_operator": True},
+            "access_token_matches_its_sign_in",
+        ),
+        (
+            {"business": business, "expires_at": timezone.now() + timedelta(days=2)},
+            "access_token_matches_its_sign_in",
+        ),
+    ):
+        with pytest.raises(IntegrityError, match=rule), transaction.atomic():
+            AccessToken.objects.create(
+                **{
+                    **good,
+                    **bad,
+                    "token_hash": hashlib.sha256(secrets.token_bytes(8)).hexdigest(),
+                }
+            )
+    long = "https://a.example/" + "x" * 2000
+    for uris, name in (
+        (["http://evil.example/cb"], "X"),
+        ([long], "X"),
+        (["https://a.example/cb"] * 6, "X"),
+        (["https://a.example/cb"], "  "),
+    ):
+        with pytest.raises(IntegrityError, match="oauth_client_"), transaction.atomic():
+            OAuthClient.objects.create(
+                client_id=secrets.token_hex(8),
+                client_name=name,
+                redirect_uris=uris,
+                auth_method="none",
+            )
+    for statement, rule in (
+        ("DELETE FROM accounts_oauthcode", "oauth_code_is_kept"),
+        ("DELETE FROM accounts_oauthclient", "oauth_client_is_kept"),
+        (
+            "UPDATE accounts_oauthconnection SET refresh_hash = 'plain', previous_refresh_hash = refresh_hash",
+            "refresh_hash",
+        ),
+    ):
+        refused(statement, rule)
+    with pytest.raises(IntegrityError, match="code_hash"), transaction.atomic():
+        OAuthCode.objects.create(
+            code_hash="plain",
+            client=sign_in.client,
+            business=business,
+            scope="read",
+            redirect_uri=BACK,
+            code_challenge="c",
+        )

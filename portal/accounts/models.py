@@ -501,17 +501,25 @@ class AccessToken(models.Model):
     def revoke(self) -> None:
         """The one way a token stops working (the Access tokens page, offboarding). The database sets the time (its own clock, refused if any other) and a revoked token stays revoked.
         The changes it asked for that still wait are cancelled with it, so a leaked token's asks die when it does (VOI-239)."""
+        type(self).revoke_all(type(self).objects.filter(pk=self.pk))
+
+    @classmethod
+    def revoke_all(cls, chosen: models.QuerySet[AccessToken]) -> None:
+        """revoke() for many tokens at once, in two statements whatever their number (a sign-in leaves one an hour)."""
         with transaction.atomic(), connection.cursor() as cursor:
-            type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(
-                revoked_at=Now()
+            ids = list(
+                chosen.filter(revoked_at__isnull=True)
+                .select_for_update()
+                .values_list("pk", flat=True)
             )
+            cls.objects.filter(pk__in=ids).update(revoked_at=Now())
             # Each change's row lock orders this against an approval in flight: whichever decides first wins, the other is refused.
             cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
             # Only the rows this revoke cancelled: an approval that won a change's row lock is not one of them.
             cursor.execute(
                 "UPDATE accounts_pendingchange SET decision = 'cancelled', decided_at = statement_timestamp()"
-                " WHERE token_id = %s AND decision = '' RETURNING id",
-                [self.pk],
+                " WHERE token_id = ANY(%s) AND decision = '' RETURNING id",
+                [ids],
             )
             cancelled = sorted(row[0] for row in cursor.fetchall())
             cursor.execute("SELECT set_config('voice.change_decide', '', true)")
@@ -520,7 +528,7 @@ class AccessToken(models.Model):
             audit.info(
                 "cancelled pending changes %s with the revoke of token %s",
                 cancelled,
-                self.pk,
+                ", ".join(str(i) for i in ids),
             )
 
 
@@ -638,7 +646,8 @@ class OAuthClient(models.Model):
         max_length=64, blank=True, default=""
     )  # SHA-256; empty for a public client
     client_name = models.CharField(max_length=100)
-    redirect_uris = ArrayField(models.CharField(max_length=2000), size=5)
+    # Text, not varchar(2000): Postgres cuts an over-long array element silently; the trigger (migration 0031) refuses it.
+    redirect_uris = ArrayField(models.TextField(), size=5)
     auth_method = models.CharField(
         max_length=20, choices=list(OAUTH_AUTH_METHODS.items())
     )
@@ -659,8 +668,8 @@ class OAuthClient(models.Model):
                 name="oauth_client_has_a_hashed_secret_unless_public",
             ),
             models.CheckConstraint(
-                condition=models.Q(redirect_uris__len__gte=1),
-                name="oauth_client_has_a_redirect_uri",
+                condition=models.Q(client_name__regex=r"\S"),
+                name="oauth_client_name_must_not_be_blank",
             ),
         ]
 
@@ -681,6 +690,18 @@ class OAuthCode(models.Model):
     created_at = models.DateTimeField(db_default=Now())
     used_at = models.DateTimeField(null=True, blank=True)
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(code_hash__regex=tokens.HASH_PATTERN),
+                name="oauth_code_code_hash_is_a_sha256",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(scope__in=list(tokens.SCOPES)),
+                name="oauth_code_scope_must_be_known",
+            ),
+        ]
+
 
 class OAuthConnection(models.Model):
     """A Business's sign-in from one AI assistant: it lasts until revoked on the Access tokens page, and renews its short-lived
@@ -694,8 +715,26 @@ class OAuthConnection(models.Model):
     )
     scope = models.CharField(max_length=10, choices=list(tokens.SCOPES.items()))
     refresh_hash = models.CharField(max_length=64, unique=True)
+    # The one before: a client that presents it again has lost a race to whoever stole it, so the connection ends (RFC 9700 §4.14.2).
+    previous_refresh_hash = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(db_default=Now())
     revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(refresh_hash__regex=tokens.HASH_PATTERN)
+                & (
+                    models.Q(previous_refresh_hash="")
+                    | models.Q(previous_refresh_hash__regex=tokens.HASH_PATTERN)
+                ),
+                name="oauth_connection_refresh_hash_is_a_sha256",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(scope__in=list(tokens.SCOPES)),
+                name="oauth_connection_scope_must_be_known",
+            ),
+        ]
 
     def revoke(self) -> None:
         """The one way a connection ends (the Access tokens page, offboarding): it and every token it gave stop working."""
@@ -703,5 +742,4 @@ class OAuthConnection(models.Model):
             type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(
                 revoked_at=Now()
             )
-            for token in self.access_tokens.filter(revoked_at__isnull=True):  # pyright: ignore[reportAttributeAccessIssue]
-                token.revoke()
+            AccessToken.revoke_all(AccessToken.objects.filter(connection=self))

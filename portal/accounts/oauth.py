@@ -20,6 +20,7 @@ from datetime import timedelta
 from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
+from authlib.common.urls import add_params_to_uri
 from authlib.integrations.django_oauth2 import AuthorizationServer
 from authlib.oauth2 import OAuth2Error
 from authlib.oauth2.rfc6749 import ClientMixin, InvalidRequestError, grants
@@ -27,26 +28,27 @@ from authlib.oauth2.rfc6750 import BearerTokenGenerator
 from authlib.oauth2.rfc7009 import RevocationEndpoint
 from authlib.oauth2.rfc7591 import ClientMetadataClaims, ClientRegistrationEndpoint
 from authlib.oauth2.rfc7636 import CodeChallenge
+from authlib.oauth2.rfc9207 import IssuerParameter
+from django import forms
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models.functions import Now
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
-from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from portal.accounts import tokens
 from portal.accounts.models import (
+    OAUTH_AUTH_METHODS,
     AccessToken,
     Business,
     OAuthClient,
     OAuthCode,
     OAuthConnection,
-    operator_account,
 )
 
 # An Access token from a sign-in works for an hour; the client renews it with its refresh token.
@@ -156,7 +158,15 @@ class Refresh:
         return self.row.revoked_at is not None
 
 
-AUTH_METHODS = ["none", "client_secret_post", "client_secret_basic"]
+AUTH_METHODS = list(OAUTH_AUTH_METHODS)
+
+
+def refuse_another_resource(request: Any) -> None:
+    if not same_resource(request.form.get("resource")):
+        raise OAuth2Error(
+            error="invalid_target",
+            description="Tokens here are for the agent endpoint only.",
+        )
 
 
 class CodeGrant(grants.AuthorizationCodeGrant):
@@ -194,11 +204,7 @@ class CodeGrant(grants.AuthorizationCodeGrant):
         return authorization_code.row.business, authorization_code.row.scope
 
     def validate_token_request(self) -> None:
-        if not same_resource(self.request.form.get("resource")):
-            raise OAuth2Error(
-                error="invalid_target",
-                description="Tokens here are for the agent endpoint only.",
-            )
+        refuse_another_resource(self.request)
         super().validate_token_request()
 
 
@@ -230,12 +236,16 @@ class RefreshGrant(grants.RefreshTokenGrant):
     INCLUDE_NEW_REFRESH_TOKEN = True
 
     def authenticate_refresh_token(self, refresh_token: str) -> Refresh | None:
-        row = (
-            OAuthConnection.objects.select_related("business__account", "client")
-            .filter(refresh_hash=hashed(refresh_token), revoked_at__isnull=True)
-            .first()
+        live = OAuthConnection.objects.select_related("client").filter(
+            revoked_at__isnull=True
         )
-        return Refresh(row, refresh_token) if row is not None else None
+        row = live.filter(refresh_hash=hashed(refresh_token)).first()
+        if row is None:
+            # The one before, again: whoever else holds the chain stole it, so the connection ends (RFC 9700 §4.14.2).
+            for stolen in live.filter(previous_refresh_hash=hashed(refresh_token)):
+                stolen.revoke()
+            return None
+        return Refresh(row, refresh_token)
 
     def authenticate_user(self, refresh_token: Refresh) -> tuple[Business, str]:
         return refresh_token.row.business, refresh_token.row.scope
@@ -244,11 +254,7 @@ class RefreshGrant(grants.RefreshTokenGrant):
         pass  # save_token swaps the refresh token in the same transaction
 
     def validate_token_request(self) -> None:
-        if not same_resource(self.request.form.get("resource")):
-            raise OAuth2Error(
-                error="invalid_target",
-                description="Tokens here are for the agent endpoint only.",
-            )
+        refuse_another_resource(self.request)
         super().validate_token_request()
 
 
@@ -290,7 +296,10 @@ class Server(AuthorizationServer):
                     pk=connection.pk,
                     refresh_hash=hashed(old.presented),
                     revoked_at__isnull=True,
-                ).update(refresh_hash=hashed(token["refresh_token"])):
+                ).update(
+                    refresh_hash=hashed(token["refresh_token"]),
+                    previous_refresh_hash=hashed(old.presented),
+                ):
                     raise OAuth2Error(
                         error="invalid_grant",
                         description="That refresh token was already used.",
@@ -299,10 +308,13 @@ class Server(AuthorizationServer):
                 business=business,
                 label=client.client_name[: tokens.LABEL_MAX],
                 scope=scope,
-                is_operator=operator_account(business.account),
+                is_operator=False,  # the operator's powers go only with a token the operator pastes knowingly
                 token_hash=tokens.hash_of(token["access_token"]),
                 connection=connection,
-                expires_at=timezone.now() + timedelta(seconds=ACCESS_SECONDS),
+                expires_at=Now()
+                + timedelta(
+                    seconds=ACCESS_SECONDS
+                ),  # the database's clock, as its trigger reads it
             )
         token["scope"] = scope
 
@@ -369,28 +381,34 @@ class Register(ClientRegistrationEndpoint):
                 error="invalid_redirect_uri",
                 description="Give one to five redirect_uris, each https or http to localhost.",
             )
-        if (
-            OAuthClient.objects.filter(
-                created_at__gt=Now() - timedelta(hours=1)
-            ).count()
-            >= REGISTRATIONS_PER_HOUR
-        ):
-            raise OAuth2Error(
-                error="temporarily_unavailable",
-                description="Too many registrations. Try again later.",
-                status_code=503,
-            )
         method = client_metadata.get(
             "token_endpoint_auth_method", "client_secret_basic"
         )
         secret = client_info.get("client_secret")
-        return OAuthClient.objects.create(
-            client_id=client_info["client_id"],
-            secret_hash=hashed(secret) if method != "none" and secret else "",
-            client_name=(client_metadata.get("client_name") or "An AI assistant")[:100],
-            redirect_uris=uris,
-            auth_method=method,
-        )
+        # One registration at a time, so the cap holds under a burst.
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtext('oauth_register'))")
+            if (
+                OAuthClient.objects.filter(
+                    created_at__gt=Now() - timedelta(hours=1)
+                ).count()
+                >= REGISTRATIONS_PER_HOUR
+            ):
+                raise OAuth2Error(
+                    error="temporarily_unavailable",
+                    description="Too many registrations. Try again later.",
+                    status_code=503,
+                )
+            return OAuthClient.objects.create(
+                client_id=client_info["client_id"],
+                secret_hash=hashed(secret) if method != "none" and secret else "",
+                client_name=(
+                    str(client_metadata.get("client_name") or "").strip()
+                    or "An AI assistant"
+                )[:100],
+                redirect_uris=uris,
+                auth_method=method,
+            )
 
 
 def authorization_server_metadata() -> dict[str, Any]:
@@ -407,10 +425,26 @@ def authorization_server_metadata() -> dict[str, Any]:
         "token_endpoint_auth_methods_supported": AUTH_METHODS,
         "revocation_endpoint_auth_methods_supported": AUTH_METHODS,
         "scopes_supported": SCOPES,
+        "authorization_response_iss_parameter_supported": True,
     }
 
 
+class Issuer(IssuerParameter):
+    """RFC 9207: the answer names this server, so a client talking to several cannot be mixed up."""
+
+    def get_issuer(self) -> str:
+        return issuer()
+
+    def add_issuer_parameter(self, authorization_server: Any, response: Any) -> None:
+        # Authlib's own reads a Flask-style `location`; a Django response keeps it as a header.
+        if response.has_header("Location"):
+            response["Location"] = add_params_to_uri(
+                response["Location"], [("iss", issuer())]
+            )
+
+
 server = Server()
+server.register_extension(Issuer())
 server.register_grant(CodeGrant, [S256Only(required=True)])
 server.register_grant(RefreshGrant)
 server.register_endpoint(Revoke)
@@ -470,15 +504,16 @@ def authorize(request: HttpRequest) -> Any:
         return refused(request, str(error.description or error.error))
     client: OAuthClient = grant.client.row
     if request.method == "POST":
-        choice = request.POST.get(
-            "access"
-        )  # not "scope": Authlib reads the form as the request's own parameters
-        if request.POST.get("decision") != "approve":
+        consent = Consent(request.POST)
+        if not consent.is_valid():
+            return refused(
+                request, "Pick read-only or full, then Connect or Don't connect."
+            )
+        choice = consent.cleaned_data["access"]
+        if consent.cleaned_data["decision"] != "approve":
             return server.create_authorization_response(
                 request, grant_user=None, grant=grant
             )
-        if choice not in SCOPES:
-            return refused(request, "Pick read-only or full.")
         return server.create_authorization_response(
             request, grant_user=(business, choice), grant=grant
         )
@@ -493,6 +528,14 @@ def authorize(request: HttpRequest) -> Any:
             "business": business,
             "scopes": list(tokens.SCOPES.items()),
         },
+    )
+
+
+class Consent(forms.Form):
+    # Not named scope: Authlib reads a POST's fields as the request's own parameters.
+    access = forms.ChoiceField(choices=list(tokens.SCOPES.items()))
+    decision = forms.ChoiceField(
+        choices=[("approve", "Connect"), ("deny", "Don't connect")]
     )
 
 
