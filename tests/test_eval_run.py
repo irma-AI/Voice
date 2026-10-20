@@ -199,9 +199,19 @@ def test_an_interrupted_batch_kills_its_calls_and_records_their_spend(
     tmp_path: Path,
 ) -> None:
     # A stand-in suite in its own group that starts a stand-in bot, as pipecat.evals does; neither spends.
-    sleeper = "import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']); time.sleep(60)"
+    started = tmp_path / "bot_started"
+    bot = (
+        f"import pathlib, time; pathlib.Path({str(started)!r}).touch(); time.sleep(60)"
+    )
+    sleeper = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', {bot!r}]); time.sleep(60)"
     suite = subprocess.Popen([sys.executable, "-c", sleeper], start_new_session=True)
     RUNNING.add(suite)
+    deadline = time.monotonic() + 10
+    while (
+        not started.exists()
+    ):  # kill only once the bot runs, so the test needs the group kill
+        assert time.monotonic() < deadline, "the stand-in bot never started"
+        time.sleep(0.02)
     usage = {"e": "usage", "prompt_tokens": 1000, "output_audio_tokens": 2000}
     calls = tmp_path / "calls"
     calls.mkdir()

@@ -5,6 +5,7 @@ Paid (every call spends Gemini credit), never automatic: an agent asks Petter be
 passed, 1 a Scenario failed (or the first never reached the agent, which stops the run), 2 bad Scenario id, 3 a spend cap stopped the run.
 """
 
+import contextlib
 import json
 import os
 import re
@@ -168,7 +169,9 @@ def _kill(proc: subprocess.Popen[bytes]) -> None:
     if sys.platform == "win32":
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], check=False)
     else:
-        os.killpg(proc.pid, signal.SIGKILL)
+        # A suite that just ended may still be listed: its group is gone, which is the goal.
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
     proc.wait()
 
 
