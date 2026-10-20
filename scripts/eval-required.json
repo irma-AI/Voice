@@ -1,5 +1,6 @@
 {
   "receipt": "eval-receipt.json",
-  "paths": ["voice/agent.py", "voice/bargein.py", "voice/settings.py", "voice/modules.py", "modules/example.py", "modules/example_hostile.py", "modules/example_web.py", "tests/evals/business.json", "tests/evals/business_module.json", "tests/evals/business_hostile.json", "tests/evals/business_web.json"],
-  "lines": { "pyproject.toml": "pipecat-ai[" }
+  "paths": ["voice/agent.py", "voice/bargein.py", "modules/example.py", "modules/example_hostile.py", "modules/example_web.py", "tests/evals/business.json", "tests/evals/business_module.json", "tests/evals/business_hostile.json", "tests/evals/business_web.json"],
+  "lines": { "pyproject.toml": "pipecat-ai[" },
+  "rendered": {"command": ["uv", "run", "python", "-m", "scripts.model_input"], "from": ["voice/settings.py", "voice/modules.py", "voice/cost.py", "scripts/model_input.py"]}
 }
