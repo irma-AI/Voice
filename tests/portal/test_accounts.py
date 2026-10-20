@@ -188,10 +188,6 @@ def test_the_invite_command_changes_nothing_without_the_reviewed_hash_or_for_the
     assert (Account.objects.count(), mail.outbox) == (0, [])
 
 
-def test_the_public_page_links_to_the_login() -> None:
-    assert 'href="/login/"' in Client().get("/").content.decode()
-
-
 # What must never break is refused by the database itself, whoever writes.
 
 

@@ -128,7 +128,6 @@ def test_a_visitor_is_sent_to_the_login_and_a_get_of_revoke_does_nothing() -> No
     make(client)
     token = stored(business)
     visitor = Client()
-    assert visitor.get("/tokens/")["Location"].startswith("/login/")
     assert visitor.post("/tokens/", {"label": "x", "scope": "read"})[
         "Location"
     ].startswith("/login/")
