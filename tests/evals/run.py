@@ -207,8 +207,8 @@ def batch_at(pairs: list[tuple[str, str]], i: int) -> list[tuple[str, str]] | No
 def batch_stop(
     caps: Caps, runs: Path, spent: float, size: int, loop_id: str, today: str
 ) -> str | None:
-    """The cap a batch of `size` Scenarios could reach if each cost as much as the dearest call in the ledger, or None."""
-    worst = max((e["sek"] for e in _ledger(runs)), default=0.0)
+    """The cap a batch of `size` Scenarios could reach, each priced at the per-Scenario bound or the dearest ledgered call, or None."""
+    worst = max([caps.per_scenario_sek, *(e["sek"] for e in _ledger(runs))])
     return stopped_by(caps, **_totals(runs, spent + worst * size, loop_id, today))
 
 
@@ -241,7 +241,6 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
     for i, (sc, base) in enumerate(pairs):
         if batch := batch_at(pairs, i):
             # Fail closed: a cap already reached, or one this batch could reach, stops it before any spend.
-            # shortcut: a call dearer than any in the ledger can pass a cap by up to a batch; upgrade with a per-Scenario bound in caps.json.
             if stopped := batch_stop(
                 caps, runs, spent, len(batch), loop_id, now.strftime("%Y-%m-%d")
             ):

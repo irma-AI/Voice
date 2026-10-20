@@ -1,7 +1,9 @@
 """Seam 1 without spend: a cap already reached stops `make eval` before anything is played."""
 
+import io
 import json
 import re
+import wave
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -14,7 +16,7 @@ from tests.evals.checks import (
     WEB_BUSINESS_FILE,
     Verdict,
 )
-from tests.evals.render_audio import LINES
+from tests.evals.render_audio import LINES, frames
 from tests.evals.run import (
     MAX_REPEATS,
     PARALLEL,
@@ -42,7 +44,7 @@ def test_a_reached_day_cap_stops_with_exit_3_before_any_spend(tmp_path: Path) ->
         "sek": 0.5,
     }
     (tmp_path / "ledger.jsonl").write_text(json.dumps(entry) + "\n", "utf-8")
-    caps = Caps(per_run_sek=10, per_loop_sek=30, per_day_sek=0.5)
+    caps = Caps(per_run_sek=10, per_loop_sek=30, per_day_sek=0.5, per_scenario_sek=0.5)
 
     assert main("swedish_question", runs=tmp_path, caps=caps) == 3
     assert (
@@ -145,17 +147,31 @@ def test_the_first_scenario_plays_alone_then_parallel_at_a_time() -> None:
 def test_a_batch_starts_only_if_its_worst_case_fits_under_the_caps(
     tmp_path: Path,
 ) -> None:
-    entry = {
-        "ts": "2026-10-19T08:00:00+00:00",
-        "run": "earlier",
-        "loop": "",
-        "sek": 0.2,
-    }
-    (tmp_path / "ledger.jsonl").write_text(json.dumps(entry) + "\n", "utf-8")
-    caps = Caps(per_run_sek=1, per_loop_sek=30, per_day_sek=50)
-    # 0.5 spent, the dearest call in the ledger cost 0.2: three more could reach 1.1
-    assert batch_stop(caps, tmp_path, 0.5, 3, "", "2026-10-20") == "run cap 1 SEK"
+    ledger = tmp_path / "ledger.jsonl"
+    entry = {"ts": "2026-10-19T08:00:00+00:00", "run": "earlier", "loop": ""}
+    caps = Caps(per_run_sek=2, per_loop_sek=30, per_day_sek=50, per_scenario_sek=0.5)
+    # each Scenario is priced at the per-Scenario bound when no ledgered call cost more
+    ledger.write_text(json.dumps({**entry, "sek": 0.2}) + "\n", "utf-8")
+    assert batch_stop(caps, tmp_path, 0.5, 3, "", "2026-10-20") == "run cap 2 SEK"
     assert batch_stop(caps, tmp_path, 0.5, 2, "", "2026-10-20") is None
+    # and at the dearest ledgered call when one cost more than the bound
+    ledger.write_text(json.dumps({**entry, "sek": 0.8}) + "\n", "utf-8")
+    assert batch_stop(caps, tmp_path, 0.5, 2, "", "2026-10-20") == "run cap 2 SEK"
+    # an empty ledger still prices the first Scenario at the bound
+    ledger.unlink()
+    assert batch_stop(caps, tmp_path, 1.6, 1, "", "2026-10-20") == "run cap 2 SEK"
+
+
+def test_a_tts_reply_that_is_already_a_wav_keeps_only_its_frames() -> None:
+    pcm = b"\x01\x00" * 240
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(24000)
+        w.writeframes(pcm)
+    assert frames(buf.getvalue()) == pcm  # no second header played as sound
+    assert frames(pcm) == pcm  # bare PCM passes through
 
 
 def test_a_call_that_never_reached_the_agent_is_named(tmp_path: Path) -> None:

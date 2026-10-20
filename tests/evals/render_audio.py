@@ -4,6 +4,7 @@ Paid (a few öre) and run by hand, with Petter's OK. Synthetic voices only: no r
 Skips files that exist; delete one to render it again.
 """
 
+import io
 import os
 import wave
 from pathlib import Path
@@ -11,7 +12,8 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 
-MODEL = "models/gemini-3.8-flash-lite-tts"
+# Flash TTS: Google's speech generation page marks Swedish supported here, not on Flash-Lite TTS.
+MODEL = "models/gemini-3.8-flash-tts"
 AUDIO = Path(__file__).parent / "audio"
 # file name -> (Caller's line, preset voice). Swedish and English presets, one each.
 LINES = {
@@ -27,6 +29,20 @@ LINES = {
         "Kore",
     ),
 }
+
+
+def frames(audio: bytes) -> bytes:
+    """The PCM frames of a TTS reply, which comes as bare PCM or as a whole WAV file."""
+    if audio[:4] != b"RIFF":
+        return audio
+    with wave.open(io.BytesIO(audio)) as inner:
+        if (inner.getnchannels(), inner.getsampwidth(), inner.getframerate()) != (
+            1,
+            2,
+            24000,
+        ):
+            raise SystemExit("TTS returned audio that is not 24 kHz 16-bit mono")
+        return inner.readframes(inner.getnframes())
 
 
 def main() -> None:
@@ -58,7 +74,7 @@ def main() -> None:
             w.setnchannels(1)
             w.setsampwidth(2)
             w.setframerate(24000)  # Gemini TTS returns 24 kHz 16-bit mono PCM
-            w.writeframes(pcm)
+            w.writeframes(frames(pcm))
         print(f"rendered {out.name}")
 
 
