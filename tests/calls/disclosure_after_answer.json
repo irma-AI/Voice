@@ -1,0 +1,13 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: the agent names the Business but gives a fact before the disclosure.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Hej, Tandkliniken Exempel, vi har öppet till 17 idag. Du pratar med en AI-assistent."
+  },
+  {
+   "speaker": "caller",
+   "text": "Okej, tack."
+  }
+ ]
+}
