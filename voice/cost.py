@@ -36,7 +36,7 @@ STORED_PRICES = Path(__file__).parent / "prices.json"
 
 
 class CostReason(StrEnum):
-    """Why a record has no cost. The Portal stores the code as is; tests/test_cost_catalogue.py reaches every one."""
+    """Why the live lookup failed. It reaches a record only when the stored rates can't price the call either; the Portal stores the code as is; tests/test_cost_catalogue.py reaches every one."""
 
     NO_KEY = "no_billing_key"
     UNREACHABLE = "catalogue_unreachable"
@@ -215,10 +215,12 @@ def stored_rates(model: str, stored: Path) -> tuple[str, dict[Kind, Decimal]] | 
             ("output", "audio"): "audio_out",
             ("output", "text"): "text_out",
         }
-        return copy["as_of"], {
-            kind: Decimal(str(per_m[names[kind]])) / 10**6 for kind in KINDS
-        }
-    except (OSError, ValueError, KeyError, TypeError):
+        per_token = {kind: Decimal(str(per_m[names[kind]])) / 10**6 for kind in KINDS}
+        # A bad edit must leave the call unpriced (the Portal counts its seconds), never lose its record.
+        if not all(r.is_finite() and r >= 0 for r in per_token.values()):
+            return None
+        return datetime.fromisoformat(copy["as_of"]).date().isoformat(), per_token
+    except (OSError, ValueError, KeyError, TypeError, ArithmeticError):
         return None
 
 

@@ -216,6 +216,32 @@ def test_a_stored_copy_for_another_model_prices_nothing() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    "broken",
+    [
+        {"text_out": "n/a"},
+        {"text_out": float("nan")},
+        {"audio_in": -1.0},
+        {"as_of": "soon"},
+    ],
+)
+def test_a_broken_stored_copy_leaves_the_cost_empty_with_the_reason(
+    broken: dict[str, Any], tmp_path: Path
+) -> None:
+    copy = json.loads(STORED.read_text())
+    if "as_of" in broken:
+        copy.update(broken)
+    else:
+        copy["usd_per_million_tokens"].update(broken)
+    bad = tmp_path / "prices.json"
+    bad.write_text(json.dumps(copy))
+    assert price(TOTALS, MODEL, "", stored=bad) == {
+        "cost_usd": None,
+        "price_date": None,
+        "cost_reason": "no_billing_key",
+    }
+
+
 def test_the_stored_official_rates_are_for_the_model_the_core_runs() -> None:
     stored = json.loads(cost.STORED_PRICES.read_text())
     assert stored["model"] == MODEL, (
