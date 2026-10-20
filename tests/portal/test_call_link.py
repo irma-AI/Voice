@@ -591,8 +591,13 @@ def test_the_script_is_served_with_the_core_it_lets_the_microphone_into() -> Non
     assert '"https://voice.example.se"' in script  # CORE_URL's origin, no path
     # The old route writes the tag's attributes in front of the very file a new tag names.
     assert response.content.endswith(served_file())
-    # The launcher's words are Swedish on any host page, so a screen reader is told so (WCAG 3.1.2).
-    assert 'launcher.lang = "sv"' in script and 'panel.lang = "sv"' in script
+    # An old tag asks for no language, so its launcher's words stay Swedish and a screen reader is told so (WCAG 3.1.2).
+    prelude = script[: len(script) - len(served_file().decode())]
+    assert "lang" not in prelude
+    assert (
+        'tag.dataset.lang === "en" ? "en" : "sv"' in script
+        and "launcher.lang = lang;" in script
+    )
     assert Client().post("/call-button.js").status_code == 405
 
 
