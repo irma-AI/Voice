@@ -191,6 +191,9 @@ def render_page(settings: Settings | None) -> str:
         PAGE.replace("__IN_RATE__", str(IN_RATE))
         .replace("__OUT_RATE__", str(OUT_RATE))
         .replace("__MAX_CALL_SECS__", str(MAX_CALL_SECS))
+        .replace(
+            "__SERVED_AT__", str(int(time.time()))
+        )  # the page tells an expired ticket by the core's clock
         .replace("__THEME__", css)
         .replace("__TITLE__", name)
         .replace("__BRAND__", brand)
