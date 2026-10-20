@@ -20,7 +20,6 @@ urlpatterns = [
     path("totals/", views.totals, name="totals"),
     path("logs/", views.call_logs, name="call_logs"),
     path("logs/<str:call_id>/", views.call_log, name="call_log"),
-    path("logs/<str:call_id>/log.txt", views.call_log_text, name="call_log_text"),
     path("test-call/", views.test_call, name="test_call"),
     path("call/<str:slug>/", views.call_link, name="call_link"),
     path("logo/<str:key>/", views.logo, name="logo"),
