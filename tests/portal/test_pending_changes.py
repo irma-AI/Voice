@@ -7,6 +7,8 @@ The Commands run on the SDK's worker threads with their own database connection,
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 
 import logging
+import threading
+import time
 from datetime import timedelta
 from typing import Any, get_args
 
@@ -35,9 +37,7 @@ def remove(secret: str, name: str) -> dict[str, Any]:
 def decided(client: Client, change: PendingChange, decision: str) -> str:
     """Approve or Reject on the page: it always goes back to the page, which says what happened."""
     answer = client.post(f"/changes/{change.pk}/{decision}/")
-    assert answer.status_code == 302 and answer["Location"].startswith(
-        "/changes/?outcome="
-    )
+    assert answer.status_code == 302 and answer["Location"] == "/changes/"
     return client.get(answer["Location"]).content.decode()
 
 
@@ -310,3 +310,52 @@ def test_only_a_revoke_cancels_and_a_revoked_token_stages_nothing() -> None:
 
 def test_every_outcome_of_a_decision_has_its_words() -> None:
     assert set(views.OUTCOMES) == set(get_args(changes.Decided))
+
+
+def test_a_link_cannot_show_an_outcome_that_did_not_happen() -> None:
+    client, _, _ = a_business_with_a_module()
+    page = client.get(
+        "/changes/?outcome=applied&change_outcome=applied"
+    ).content.decode()
+    assert not any(words in page for words in views.OUTCOMES.values())
+
+
+def test_a_revoke_racing_an_approval_logs_only_what_it_cancelled(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="portal.audit")
+    change = stage_one()
+    token = change.token
+    holding, release = threading.Event(), threading.Event()
+
+    def approve() -> (
+        None
+    ):  # an approval that holds the change's row lock while the revoke waits on it
+        try:
+            with transaction.atomic(), connection.cursor() as cursor:
+                cursor.execute(
+                    GATE
+                    + f"UPDATE accounts_pendingchange SET decision = 'approved', decided_at = statement_timestamp() WHERE id = {change.pk}"
+                )
+                holding.set()
+                release.wait(10)
+        finally:
+            connection.close()
+
+    def revoke() -> None:
+        try:
+            token.revoke()
+        finally:
+            connection.close()
+
+    approving = threading.Thread(target=approve)
+    approving.start()
+    assert holding.wait(10)
+    revoking = threading.Thread(target=revoke)
+    revoking.start()
+    time.sleep(0.3)  # the revoke is now waiting on the change's row
+    release.set()
+    approving.join(10)
+    revoking.join(10)
+    assert PendingChange.objects.get().decision == "approved"
+    assert not any("cancelled" in line for line in audited(caplog))

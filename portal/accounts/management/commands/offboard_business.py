@@ -16,6 +16,7 @@ from portal.accounts.models import (
     Business,
     CallRecord,
     Module,
+    PendingChange,
     clean_email,
 )
 from portal.accounts.prod_script import check_target, reviewed_digest
@@ -60,6 +61,10 @@ class Command(BaseCommand):
                 "account": str(business.account.pk),
                 "business": str(business.pk),
                 "access tokens to revoke": str(tokens.count()),
+                # Revoking cancels them (AccessToken.revoke, VOI-239).
+                "pending changes to cancel": str(
+                    PendingChange.objects.filter(token__in=tokens, decision="").count()
+                ),
                 "access token labels to blank": str(labels.count()),
                 "modules to delete": str(modules.count()),
                 "call records kept": str(

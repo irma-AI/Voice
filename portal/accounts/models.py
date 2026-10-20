@@ -475,14 +475,13 @@ class AccessToken(models.Model):
             )
             # Each change's row lock orders this against an approval in flight: whichever decides first wins, the other is refused.
             cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
-            cancelled = list(
-                PendingChange.objects.filter(token=self, decision="").values_list(
-                    "pk", flat=True
-                )
+            # Only the rows this revoke cancelled: an approval that won a change's row lock is not one of them.
+            cursor.execute(
+                "UPDATE accounts_pendingchange SET decision = 'cancelled', decided_at = statement_timestamp()"
+                " WHERE token_id = %s AND decision = '' RETURNING id",
+                [self.pk],
             )
-            PendingChange.objects.filter(pk__in=cancelled, decision="").update(
-                decision="cancelled", decided_at=Now()
-            )
+            cancelled = sorted(row[0] for row in cursor.fetchall())
             cursor.execute("SELECT set_config('voice.change_decide', '', true)")
         if cancelled:
             audit.info(
@@ -544,9 +543,7 @@ class PendingChange(models.Model):
         AccessToken, on_delete=models.PROTECT, related_name="pending_changes"
     )  # the token that staged it; its Business is the one that decides
     kind = models.CharField(max_length=20, choices=list(CHANGE_KINDS.items()))
-    target = (
-        models.JSONField()
-    )  # what the change names, such as {"module": 5, "name": "Bookings"}
+    target = models.JSONField()  # the id of what the change names, such as {"module": 5}; never a name (offboarding could not remove it)
     staged_at = models.DateTimeField(db_default=Now())  # the database's clock, UTC
     decision = models.CharField(
         max_length=10, choices=list(CHANGE_DECISIONS.items()), blank=True, default=""

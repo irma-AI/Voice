@@ -750,7 +750,8 @@ def pending_changes(request: HttpRequest) -> HttpResponse:
         "accounts/changes.html",
         {
             "rows": rows,
-            "outcome": OUTCOMES.get(request.GET.get("outcome", "")),
+            # Kept in the session, so a link cannot show an outcome that did not happen.
+            "outcome": OUTCOMES.get(request.session.pop("change_outcome", "")),
             "waits": changes.WAITS.days,
             "time_zone": settings.TIME_ZONE,
         },
@@ -767,8 +768,8 @@ def decide_change(request: HttpRequest, change_id: int, decision: str) -> HttpRe
         pk=change_id,
         token__business__account=request.user,
     )
-    outcome = changes.decide(change, request.user, decision)  # pyright: ignore[reportArgumentType]
-    return redirect(f"{reverse('pending_changes')}?outcome={outcome}")
+    request.session["change_outcome"] = changes.decide(change, request.user, decision)  # pyright: ignore[reportArgumentType]
+    return redirect("pending_changes")
 
 
 class AccessTokenForm(forms.Form):
