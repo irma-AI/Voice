@@ -81,6 +81,13 @@ def test_a_call_link_ticket_needs_a_plain_hostname_and_a_test_call_has_none() ->
     assert read_ticket(good(kind="demo", domain="example.se"), SECRET, NOW) == Ticket(
         7, "demo", "example.se"
     )
+    # An agent test call (VOI-115) is a test call: framed by nobody, so no domain.
+    assert (
+        read_ticket(good(kind="agent_test", domain="example.se"), SECRET, NOW) is None
+    )
+    assert read_ticket(good(kind="agent_test", domain=""), SECRET, NOW) == Ticket(
+        7, "agent_test", ""
+    )
 
 
 def test_a_hostname_may_be_253_characters_and_no_longer() -> None:

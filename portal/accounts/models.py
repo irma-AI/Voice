@@ -32,11 +32,17 @@ PRIVACY_URL_MAX = 2000
 PRIVACY_URL_PATTERN = r"^https://\S+$"
 
 # A Call record holds numbers, codes and times only; contract/call-record.schema.json lists the same kinds and patterns (tests/portal/test_call_records.py).
-CALL_KINDS = {"test": "Test call", "call_link": "Call link", "demo": "Demo call"}
+CALL_KINDS = {
+    "test": "Test call",
+    "call_link": "Call link",
+    "demo": "Demo call",
+    "agent_test": "Assistant's test call",
+}
 # Whether a kind's calls count toward the Business's daily budget (views.spent_today): a test call is exempt (VOI-123; one at a time, 10 minutes);
 # a demo call (a visitor's, from the landing page, VOI-243) is a real spend and counts.
 # tests/portal/test_call_link.py fails for a kind of CALL_KINDS left out here, so a new kind cannot spend uncapped (VOI-166).
-BUDGET_COUNTED = {"test": False, "call_link": True, "demo": True}
+# An agent test call (a link a Business's AI assistant asked for, VOI-115) counts: a token can ask for links in a loop (Petter, 2026-10-20).
+BUDGET_COUNTED = {"test": False, "call_link": True, "demo": True, "agent_test": True}
 CALL_ID_PATTERN = r"^[A-Za-z0-9-]{8,64}$"
 COST_REASON_PATTERN = r"^[a-z_]{1,60}$"
 

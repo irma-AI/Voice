@@ -52,7 +52,7 @@ OUT_RATE = 24000
 # ponytail: a hard cap so a forgotten tab can't spend Gemini credit all night; make it a setting if calls legitimately run longer.
 # Per kind: a demo call from the landing page gets 3 minutes (Petter, 2026-10-20, VOI-243). tests/test_serve.py fails for a kind of
 # voice/ticket.py KINDS with no cap here.
-CALL_SECS = {"test": 600, "call_link": 600, "demo": 180}
+CALL_SECS = {"test": 600, "call_link": 600, "demo": 180, "agent_test": 600}
 # The longest call of any kind: the Portal's worst-case rate (tests/portal/test_call_link.py) and the drain wait are sized to it.
 MAX_CALL_SECS = max(CALL_SECS.values())
 # A stop waits this long at most for open calls: every call ends within MAX_CALL_SECS, and Dokploy kills at 660 s.

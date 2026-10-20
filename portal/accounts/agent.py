@@ -31,7 +31,7 @@ from mcp.server.mcpserver import Context, MCPServer
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from psycopg.errors import QueryCanceled
 
-from portal.accounts import changes, invite, probe, tokens
+from portal.accounts import changes, invite, probe, tokens, views
 from portal.accounts.domain import shown_domain
 from portal.accounts.models import (
     AccessToken,
@@ -58,6 +58,8 @@ COMMANDS: dict[str, Need] = {
     "add_module": "write",
     "list_totals": "operator_read",
     "invite_business": "operator_write",
+    "get_call_button": "read",
+    "get_test_call_link": "write",
     "read_settings": "read",
     "change_settings": "write",
     "change_business_details": "write",
@@ -418,6 +420,33 @@ def invite_business(ctx: Context[Any, Any], name: str, email: str) -> CallToolRe
     return as_answer(
         changes.stage(token, "invite_business", {}, {"name": name, "email": email})
     )
+
+
+@command("Call button script", ToolAnnotations(read_only_hint=True))
+def get_call_button(ctx: Context[Any, Any]) -> CallToolResult:
+    """The script tag for your website's Call button, as the dashboard shows it. Only once your website is saved in settings: the call page opens only inside that site."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    if not token.business.website_domain:
+        return failed(
+            "Save your website in settings first: the Call button works only on that site."
+        )
+    return as_answer({"script": views.call_button_tag(token.business)})
+
+
+@command(
+    "Test call link", ToolAnnotations(read_only_hint=False, destructive_hint=False)
+)
+def get_test_call_link(ctx: Context[Any, Any]) -> CallToolResult:
+    """A link a person opens to make a test call to your agent, like the dashboard's Test call button. It works for a few minutes, and the call counts toward your daily budget."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    try:
+        return as_answer({"link": views.core_address(token.business, "agent_test")})
+    except views.BudgetSpent:
+        return failed(views.BUDGET_SPENT_REFUSAL)
+    except views.CallsNotSetUp:
+        return failed("Calls are not set up on this Portal yet.")
 
 
 def settings_of(business: Business) -> dict[str, Any]:

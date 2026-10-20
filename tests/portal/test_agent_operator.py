@@ -120,6 +120,12 @@ def test_the_totals_are_the_pages_per_month_business_and_kind() -> None:
                     "dollars": "0.0000",
                     "unpriced": 0,
                 },
+                "agent_test": {
+                    "calls": 0,
+                    "minutes": "0.0",
+                    "dollars": "0.0000",
+                    "unpriced": 0,
+                },
             },
         }
     ]

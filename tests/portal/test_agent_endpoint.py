@@ -31,6 +31,7 @@ pytestmark = [pytest.mark.db, pytest.mark.django_db(transaction=True)]
 @pytest.fixture(autouse=True)
 def operator_named(settings: Any) -> None:
     settings.SUPER_ADMIN_EMAIL = "user-a@example.com"  # a_business()'s, so its operator tokens are the operator's
+    settings.CORE_SECRET = "a-secret-for-tests"  # so get_test_call_link signs a ticket
 
 
 ERAS = [
@@ -104,6 +105,8 @@ def test_an_assistant_with_no_token_sees_the_business_commands(era: str) -> None
         "list_modules",
         "check_module",
         "add_module",
+        "get_call_button",
+        "get_test_call_link",
         "read_settings",
         "change_settings",
         "change_business_details",
@@ -194,6 +197,8 @@ def test_every_command_against_every_kind_of_token(era: str) -> None:
     Module.objects.create(
         business=business, name="Bookings", url="https://127.0.0.1/mcp"
     )
+    Business.objects.filter(pk=business.pk).update(website_domain="example.se")
+    business.refresh_from_db()  # get_call_button needs a saved website
     for kind, (scope, operator) in LIVE_KINDS.items():
         # What the last kind's add_module added.
         Module.remove(Module.objects.filter(name="Hours"))
