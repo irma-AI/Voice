@@ -1,0 +1,4 @@
+{
+  "fenced": { "label": "evals-approved", "paths": ["tests/evals/**"] },
+  "no_ticket": ["**"]
+}
