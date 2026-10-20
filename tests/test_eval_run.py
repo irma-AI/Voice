@@ -21,6 +21,7 @@ from tests.evals.run import (
     main,
     missing_audio,
     module_log,
+    never_reached,
     plan,
     report,
 )
@@ -110,3 +111,15 @@ def test_a_module_line_in_the_bot_log_is_found(tmp_path: Path) -> None:
         "Module 'hours' skipped: TimeoutError"
     ]
     assert module_log(tmp_path, "module_hours_2") == []
+
+
+def test_a_call_that_never_reached_the_agent_is_named(tmp_path: Path) -> None:
+    # main() stops the run on this after the first Scenario, so a broken harness spends nothing more
+    log = tmp_path / "call.jsonl"
+    assert never_reached(log) == "no call record"
+    log.write_text('{"e": "usage", "prompt_tokens": 0}\n', "utf-8")
+    assert never_reached(log) == "no agent turn in the call record"
+    log.write_text(
+        '{"e": "caller", "text": "hej"}\n{"e": "agent_llm", "text": "Hej!"}\n', "utf-8"
+    )
+    assert never_reached(log) is None
