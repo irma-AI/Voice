@@ -185,7 +185,7 @@ def render_page(settings: Settings | None) -> str:
     ):  # the Business's own notice, beside the disclosure; it opens outside the call's frame
         privacy = (
             f'<p class="privacy"><a href="{html.escape(settings.privacy_url)}" '
-            f'target="_blank" rel="noopener">{PRIVACY_LINK}</a></p>'
+            f'target="_blank" rel="noopener">{PRIVACY_LINK}<span class="sr-only"> (opens in a new tab)</span></a></p>'
         )
     return (
         PAGE.replace("__IN_RATE__", str(IN_RATE))
