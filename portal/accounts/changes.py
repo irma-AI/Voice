@@ -108,7 +108,7 @@ def stage(
         "change": change.pk,
         "preview": preview(change),
         "risk_level": RISK[kind],
-        "next": f"Nothing has changed yet. Ask the Business to approve it at {page}; it expires in {WAITS.days} days.",
+        "next": f"Nothing has changed yet. Ask the person to approve it: here in the chat (approve_change with change {change.pk}), or at {page}. It expires in {WAITS.days} days.",
     }
 
 
@@ -197,7 +197,10 @@ def refusal(change: PendingChange) -> Decided:
 
 
 def decide(
-    change: PendingChange, account: Account, decision: Literal["approved", "rejected"]
+    change: PendingChange,
+    account: Account,
+    decision: Literal["approved", "rejected"],
+    by: AccessToken | None = None,
 ) -> Decided:
     """The one way a change is decided, only by its own Business (the caller has checked it is). The database refuses a change
     already decided, cancelled by its token's revoke, or for an approval, expired: the answer says which."""
@@ -223,12 +226,12 @@ def decide(
     except NotApplied as not_now:
         return not_now.outcome
     audit.info(
-        "%s pending change %s (%s) for business %s by account %s%s",
+        "%s pending change %s (%s) for business %s by %s%s",
         decision,
         change.pk,
         change.kind,
         change.token.business.pk,
-        account.pk,
+        f"account {account.pk}" if by is None else f"token {by.pk} in the chat",
         "" if applied or decision == "rejected" else ": nothing left to change",
     )
     if decision == "rejected":

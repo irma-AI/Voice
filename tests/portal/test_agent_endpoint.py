@@ -21,8 +21,14 @@ from django.test import Client
 from mcp.server.mcpserver import Context
 from mcp.types import ToolAnnotations
 
-from portal.accounts import agent, tokens
-from portal.accounts.models import AccessToken, Account, Business, CommandRecord, Module
+from portal.accounts import agent, changes, tokens
+from portal.accounts.models import (
+    AccessToken,
+    Account,
+    Business,
+    CommandRecord,
+    Module,
+)
 from tests.portal.helpers import PASSWORD, a_call
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db(transaction=True)]
@@ -107,6 +113,9 @@ def test_an_assistant_with_no_token_sees_the_business_commands(era: str) -> None
         "add_module",
         "get_call_button",
         "get_test_call_link",
+        "list_pending_changes",
+        "approve_change",
+        "reject_change",
         "read_settings",
         "change_settings",
         "change_business_details",
@@ -177,10 +186,31 @@ def same_as_no_such_command(name: str, secret: str, era: str = "2026-07-28") -> 
     )
 
 
+def waiting_change(secret: str) -> dict[str, Any]:
+    """A fresh harmless change for approve_change and reject_change to decide: Swedish only, as a new Business already is."""
+    token = AccessToken.objects.get(token_hash=tokens.hash_of(secret))
+    if token.revoked_at is not None or token.scope != "full":
+        return {"change": 0}  # refused before it is read
+    return {
+        "change": changes.stage(token, "change_details", {}, {"languages": ["sv"]})[
+            "change"
+        ]
+    }
+
+
 def call(name: str, secret: str, era: str = "2026-07-28", **headers: str) -> Any:
+    arguments = (
+        waiting_change(secret)
+        if name in ("approve_change", "reject_change")
+        and secret.startswith("voice_")
+        and AccessToken.objects.filter(token_hash=tokens.hash_of(secret)).exists()
+        else EXAMPLE_ARGUMENTS.get(
+            name, {"change": 0} if name in ("approve_change", "reject_change") else {}
+        )
+    )
     return ask(
         "tools/call",
-        {"name": name, "arguments": EXAMPLE_ARGUMENTS.get(name, {})},
+        {"name": name, "arguments": arguments},
         secret,
         era,
         **headers,

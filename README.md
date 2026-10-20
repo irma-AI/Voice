@@ -27,7 +27,7 @@
 - **Modules**: add an MCP server by address, press Check to list the Actions it offers, and the agent can call them in the next call
 - **Recent calls**: start, length and kind of each call, on the Business's clock
 - **Spend per call**: every call leaves a Call record with tokens and dollar cost (numbers only, never words or audio); a daily budget caps Call button calls per Business
-- **Your own AI assistant**: an MCP endpoint at `/mcp/` where an assistant does what the Business can do in the Portal ([ADR 0003](docs/adr/0003-agents-operate-voice-through-one-portal-endpoint.md)): read and change settings, Modules and calls, get the Call button and a Test call link. Destructive changes wait for the Business's approval under Pending changes. Connect with a read-only or full Access token (Claude Code, scripts; every Command seen to work with Claude Code against a local Portal, [check](docs/research/agent-client-check.md)) or by signing in from claude.ai or ChatGPT (built, not yet seen with a real client)
+- **Your own AI assistant**: an MCP endpoint at `/mcp/` where an assistant does what the Business can do in the Portal ([ADR 0003](docs/adr/0003-agents-operate-voice-through-one-portal-endpoint.md)): read and change settings, Modules and calls, get the Call button and a Test call link. Destructive changes wait for the person's approval, given in the chat or under Pending changes in the Portal. Connect with a read-only or full Access token (Claude Code, scripts; every Command seen to work with Claude Code against a local Portal, [check](docs/research/agent-client-check.md)) or by signing in from claude.ai or ChatGPT (built, not yet seen with a real client)
 
 Planned: a phone Channel and Portal translations, Swedish first.
 
