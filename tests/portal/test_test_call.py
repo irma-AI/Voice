@@ -39,8 +39,8 @@ def ticket_in(location: str) -> str:
 
 
 def test_the_button_sends_a_business_to_the_core_with_a_ticket_for_itself() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    other, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    other, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
 
     # Naming another Business in the request changes nothing: the ticket follows the session.
     response = client.post(
@@ -59,26 +59,26 @@ def test_the_button_sends_a_business_to_the_core_with_a_ticket_for_itself() -> N
 
 
 def test_a_visitor_gets_no_ticket_and_a_page_visit_starts_nothing() -> None:
-    business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_with_login("user-a@example.com", "Owner A's Salon")
 
     response = Client().post("/test-call/")
     assert response.status_code == 302 and response["Location"].startswith("/login/")
     assert "ticket" not in response["Location"]
 
-    _, client = business_with_login("bo.testsson@example.com", "Bo's Bikes")
+    _, client = business_with_login("user-b@example.com", "Owner B's Bikes")
     # A link or an image cannot start a call: it goes back to the dashboard, where a login after an ended session lands.
     assert client.get("/test-call/")["Location"] == "/dashboard/"
 
 
 def test_a_cross_site_post_is_refused_by_the_csrf_check() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     strict = Client(enforce_csrf_checks=True)
     strict.cookies = client.cookies
     assert strict.post("/test-call/").status_code == 403
 
 
 def test_the_dashboard_offers_the_button_to_a_business() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     page = client.get("/dashboard/").content.decode()
     assert 'action="/test-call/"' in page and "Test call" in page
 
@@ -86,20 +86,20 @@ def test_the_dashboard_offers_the_button_to_a_business() -> None:
 def test_the_core_reads_the_ticketed_businesss_settings_from_the_real_portal(
     live_server: Any,
 ) -> None:
-    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    Business.objects.filter(pk=anna.pk).update(instructions="Open 8-17.")
-    business_with_login("bo.testsson@example.com", "Bo's Bikes")
+    business_a, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    Business.objects.filter(pk=business_a.pk).update(instructions="Open 8-17.")
+    business_with_login("user-b@example.com", "Owner B's Bikes")
 
     ticket = ticket_in(client.post("/test-call/")["Location"])
     named = read_ticket(ticket, SECRET)
     assert named is not None
     core_env = {"SETTINGS_URL": live_server.url, "CORE_SECRET": SECRET}
     got = load_settings(core_env, str(named.business))
-    assert (got.name, got.instructions) == ("Anna's Salon", "Open 8-17.")
+    assert (got.name, got.instructions) == ("Owner A's Salon", "Open 8-17.")
 
 
 def test_a_portal_with_no_secret_hands_out_no_ticket(settings: Any) -> None:
     settings.CORE_SECRET = ""
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     response = client.post("/test-call/")
     assert response.status_code == 503 and "Location" not in response
