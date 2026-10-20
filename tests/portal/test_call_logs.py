@@ -40,6 +40,17 @@ EVENTS: list[dict[str, Any]] = [
         "call": CALL,
         "e": "config",
         "vad": {"start_sensitivity": "START_SENSITIVITY_LOW", "prefix_padding_ms": 300},
+        "page_facts": "sent",
+        "echo_cancellation": True,
+        "noise_suppression": "remote-only",
+        "auto_gain_control": False,
+        "loopback": "set_up",
+        "sample_rate": 48000,
+        "base_latency_ms": 5.3,
+        "output_latency_ms": 21.0,
+        "browser": "safari",
+        "os": "ios",
+        "os_version": 18,
     },
     {"t": 1.2, "call": CALL, "e": "bot_speech", "phase": "start"},
     {
@@ -103,6 +114,7 @@ EVENTS: list[dict[str, Any]] = [
         "barge_ins": 1,
         "no_words": 0,
         "cut_share": 1.0,
+        "playback_gaps": 2,
     },
 ]
 LEVELS = EVENTS[4]
@@ -348,6 +360,18 @@ def test_the_database_itself_refuses_a_log_that_breaks_a_rule() -> None:
         ),
         (
             {"events": [{"t": 1, "similarity": [1, 2]}]},
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (  # a user-agent string where the browser family goes
+            {
+                "events": [
+                    {"t": 1, "browser": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0)"}
+                ]
+            },
+            "call_log_events_hold_only_listed_fields",
+        ),
+        (
+            {"events": [{"t": 1, "user_agent": "Safari"}]},
             "call_log_events_hold_only_listed_fields",
         ),
     ):

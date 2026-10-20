@@ -19,6 +19,10 @@
   "$defs": {
     "code": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
     "number": { "type": "number" },
+    "switch": {
+      "description": "An audio setting as the browser applied it: on or off, or which audio echo cancelling covers. voice/serve.py SWITCH lists the same.",
+      "anyOf": [{ "type": "boolean" }, { "enum": ["all", "remote-only"] }]
+    },
     "trace": {
       "description": "A level trace around a cut, in dBFS: numbers only.",
       "type": "array",
@@ -41,6 +45,17 @@
             "anyOf": [{ "type": ["number", "boolean"] }, { "$ref": "#/$defs/code" }]
           }
         },
+        "page_facts": { "description": "Whether the call page sent its browser facts (VOI-159): sent, not_sent, or refused (the web Channel's check failed). Absent on a Channel with no page.", "enum": ["sent", "not_sent", "refused"] },
+        "echo_cancellation": { "description": "The microphone track's applied setting, from getSettings().", "$ref": "#/$defs/switch" },
+        "noise_suppression": { "$ref": "#/$defs/switch" },
+        "auto_gain_control": { "$ref": "#/$defs/switch" },
+        "loopback": { "description": "Whether the page's echo-cancelling WebRTC route for the agent's audio was set up or fell back to plain playback.", "enum": ["set_up", "fell_back"] },
+        "sample_rate": { "description": "The page's audio context, in Hz.", "$ref": "#/$defs/number" },
+        "base_latency_ms": { "$ref": "#/$defs/number" },
+        "output_latency_ms": { "$ref": "#/$defs/number" },
+        "browser": { "description": "The browser family, never the user-agent string; voice/serve.py BROWSERS lists the same.", "enum": ["chrome", "edge", "firefox", "safari", "samsung", "other"] },
+        "os": { "description": "voice/serve.py SYSTEMS lists the same.", "enum": ["android", "ios", "macos", "windows", "linux", "chromeos", "other"] },
+        "os_version": { "description": "The operating system's major version only.", "type": "integer", "minimum": 0, "maximum": 999 },
         "phase": { "$ref": "#/$defs/code" },
         "played_ms": { "$ref": "#/$defs/number" },
         "bot_speaking": { "type": "boolean" },
@@ -59,7 +74,8 @@
         "secs": { "$ref": "#/$defs/number" },
         "barge_ins": { "type": "integer", "minimum": 0 },
         "no_words": { "description": "Barge-ins with no Caller words after them.", "type": "integer", "minimum": 0 },
-        "cut_share": { "description": "The share of the agent's stretches of speech that a barge-in cut short.", "$ref": "#/$defs/number" }
+        "cut_share": { "description": "The share of the agent's stretches of speech that a barge-in cut short.", "$ref": "#/$defs/number" },
+        "playback_gaps": { "description": "Pauses in the agent's audio on the page that no barge-in caused, as the page counted them; absent when the page sent no facts.", "type": "integer", "minimum": 0 }
       }
     }
   }

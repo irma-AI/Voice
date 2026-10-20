@@ -12,6 +12,7 @@ import re
 import time
 from array import array
 from collections import deque
+from collections.abc import Mapping
 from itertools import pairwise
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from pipecat.frames.frames import (
     EndFrame,
     Frame,
     InputAudioRawFrame,
+    InputTransportMessageFrame,
     InterruptionFrame,
     OutputAudioRawFrame,
     TranscriptionFrame,
@@ -138,7 +140,13 @@ class BargeInRecorder(FrameProcessor):
     and the agent's words (held in memory for the score, never written).
     """
 
-    def __init__(self, call_id: str, path: Path | None = None) -> None:
+    def __init__(
+        self,
+        call_id: str,
+        path: Path | None = None,
+        page: Mapping[str, object] | None = None,
+    ) -> None:
+        """`page` is the call page's browser facts as the web Channel checked them; they go in the config event."""
         super().__init__()  # pyright: ignore[reportUnknownMemberType]  # untyped kwargs upstream
         self._call_id = call_id
         self._path = path
@@ -162,9 +170,14 @@ class BargeInRecorder(FrameProcessor):
         self._cut = 0  # of which a barge-in cut short
         self._this_stretch_cut = False
         self._ended = False
+        # The page's count of playback gaps (pauses in the agent's audio that no barge-in caused); counted only
+        # by a page that sent its facts, so the end event says nothing rather than a 0 nobody counted.
+        page = page or {}
+        self._gaps: int | None = 0 if page.get("page_facts") == "sent" else None
         self._write(
             e="config",
             vad=VAD.model_dump(mode="json", exclude_none=True),
+            **page,
         )
 
     def _write(self, **event: object) -> None:
@@ -264,6 +277,14 @@ class BargeInRecorder(FrameProcessor):
             self._write_trace(now)
         if isinstance(frame, InputAudioRawFrame):
             _keep(self._caller, _level(frame, now), now)
+        elif (
+            isinstance(frame, InputTransportMessageFrame)
+            and self._gaps is not None
+            and isinstance(frame.message, dict)
+            and frame.message.get("type") == "playback_gaps"  # pyright: ignore[reportUnknownMemberType]
+        ):
+            # A count the web Channel checked (voice/serve.py); Pipecat types the message as Any.
+            self._gaps = int(frame.message["count"])  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
         elif isinstance(frame, InterruptionFrame):
             if direction == FrameDirection.UPSTREAM:
                 self._barge_in(now, "gemini")  # only the model sends one up to here
@@ -316,6 +337,7 @@ class BargeInRecorder(FrameProcessor):
                 cut_share=round(self._cut / self._stretches, 2)
                 if self._stretches
                 else 0.0,
+                **({} if self._gaps is None else {"playback_gaps": self._gaps}),
             )
         await self.push_frame(frame, direction)
 

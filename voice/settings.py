@@ -10,13 +10,13 @@ one that was switched off (ADR 0002). The Portal never imports this, and this ne
 import json
 import os
 import re
-import urllib.error
-import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit
+
+from voice.portal_client import PortalRefused, get
 
 # Edit with contract/business-settings.schema.json: tests/test_settings_port.py reads both and fails on drift.
 LANGUAGES = {"sv": "Swedish", "en": "English"}
@@ -34,18 +34,9 @@ COLOUR_PATTERN = (
 LOGO_URL_MAX = 2000
 PRIVACY_URL_MAX = 2000
 PRIVACY_URL_PATTERN = r"https://\S+"  # the schema's privacy_url, anchored there
-# ponytail: a call waits this long in silence for the Portal before it is refused; make it a setting if the Portal is slow in practice.
-PORTAL_TIMEOUT_S = 5
 MAX_REPLY_BYTES = (
     64_000  # a reply longer than the schema allows is cut and then fails to parse
 )
-
-
-class NoRedirect(urllib.request.HTTPRedirectHandler):
-    """A redirect would carry the secret to wherever it points; a moved Portal is a refused call."""
-
-    def redirect_request(self, *_: Any, **__: Any) -> None:
-        return None
 
 
 class SettingsRefused(Exception):
@@ -195,30 +186,20 @@ def _from_file(path: str) -> Settings:
         ) from None
 
 
-def _from_portal(url: str, secret: str, business_id: str) -> Settings:
-    parts = urlsplit(url)
-    host = (
-        parts.hostname
-    )  # the log names the host only: the address could hold a password
-    if parts.scheme not in ("http", "https") or not host:
-        raise SettingsRefused("SETTINGS_URL must be an http or https address")
+def _from_portal(env: Mapping[str, str], business_id: str) -> Settings:
     # The id is the Portal's database id until VOI-29 adds the public call link.
     if not business_id.isascii() or not business_id.isdigit():
         raise SettingsRefused("the Business's number is not a number")
-    address = f"{url.rstrip('/')}/api/settings/{business_id}/"
     try:
-        request = urllib.request.Request(
-            address, headers={"Authorization": f"Bearer {secret}"}
-        )
-        with urllib.request.build_opener(NoRedirect).open(
-            request, timeout=PORTAL_TIMEOUT_S
-        ) as reply:
-            return parse(json.loads(reply.read(MAX_REPLY_BYTES)))
+        reply = get(f"/api/settings/{business_id}/", "settings", MAX_REPLY_BYTES, env)
+    except PortalRefused as e:
+        raise SettingsRefused(str(e)) from None
+    try:
+        return parse(reply)
     except SettingsRefused:
         raise
-    except urllib.error.HTTPError as e:
-        raise SettingsRefused(f"the Portal at {host} answered {e.code}") from None
-    except Exception as e:  # noqa: BLE001  fail closed: unreachable, cut short, not JSON, too deep: all refuse, and only the kind is logged (a message could hold the secret)
+    except Exception as e:  # noqa: BLE001  fail closed: a reply parse() did not foresee refuses too, by kind only
+        host = urlsplit(env.get("SETTINGS_URL", "").strip()).hostname
         raise SettingsRefused(
             f"the Portal at {host} gave no settings ({type(e).__name__})"
         ) from None
@@ -248,10 +229,7 @@ def load_settings(
     if portal:
         if business_id is None:
             raise SettingsRefused("the call names no Business")
-        secret = env.get("CORE_SECRET", "")
-        if not secret:
-            raise SettingsRefused("SETTINGS_URL is set but CORE_SECRET is missing")
-        return _from_portal(portal, secret, business_id.strip())
+        return _from_portal(env, business_id.strip())
     raise SettingsRefused(
         "no settings source: set SETTINGS_URL (with CORE_SECRET), or SETTINGS_FILE for evals"
     )
