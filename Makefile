@@ -1,7 +1,7 @@
 # The one command interface: CI, hooks, loops and agents call only these targets.
 # A target that does not apply here is `@echo "n/a: <reason>"`, which records the choice.
 .DEFAULT_GOAL := help
-.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio voice-samples seed check lint typecheck test test-db guards workflow-lint archive-decisions generate generate-check build
+.PHONY: help setup up down portal-up portal-down self-host self-host-down eval eval-audio voice-samples seed check lint typecheck test test-db guards workflow-lint archive-decisions linear-room generate generate-check build
 
 help: ## List the targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -63,6 +63,9 @@ test-db: ## Tests against the real data stores (the target starts and stops them
 	docker compose -f compose.test.yml -p voice-test up -d --wait
 	DATABASE_URL=postgres://postgres:test@127.0.0.1:55432/portal_test uv run pytest -m db; status=$$?; \
 	  docker compose -f compose.test.yml -p voice-test down -v; exit $$status
+
+linear-room: ## Archive the oldest closed Linear issues until there is room for ROOM (20) new ones: the free plan refuses new issues past 250 not archived. Run before creating issues
+	node scripts/linear-room.js $(ARGS)
 
 archive-decisions: ## Move DECISIONS.md lines older than KEEP_DAYS (7) into docs/decisions/<yyyy-mm>.md; open questions stay
 	node scripts/archive-decisions.js
