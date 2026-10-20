@@ -2,7 +2,7 @@
 # anonymous Docker Hub pulls are rate-limited in cloud sessions (429).
 services:
   postgres:
-    image: mirror.gcr.io/library/postgres:16-alpine
+    image: mirror.gcr.io/library/postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     environment: { POSTGRES_PASSWORD: test, POSTGRES_DB: portal_test }
     ports: ["127.0.0.1:55432:5432"]
     tmpfs: ["/var/lib/postgresql/data"]
