@@ -1,3 +1,5 @@
 # The Call button file and its hash are frozen bytes: a checkout must not rewrite their line endings, or the hash every pasted tag names stops matching (VOI-135).
 portal/static/portal/call-button.v*.js -text
 portal/call-button.v*.integrity -text
+# DECISIONS.md is append-only: keep both sides' new lines on a merge instead of a conflict (VOI-214).
+DECISIONS.md merge=union

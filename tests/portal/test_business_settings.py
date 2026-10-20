@@ -21,13 +21,13 @@ def core_secret(settings: Any) -> None:
 
 
 def test_editing_in_the_portal_changes_what_the_core_is_told() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    assert ask_core(business.pk).json()["name"] == "Anna's Salon"
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    assert ask_core(business.pk).json()["name"] == "Owner A's Salon"
 
     response = client.post(
         "/settings/",
         {
-            "name": "Anna's Hair",
+            "name": "Owner A's Hair",
             "instructions": "Open mon-fri 8-17. A cut costs 400 kr. Closed in July.",
             "languages": ["sv", "en"],
         },
@@ -37,7 +37,7 @@ def test_editing_in_the_portal_changes_what_the_core_is_told() -> None:
 
     told = ask_core(business.pk).json()
     assert told == {
-        "name": "Anna's Hair",
+        "name": "Owner A's Hair",
         "instructions": "Open mon-fri 8-17. A cut costs 400 kr. Closed in July.",
         "languages": ["sv", "en"],
         "modules": [],
@@ -46,25 +46,29 @@ def test_editing_in_the_portal_changes_what_the_core_is_told() -> None:
 
 
 def test_a_bad_edit_is_refused_and_changes_nothing() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     bad_edits: list[dict[str, Any]] = [
         {"name": "  ", "languages": ["sv"]},  # blank name
-        {"name": "Anna", "languages": []},  # no language
-        {"name": "Anna", "languages": ["de"]},  # not a known language
-        {"name": "Anna", "instructions": "x" * 5001, "languages": ["sv"]},  # too long
+        {"name": "Owner A", "languages": []},  # no language
+        {"name": "Owner A", "languages": ["de"]},  # not a known language
+        {
+            "name": "Owner A",
+            "instructions": "x" * 5001,
+            "languages": ["sv"],
+        },  # too long
     ]
     for bad in bad_edits:
         assert client.post("/settings/", bad).status_code == 200
     assert ask_core(business.pk).json() == Business.objects.get().as_settings()
-    assert Business.objects.get().as_settings()["name"] == "Anna's Salon"
+    assert Business.objects.get().as_settings()["name"] == "Owner A's Salon"
 
 
 def test_a_business_edits_only_its_own_settings() -> None:
-    anna, anna_client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    bo, _ = business_with_login("bo.testsson@example.com", "Bo's Garage")
-    anna_client.post("/settings/", {"name": "Anna's Hair", "languages": ["sv"]})
-    assert ask_core(anna.pk).json()["name"] == "Anna's Hair"
-    assert ask_core(bo.pk).json()["name"] == "Bo's Garage"
+    business_a, client_a = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_b, _ = business_with_login("user-b@example.com", "Owner B's Garage")
+    client_a.post("/settings/", {"name": "Owner A's Hair", "languages": ["sv"]})
+    assert ask_core(business_a.pk).json()["name"] == "Owner A's Hair"
+    assert ask_core(business_b.pk).json()["name"] == "Owner B's Garage"
 
 
 def test_a_post_of_settings_needs_a_login() -> None:
@@ -74,7 +78,7 @@ def test_a_post_of_settings_needs_a_login() -> None:
 def test_the_settings_address_refuses_a_missing_or_wrong_secret_and_unknown_businesses() -> (
     None
 ):
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     for secret in (None, "", "wrong", SECRET + "x"):
         assert ask_core(business.pk, secret).status_code == 401
     bare = Client().get(
@@ -91,20 +95,20 @@ def test_the_settings_address_refuses_everyone_when_no_secret_is_set(
     settings: Any,
 ) -> None:
     settings.CORE_SECRET = ""
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     assert ask_core(business.pk, "").status_code == 401
     assert ask_core(business.pk, None).status_code == 401
 
 
 def test_the_settings_address_only_reads() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     for method in ("post", "put", "delete"):
         response = getattr(Client(), method)(
             f"/api/settings/{business.pk}/",
             headers={"Authorization": f"Bearer {SECRET}"},
         )
         assert response.status_code == 405
-    assert Business.objects.get().as_settings()["name"] == "Anna's Salon"
+    assert Business.objects.get().as_settings()["name"] == "Owner A's Salon"
 
 
 # What must never break is refused by the database itself, whoever writes.
@@ -123,7 +127,7 @@ def test_the_settings_address_only_reads() -> None:
 def test_the_database_refuses_no_language_or_an_unknown_one(
     languages: list[str], refused: bool
 ) -> None:
-    account = Account.objects.create_user("anna.testsson@example.com")
+    account = Account.objects.create_user("user-a@example.com")
     with (
         pytest.raises(
             IntegrityError, match="business_languages_must_be_one_or_more_known"
@@ -136,13 +140,13 @@ def test_the_database_refuses_no_language_or_an_unknown_one(
 
 
 def test_the_database_refuses_a_setting_longer_than_the_contract_allows() -> None:
-    account = Account.objects.create_user("anna.testsson@example.com")
+    account = Account.objects.create_user("user-a@example.com")
     with pytest.raises(DataError, match="value too long"), transaction.atomic():
         Business.objects.create(account=account, name="A", instructions="x" * 5001)
 
 
 def test_the_response_is_plain_json() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     response = ask_core(business.pk)
     assert response["Content-Type"] == "application/json"
     assert "no-store" in response["Cache-Control"]

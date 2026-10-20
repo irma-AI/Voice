@@ -35,7 +35,7 @@ def stored(business: Business, label: str = "Claude Code") -> AccessToken:
 
 
 def test_the_secret_shows_once_and_the_database_holds_only_its_hash() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     answer = make(client)
     assert (
         "no-store" in answer["Cache-Control"]
@@ -51,7 +51,7 @@ def test_the_secret_shows_once_and_the_database_holds_only_its_hash() -> None:
 def test_the_page_lists_label_scope_made_and_last_used_times_and_a_new_token_is_unused() -> (
     None
 ):
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     make(client, "Claude Code", "full")
     page = client.get("/tokens/").content.decode()
     assert "Claude Code" in page and "Full" in page and "Never used" in page
@@ -63,7 +63,7 @@ def test_the_page_lists_label_scope_made_and_last_used_times_and_a_new_token_is_
 def test_the_new_secret_has_a_copy_button_and_each_revoke_names_its_token_and_asks_first() -> (
     None
 ):
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     page = make(client, "Claude Code").content.decode()
     secret = secret_in(page)
     assert (
@@ -80,7 +80,7 @@ def test_the_new_secret_has_a_copy_button_and_each_revoke_names_its_token_and_as
 
 
 def test_a_refused_form_makes_no_token_and_shows_no_secret() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     for label, scope in (
         ("", "read"),
         ("   ", "read"),
@@ -94,7 +94,7 @@ def test_a_refused_form_makes_no_token_and_shows_no_secret() -> None:
 
 
 def test_revoking_marks_the_token_and_it_cannot_be_revoked_again_or_undone() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     make(client)
     token = stored(business)
     assert client.post(f"/tokens/{token.pk}/revoke/")["Location"] == "/tokens/"
@@ -113,18 +113,18 @@ def test_revoking_marks_the_token_and_it_cannot_be_revoked_again_or_undone() -> 
 
 
 def test_a_business_sees_and_revokes_only_its_own_tokens() -> None:
-    anna, anna_client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    _, bo_client = business_with_login("bo.testsson@example.com", "Bo's Bar")
-    make(anna_client, "Anna's agent")
-    token = stored(anna, "Anna's agent")
-    assert "Anna's agent" not in bo_client.get("/tokens/").content.decode()
-    assert bo_client.post(f"/tokens/{token.pk}/revoke/").status_code == 404
+    business_a, client_a = business_with_login("user-a@example.com", "Owner A's Salon")
+    _, client_b = business_with_login("user-b@example.com", "Owner B's Bar")
+    make(client_a, "Owner A's agent")
+    token = stored(business_a, "Owner A's agent")
+    assert "Owner A's agent" not in client_b.get("/tokens/").content.decode()
+    assert client_b.post(f"/tokens/{token.pk}/revoke/").status_code == 404
     token.refresh_from_db()
     assert token.revoked_at is None
 
 
 def test_a_visitor_is_sent_to_the_login_and_a_get_of_revoke_does_nothing() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     make(client)
     token = stored(business)
     visitor = Client()
@@ -140,19 +140,19 @@ def test_a_visitor_is_sent_to_the_login_and_a_get_of_revoke_does_nothing() -> No
 def test_only_the_super_admin_account_makes_operator_tokens(settings: Any) -> None:
     settings.SUPER_ADMIN_EMAIL = EMAIL
     petter, petter_client = business_with_login(EMAIL, "Petter's Business")
-    anna, anna_client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_a, client_a = business_with_login("user-a@example.com", "Owner A's Salon")
     make(petter_client)
-    make(anna_client)
-    assert stored(petter).is_operator and not stored(anna).is_operator
+    make(client_a)
+    assert stored(petter).is_operator and not stored(business_a).is_operator
     assert "Operator" in petter_client.get("/tokens/").content.decode()
-    assert "Operator" not in anna_client.get("/tokens/").content.decode()
+    assert "Operator" not in client_a.get("/tokens/").content.decode()
     settings.SUPER_ADMIN_EMAIL = ""  # unset: nobody gets an operator token
     make(petter_client, "second")
     assert not stored(petter, "second").is_operator
 
 
 def test_the_database_refuses_a_scope_outside_read_and_full() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     with (
         pytest.raises(IntegrityError, match="access_token_scope_must_be_read_or_full"),
         transaction.atomic(),
@@ -163,7 +163,7 @@ def test_the_database_refuses_a_scope_outside_read_and_full() -> None:
 
 
 def test_the_database_refuses_a_repeated_hash() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     AccessToken.objects.create(
         business=business, label="x", scope="read", token_hash="a" * 64
     )
@@ -177,7 +177,7 @@ def test_the_database_refuses_a_repeated_hash() -> None:
 def test_the_database_refuses_anything_but_a_lower_case_sha256_in_place_of_the_hash(
     bad: str,
 ) -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     with (
         pytest.raises(IntegrityError, match="access_token_must_hold_a_sha256_hash"),
         transaction.atomic(),
@@ -188,7 +188,7 @@ def test_the_database_refuses_anything_but_a_lower_case_sha256_in_place_of_the_h
 
 
 def test_the_database_refuses_a_blank_label() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     with (
         pytest.raises(IntegrityError, match="access_token_label_must_not_be_blank"),
         transaction.atomic(),
@@ -199,7 +199,7 @@ def test_the_database_refuses_a_blank_label() -> None:
 
 
 def test_a_made_token_changes_only_in_its_last_use_and_its_first_revoke() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     token, _ = AccessToken.make(business, "x", "read", False)
     for change in (
         {"scope": "full"},
@@ -222,7 +222,7 @@ def test_a_made_token_changes_only_in_its_last_use_and_its_first_revoke() -> Non
 
 
 def test_a_token_is_never_deleted_only_revoked() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     token, _ = AccessToken.make(business, "x", "read", False)
     refused = "access_token_is_revoked_never_deleted"
     with pytest.raises(IntegrityError, match=refused), transaction.atomic():
@@ -239,8 +239,8 @@ def test_a_token_is_never_deleted_only_revoked() -> None:
 
 
 def test_a_label_is_changed_only_when_offboarding_blanks_a_revoked_token() -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    token, _ = AccessToken.make(business, "Anna's laptop", "read", False)
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    token, _ = AccessToken.make(business, "Owner A's laptop", "read", False)
     refused = "access_token_label_is_blanked_only_by_offboarding"
     placeholder = f"Token {token.pk}"
 
@@ -257,8 +257,8 @@ def test_a_label_is_changed_only_when_offboarding_blanks_a_revoked_token() -> No
         with pytest.raises(IntegrityError, match=refused), transaction.atomic():
             update_label(label, switch)
     token.revoke()
-    for label, switch in ((placeholder, False), ("Bo's laptop", True)):
+    for label, switch in ((placeholder, False), ("Owner B's laptop", True)):
         with pytest.raises(IntegrityError, match=refused), transaction.atomic():
             update_label(label, switch)
     token.refresh_from_db()
-    assert token.label == "Anna's laptop"
+    assert token.label == "Owner A's laptop"

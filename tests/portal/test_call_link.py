@@ -51,9 +51,9 @@ def assert_the_refusal_page(page: str, sentence: str = SENTENCE) -> None:
 
 def a_business_with_a_budget(usd: str) -> Business:
     nth = Business.objects.count() + 1
-    business, _ = business_with_login(f"anna{nth}.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login(f"user-a{nth}@example.com", "Owner A's Salon")
     Business.objects.filter(pk=business.pk).update(
-        website_domain="anna.example.se", daily_budget_usd=usd
+        website_domain="site-a.example.se", daily_budget_usd=usd
     )
     return business
 
@@ -70,11 +70,13 @@ def core(settings: Any) -> None:
 
 
 def test_the_link_sends_anyone_to_the_core_with_a_ticket_for_that_business() -> None:
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
-    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_b, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
+    Business.objects.filter(pk=business_a.pk).update(website_domain="site-a.example.se")
 
-    response = Client().get(f"/call/{anna.call_slug}/", headers=IN_A_FRAME)  # no login
+    response = Client().get(
+        f"/call/{business_a.call_slug}/", headers=IN_A_FRAME
+    )  # no login
 
     assert response.status_code == 302
     parts = urlsplit(response["Location"])
@@ -86,23 +88,23 @@ def test_the_link_sends_anyone_to_the_core_with_a_ticket_for_that_business() -> 
     ticket = parse_qs(parts.query)["ticket"][0]
     # The ticket carries the Business's own saved domain, which the core turns into the frame-ancestors header.
     assert read_ticket(ticket, SECRET) == Ticket(
-        anna.pk, "call_link", "anna.example.se"
+        business_a.pk, "call_link", "site-a.example.se"
     )
-    assert anna.pk != bo.pk
+    assert business_a.pk != business_b.pk
     assert read_ticket(ticket, SECRET, time.time() + 3600) is None
 
 
 def test_a_business_with_no_saved_website_gets_no_ticket(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    assert anna.website_domain == ""
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    assert business_a.website_domain == ""
 
-    response = Client().get(f"/call/{anna.call_slug}/", headers=IN_A_FRAME)
+    response = Client().get(f"/call/{business_a.call_slug}/", headers=IN_A_FRAME)
 
     assert response.status_code == 403 and "Location" not in response
     assert_the_refusal_page(response.content.decode())
-    assert f"Business {anna.pk} has no website domain" in caplog.text
+    assert f"Business {business_a.pk} has no website domain" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -118,23 +120,23 @@ def test_a_business_with_no_saved_website_gets_no_ticket(
 def test_a_request_that_does_not_say_it_is_in_a_frame_gets_no_ticket(
     headers: dict[str, str], caplog: pytest.LogCaptureFixture
 ) -> None:
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    Business.objects.filter(pk=business_a.pk).update(website_domain="site-a.example.se")
 
-    response = Client().get(f"/call/{anna.call_slug}/", headers=headers)
+    response = Client().get(f"/call/{business_a.call_slug}/", headers=headers)
 
     assert response.status_code == 403 and "Location" not in response
     assert_the_refusal_page(response.content.decode())
-    assert f"Business {anna.pk} opened outside a frame" in caplog.text
+    assert f"Business {business_a.pk} opened outside a frame" in caplog.text
 
 
 def test_the_call_link_can_be_framed_but_nothing_else_of_the_portal_can() -> None:
-    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+    business_a, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    Business.objects.filter(pk=business_a.pk).update(website_domain="site-a.example.se")
 
     # The panel frames the link, so Django's own refusal to be framed is lifted for it, on the refusal too.
     for headers in (IN_A_FRAME, {}):
-        response = Client().get(f"/call/{anna.call_slug}/", headers=headers)
+        response = Client().get(f"/call/{business_a.call_slug}/", headers=headers)
         assert "X-Frame-Options" not in response
     # Every other page still refuses (the core's frame-ancestors guards the call page itself).
     assert client.get("/dashboard/")["X-Frame-Options"] == "DENY"
@@ -144,55 +146,67 @@ def test_the_call_link_can_be_framed_but_nothing_else_of_the_portal_can() -> Non
 def test_a_spent_daily_budget_refuses_with_no_ticket(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    anna = a_business_with_a_budget("1.00")
+    business_a = a_business_with_a_budget("1.00")
     now = timezone.now()
-    a_call(anna, "priced-000000001", now, cost_usd="0.40")
-    assert link(anna).status_code == 302  # under
+    a_call(business_a, "priced-000000001", now, cost_usd="0.40")
+    assert link(business_a).status_code == 302  # under
 
-    a_call(anna, "priced-000000002", now, cost_usd="0.60")  # at
-    response = link(anna)
+    a_call(business_a, "priced-000000002", now, cost_usd="0.60")  # at
+    response = link(business_a)
 
     assert response.status_code == 403 and "Location" not in response
     assert_the_refusal_page(response.content.decode(), BUDGET_SPENT)
-    assert f"Business {anna.pk} has spent its daily budget" in caplog.text
+    assert f"Business {business_a.pk} has spent its daily budget" in caplog.text
     assert "0.6" not in caplog.text and "1.0" not in caplog.text  # the id only
-    a_call(anna, "priced-000000003", now, cost_usd="5")  # over
-    assert link(anna).status_code == 403
-    bo = a_business_with_a_budget("0")  # no records: the off switch
-    assert link(bo).status_code == 403
+    a_call(business_a, "priced-000000003", now, cost_usd="5")  # over
+    assert link(business_a).status_code == 403
+    business_b = a_business_with_a_budget("0")  # no records: the off switch
+    assert link(business_b).status_code == 403
 
 
 def test_a_call_with_no_cost_counts_at_the_rate_google_charged_the_priced_ones() -> (
     None
 ):
-    anna = a_business_with_a_budget("1.00")
+    business_a = a_business_with_a_budget("1.00")
     unpriced = {
         "cost_usd": None,
         "price_date": None,
         "cost_reason": "price_unavailable",
     }
     # Before the first priced call there is no rate: an unpriced call counts nothing.
-    a_call(anna, "unpriced-00000001", timezone.now(), length_seconds=6000, **unpriced)
-    assert link(anna).status_code == 302
+    a_call(
+        business_a, "unpriced-00000001", timezone.now(), length_seconds=6000, **unpriced
+    )
+    assert link(business_a).status_code == 302
     # 100 s for $0.50 yesterday: half a cent a second, so 99 more unpriced seconds make $0.995 today.
     a_call(
-        anna,
+        business_a,
         "priced-000000001",
         timezone.now() - timedelta(days=1),
         length_seconds=100,
         cost_usd="0.50",
     )
-    Business.objects.filter(pk=anna.pk).update(daily_budget_usd="30.50")
-    assert link(anna).status_code == 302  # 6000 s at the rate is $30, under
-    Business.objects.filter(pk=anna.pk).update(daily_budget_usd="30.00")
-    assert link(anna).status_code == 403  # at
+    Business.objects.filter(pk=business_a.pk).update(daily_budget_usd="30.50")
+    assert link(business_a).status_code == 302  # 6000 s at the rate is $30, under
+    Business.objects.filter(pk=business_a.pk).update(daily_budget_usd="30.00")
+    assert link(business_a).status_code == 403  # at
     # A call priced at nothing (its usage reports never came) counts like an unpriced one, not as free.
-    bo = a_business_with_a_budget("1.00")
-    a_call(bo, "priced-000000002", timezone.now(), length_seconds=100, cost_usd="0.50")
-    a_call(bo, "free-00000000001", timezone.now(), length_seconds=99, cost_usd="0")
-    assert link(bo).status_code == 302  # $0.995
-    a_call(bo, "free-00000000002", timezone.now(), length_seconds=1, cost_usd="0")
-    assert link(bo).status_code == 403  # $1.00
+    business_b = a_business_with_a_budget("1.00")
+    a_call(
+        business_b,
+        "priced-000000002",
+        timezone.now(),
+        length_seconds=100,
+        cost_usd="0.50",
+    )
+    a_call(
+        business_b, "free-00000000001", timezone.now(), length_seconds=99, cost_usd="0"
+    )
+    assert link(business_b).status_code == 302  # $0.995
+    a_call(
+        business_b, "free-00000000002", timezone.now(), length_seconds=1, cost_usd="0"
+    )
+    assert link(business_b).status_code == 403  # $1.00
     # A rate that does not terminate ($1.00 over 300 s) still lands exactly on the budget.
     cem = a_business_with_a_budget("2.00")
     a_call(cem, "priced-000000003", timezone.now(), length_seconds=300, cost_usd="1.00")
@@ -201,13 +215,13 @@ def test_a_call_with_no_cost_counts_at_the_rate_google_charged_the_priced_ones()
 
 
 def test_a_test_call_neither_counts_nor_is_refused() -> None:
-    anna = a_business_with_a_budget("1.00")
+    business_a = a_business_with_a_budget("1.00")
     client = Client()
-    client.force_login(anna.account)
-    a_call(anna, "test-00000000001", timezone.now(), kind="test", cost_usd="5")
-    assert link(anna).status_code == 302
-    a_call(anna, "priced-000000001", timezone.now(), cost_usd="1")
-    assert link(anna).status_code == 403
+    client.force_login(business_a.account)
+    a_call(business_a, "test-00000000001", timezone.now(), kind="test", cost_usd="5")
+    assert link(business_a).status_code == 302
+    a_call(business_a, "priced-000000001", timezone.now(), cost_usd="1")
+    assert link(business_a).status_code == 403
     assert client.post("/test-call/").status_code == 302
 
 
@@ -215,10 +229,10 @@ def test_the_mint_refuses_every_counted_kind_once_the_budget_is_spent(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """The refusal lives where every ticket is minted, so a counted kind from a view other than the call link is refused too, and an exempt one is not (VOI-172). The test call stands in for a future counted kind."""
-    anna = a_business_with_a_budget("1.00")
+    business_a = a_business_with_a_budget("1.00")
     client = Client()
-    client.force_login(anna.account)
-    a_call(anna, "priced-000000001", timezone.now(), cost_usd="1")  # at
+    client.force_login(business_a.account)
+    a_call(business_a, "priced-000000001", timezone.now(), cost_usd="1")  # at
     assert client.post("/test-call/").status_code == 302  # exempt
 
     monkeypatch.setitem(BUDGET_COUNTED, "test", True)
@@ -226,7 +240,10 @@ def test_the_mint_refuses_every_counted_kind_once_the_budget_is_spent(
 
     assert response.status_code == 403 and "Location" not in response
     assert_the_refusal_page(response.content.decode(), BUDGET_SPENT)
-    assert f"Business {anna.pk} has spent its daily budget (kind test)" in caplog.text
+    assert (
+        f"Business {business_a.pk} has spent its daily budget (kind test)"
+        in caplog.text
+    )
 
 
 def test_every_call_kind_is_counted_toward_the_budget_or_named_exempt() -> None:
@@ -238,23 +255,27 @@ def test_every_call_kind_is_counted_toward_the_budget_or_named_exempt() -> None:
 
 def test_the_day_is_counted_on_the_portal_clock(settings: Any) -> None:
     settings.TIME_ZONE = "Europe/Stockholm"
-    anna = a_business_with_a_budget("1.00")
+    business_a = a_business_with_a_budget("1.00")
     zone = ZoneInfo(settings.TIME_ZONE)
     midnight = datetime.combine(datetime.now(zone).date(), clock.min, tzinfo=zone)
-    a_call(anna, "yesterday-000001", midnight - timedelta(minutes=1), cost_usd="1")
-    assert link(anna).status_code == 302
-    a_call(anna, "today-0000000001", midnight + timedelta(minutes=1), cost_usd="1")
-    assert link(anna).status_code == 403
+    a_call(
+        business_a, "yesterday-000001", midnight - timedelta(minutes=1), cost_usd="1"
+    )
+    assert link(business_a).status_code == 302
+    a_call(
+        business_a, "today-0000000001", midnight + timedelta(minutes=1), cost_usd="1"
+    )
+    assert link(business_a).status_code == 403
 
 
 def test_every_business_starts_with_the_default_budget_and_the_database_refuses_a_negative_one() -> (
     None
 ):
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    anna.refresh_from_db()
-    assert anna.daily_budget_usd == 10
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_a.refresh_from_db()
+    assert business_a.daily_budget_usd == 10
     with pytest.raises(IntegrityError), transaction.atomic():
-        Business.objects.filter(pk=anna.pk).update(daily_budget_usd="-0.01")
+        Business.objects.filter(pk=business_a.pk).update(daily_budget_usd="-0.01")
 
 
 def test_the_core_and_the_portal_hold_the_same_rule_for_a_plain_hostname() -> None:
@@ -265,30 +286,32 @@ def test_the_core_and_the_portal_hold_the_same_rule_for_a_plain_hostname() -> No
 
 
 def test_the_link_cannot_be_guessed_and_only_reads() -> None:
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     assert Client().get("/call/not-a-link/").status_code == 404
     assert (
-        Client().get(f"/call/{anna.pk}/").status_code == 404
+        Client().get(f"/call/{business_a.pk}/").status_code == 404
     )  # the number is not the link
-    assert Client().post(f"/call/{anna.call_slug}/").status_code == 405
+    assert Client().post(f"/call/{business_a.call_slug}/").status_code == 405
 
 
 def test_a_portal_with_no_secret_sends_nobody_to_the_core(settings: Any) -> None:
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    Business.objects.filter(pk=business_a.pk).update(website_domain="site-a.example.se")
     settings.CORE_SECRET = ""
-    response = Client().get(f"/call/{anna.call_slug}/", headers=IN_A_FRAME)
+    response = Client().get(f"/call/{business_a.call_slug}/", headers=IN_A_FRAME)
     assert response.status_code == 503 and "Location" not in response
 
 
 def test_every_business_has_its_own_link_and_the_database_refuses_a_shared_one() -> (
     None
 ):
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
-    assert anna.call_slug != bo.call_slug and len(anna.call_slug) >= 20
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_b, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
+    assert (
+        business_a.call_slug != business_b.call_slug and len(business_a.call_slug) >= 20
+    )
     with pytest.raises(IntegrityError), transaction.atomic():
-        Business.objects.filter(pk=bo.pk).update(call_slug=anna.call_slug)
+        Business.objects.filter(pk=business_b.pk).update(call_slug=business_a.call_slug)
 
 
 @pytest.mark.parametrize(
@@ -304,14 +327,14 @@ def test_every_business_has_its_own_link_and_the_database_refuses_a_shared_one()
 def test_the_database_refuses_a_call_link_the_pasted_tag_could_not_carry(
     slug: str,
 ) -> None:
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     with (
         pytest.raises(
             IntegrityError, match="business_call_slug_must_be_22_to_40_url_safe_chars"
         ),
         transaction.atomic(),
     ):
-        Business.objects.filter(pk=anna.pk).update(call_slug=slug)
+        Business.objects.filter(pk=business_a.pk).update(call_slug=slug)
 
 
 def snippet(page: str) -> str:
@@ -320,23 +343,23 @@ def snippet(page: str) -> str:
 
 
 def test_the_dashboard_shows_the_script_snippet_only_with_a_saved_website() -> None:
-    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
+    business_a, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_b, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
 
     closed = client.get("/dashboard/").content.decode()
     assert "<code>" not in closed and "Your call button is closed" in closed
-    assert anna.call_slug not in closed  # no bare call link either
+    assert business_a.call_slug not in closed  # no bare call link either
 
-    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+    Business.objects.filter(pk=business_a.pk).update(website_domain="site-a.example.se")
     page = client.get("/dashboard/").content.decode()
     assert "closed" not in page
     assert snippet(page) == (
-        f'<script async src="https://portal.example.se/static/portal/call-button.v1.js?business={anna.call_slug}"'
+        f'<script async src="https://portal.example.se/static/portal/call-button.v1.js?business={business_a.call_slug}"'
         f' data-core="https://voice.example.se" data-fill="{theme.DEEP_SEA}" data-ink="{theme.FOAM}"'
         f' integrity="{served_file_hash()}" crossorigin="anonymous"></script>'
     )
-    assert bo.call_slug not in page
-    assert f"/call/{anna.call_slug}/" not in page
+    assert business_b.call_slug not in page
+    assert f"/call/{business_a.call_slug}/" not in page
     # the Copy button copies the code block it names, and its script is loaded
     assert (
         '<pre id="call-button-code"' in page and 'data-copy="call-button-code"' in page
@@ -345,11 +368,11 @@ def test_the_dashboard_shows_the_script_snippet_only_with_a_saved_website() -> N
 
 
 def test_the_dashboard_names_the_addresses_a_security_policy_must_allow() -> None:
-    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_a, client = business_with_login("user-a@example.com", "Owner A's Salon")
 
     assert "security policy" not in client.get("/dashboard/").content.decode()
 
-    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+    Business.objects.filter(pk=business_a.pk).update(website_domain="site-a.example.se")
     page = client.get("/dashboard/").content.decode()
     # Scripts need the Portal; frames need the Portal and the core (the panel redirects from one to the other).
     assert "scripts from <code>https://portal.example.se</code>" in page
@@ -378,9 +401,9 @@ def served_file_hash() -> str:
 def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw() -> (
     None
 ):
-    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    Business.objects.filter(pk=anna.pk).update(
-        website_domain="anna.example.se", accent="#ffd60a"
+    business_a, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    Business.objects.filter(pk=business_a.pk).update(
+        website_domain="site-a.example.se", accent="#ffd60a"
     )
     tag = snippet(client.get("/dashboard/").content.decode())
 
@@ -401,7 +424,7 @@ def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw
     )
     # WhiteNoise serves the file with the CORS header a cross-origin integrity check needs (here from the source tree, as a local run does; the image serves the collected copy).
     response = Client().get(
-        f"/static/portal/call-button.v1.js?business={anna.call_slug}"
+        f"/static/portal/call-button.v1.js?business={business_a.call_slug}"
     )
     assert (
         response.status_code == 200 and response["Access-Control-Allow-Origin"] == "*"
@@ -430,8 +453,8 @@ def test_the_script_is_served_with_the_core_it_lets_the_microphone_into() -> Non
 
 
 def test_the_snippet_and_the_script_agree_on_the_tag_and_the_route() -> None:
-    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    Business.objects.filter(pk=anna.pk).update(website_domain="anna.example.se")
+    business_a, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    Business.objects.filter(pk=business_a.pk).update(website_domain="site-a.example.se")
 
     tag = snippet(client.get("/dashboard/").content.decode())
     script = Client().get("/call-button.js").content.decode()
@@ -441,7 +464,8 @@ def test_the_snippet_and_the_script_agree_on_the_tag_and_the_route() -> None:
     assert 'searchParams.get("business")' in script
     assert "{portal}/call/${encodeURIComponent(business)}/" in script
     assert (
-        Client().get(f"/call/{anna.call_slug}/", headers=IN_A_FRAME).status_code == 302
+        Client().get(f"/call/{business_a.call_slug}/", headers=IN_A_FRAME).status_code
+        == 302
     )
 
 
@@ -461,28 +485,28 @@ def launcher_colours(script: str) -> tuple[str, str]:
 def test_the_launcher_carries_its_business_s_adjusted_accent_or_voice_s_own_look() -> (
     None
 ):
-    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    bo, _ = business_with_login("bo.testsson@example.com", "Bo's Bikes")
+    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_b, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
     # #2f6b4f passes AA under Foam and stays; #ffd60a is lightened toward Deep sea text only as far as it must.
-    Business.objects.filter(pk=anna.pk).update(accent="#2f6b4f")
-    Business.objects.filter(pk=bo.pk).update(accent="#ffd60a")
+    Business.objects.filter(pk=business_a.pk).update(accent="#2f6b4f")
+    Business.objects.filter(pk=business_b.pk).update(accent="#ffd60a")
 
     def served(query: str) -> tuple[str, str]:
         return launcher_colours(
             Client().get(f"/call-button.js{query}").content.decode()
         )
 
-    assert served(f"?business={anna.call_slug}") == theme.on_accent("#2f6b4f")
-    assert served(f"?business={bo.call_slug}") == theme.on_accent("#ffd60a")
+    assert served(f"?business={business_a.call_slug}") == theme.on_accent("#2f6b4f")
+    assert served(f"?business={business_b.call_slug}") == theme.on_accent("#ffd60a")
     # The ring and the words on the fill reach 3:1 and 4.5:1 for every Business.
     for fill, ink in (
-        served(f"?business={anna.call_slug}"),
-        served(f"?business={bo.call_slug}"),
+        served(f"?business={business_a.call_slug}"),
+        served(f"?business={business_b.call_slug}"),
     ):
         assert theme.contrast(fill, ink) >= theme.AA_CONTRAST
     # No accent, an unknown slug, or an old tag with no query: Voice's own Deep sea and Foam.
-    Business.objects.filter(pk=anna.pk).update(accent="")
-    for query in (f"?business={anna.call_slug}", "?business=not-a-link", ""):
+    Business.objects.filter(pk=business_a.pk).update(accent="")
+    for query in (f"?business={business_a.call_slug}", "?business=not-a-link", ""):
         assert served(query) == (theme.DEEP_SEA, theme.FOAM)
 
 
@@ -494,16 +518,16 @@ def test_the_script_sends_no_message_to_every_site() -> None:
 
 
 def test_a_business_cannot_set_its_own_link_or_budget_from_the_settings_page() -> None:
-    anna, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business_a, client = business_with_login("user-a@example.com", "Owner A's Salon")
     client.post(
         "/settings/",
         {
-            "name": "Anna's Salon",
+            "name": "Owner A's Salon",
             "instructions": "",
             "languages": ["sv"],
             "call_slug": "mine",
             "daily_budget_usd": "999",
         },
     )
-    anna.refresh_from_db()
-    assert anna.call_slug != "mine" and anna.daily_budget_usd == 10
+    business_a.refresh_from_db()
+    assert business_a.call_slug != "mine" and business_a.daily_budget_usd == 10

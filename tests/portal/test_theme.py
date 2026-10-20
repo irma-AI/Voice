@@ -31,7 +31,7 @@ SVG = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
 
 def save(client: Client, **theme: Any) -> Any:
     return client.post(
-        "/settings/", {"name": "Anna's Salon", "languages": ["sv"], **theme}
+        "/settings/", {"name": "Owner A's Salon", "languages": ["sv"], **theme}
     )
 
 
@@ -72,7 +72,7 @@ def test_every_accent_comes_out_readable() -> None:
 def test_the_database_refuses_a_bad_logo(
     logo: bytes | None, key: str | None, rule: str
 ) -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     if key is None:
         key = hashlib.sha256(logo).hexdigest() if logo is not None else ""
     # The savepoint keeps the test's own transaction usable after Postgres refuses the write.
@@ -88,7 +88,7 @@ def test_the_database_refuses_a_bad_logo(
 def test_the_database_refuses_an_accent_that_is_not_a_six_digit_hex_colour(
     bad: str,
 ) -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     with (
         pytest.raises(
             IntegrityError,
@@ -105,7 +105,7 @@ def test_the_database_refuses_an_accent_that_is_not_a_six_digit_hex_colour(
 @pytest.mark.db
 @pytest.mark.django_db
 def test_the_database_takes_a_png_webp_or_jpeg_up_to_the_limit(good: bytes) -> None:
-    business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     business.set_logo(good)
     business.save()
     assert bytes(Business.objects.get().logo or b"") == good
@@ -119,7 +119,7 @@ def test_the_database_takes_a_png_webp_or_jpeg_up_to_the_limit(good: bytes) -> N
 def test_a_business_saves_a_logo_and_an_accent_and_the_core_is_told(
     settings: Any,
 ) -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     response = save(
         client, logo=upload(WEBP, "logo.png"), use_accent="on", accent="#1A2A44"
     )
@@ -140,7 +140,7 @@ def test_a_business_saves_a_logo_and_an_accent_and_the_core_is_told(
 @pytest.mark.db
 @pytest.mark.django_db
 def test_the_core_is_told_the_adjusted_accent(settings: Any) -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     save(client, use_accent="on", accent="#1c7ed6")
     theme = told_to_core(business, settings)["theme"]
     assert theme["accent"] != "#1c7ed6"
@@ -152,7 +152,7 @@ def test_the_core_is_told_the_adjusted_accent(settings: Any) -> None:
 @pytest.mark.db
 @pytest.mark.django_db
 def test_no_theme_is_voices_own_look_and_the_core_is_told_none(settings: Any) -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     save(
         client, accent="#1a2a44"
     )  # the box is unticked: the colour input's value is not saved
@@ -179,7 +179,7 @@ def test_no_theme_is_voices_own_look_and_the_core_is_told_none(settings: Any) ->
 def test_a_wrong_logo_gets_a_clear_error_and_changes_nothing(
     data: bytes, name: str, says: str
 ) -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     save(client, logo=upload(PNG))
 
     response = save(client, logo=upload(data, name))
@@ -192,7 +192,7 @@ def test_a_wrong_logo_gets_a_clear_error_and_changes_nothing(
 @pytest.mark.db
 @pytest.mark.django_db
 def test_a_malformed_accent_gets_a_clear_error() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     response = save(client, use_accent="on", accent="blue")
     assert response.status_code == 200
     assert "That is not a colour" in response.content.decode()
@@ -202,7 +202,7 @@ def test_a_malformed_accent_gets_a_clear_error() -> None:
 @pytest.mark.db
 @pytest.mark.django_db
 def test_a_business_removes_its_logo_and_its_accent(settings: Any) -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     save(client, logo=upload(PNG), use_accent="on", accent="#1a2a44")
     address = told_to_core(business, settings)["theme"]["logo_url"]
     assert 'alt="Your logo"' in client.get("/settings/").content.decode()
@@ -228,7 +228,7 @@ def test_a_business_removes_its_logo_and_its_accent(settings: Any) -> None:
 def test_the_logo_is_served_publicly_with_its_type_and_a_long_cache(
     data: bytes, kind: str
 ) -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     save(client, logo=upload(data, "logo.png"))
 
     response = Client().get(f"/logo/{hashlib.sha256(data).hexdigest()}/")
@@ -243,7 +243,7 @@ def test_the_logo_is_served_publicly_with_its_type_and_a_long_cache(
 @pytest.mark.db
 @pytest.mark.django_db
 def test_a_logo_address_never_takes_a_business_id_or_a_call_link() -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     save(client, logo=upload(PNG))
     for guess in (str(business.pk), business.call_slug, "0" * 64):
         assert Client().get(f"/logo/{guess}/").status_code == 404
@@ -259,7 +259,7 @@ def preview(client: Client) -> str:
 def test_the_settings_preview_shows_the_adjusted_accent_and_the_logo(
     settings: Any,
 ) -> None:
-    business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
     save(client, logo=upload(PNG), use_accent="on", accent="#1c7ed6")
     told = told_to_core(business, settings)["theme"]
     shown = preview(client)
@@ -271,7 +271,7 @@ def test_the_settings_preview_shows_the_adjusted_accent_and_the_logo(
 @pytest.mark.db
 @pytest.mark.django_db
 def test_the_settings_preview_without_a_theme_is_voices_own_look() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
     shown = preview(client)
     assert "Talk to our assistant" in shown
     assert "style=" not in shown
