@@ -1,8 +1,8 @@
 """What a call cost, in US dollars, from Google's Cloud Billing Catalog (VOI-42).
 
 The catalogue is Google's public price list (the v2beta SKU list and v1beta price endpoints that take an API key, per
-https://cloud.google.com/billing/docs/how-to/get-pricing-information-api), asked for in dollars with `BILLING_API_KEY`. The price of each token kind is kept in memory for a day. No price is written down here. When the catalogue can't be read, or its entries can't be matched to the Live model's
-token kinds, the cost is empty and a `CostReason` says why: a wrong price is worse than none.
+https://cloud.google.com/billing/docs/how-to/get-pricing-information-api), asked for in dollars with `BILLING_API_KEY`. The price of each token kind is kept in memory for a day. When the catalogue can't be read, or its entries can't be matched to the Live model's
+token kinds, the tokens are priced from the stored copy of Google's official rates (`STORED_PRICES`, dated by its `as_of`, VOI-216), so the daily budget sees a real cost; only when that copy is for another model or can't be read is the cost empty, with a `CostReason` saying why.
 """
 
 import contextlib
@@ -16,6 +16,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 from loguru import logger
@@ -30,10 +31,12 @@ GEMINI_SERVICE = "services/AEFD-7695-64FA"
 CATALOGUE_TIMEOUT_S = 10
 MAX_PAGES = 20
 KEPT_FOR_S = 24 * 3600
+# Google's official per-token rates for MODEL, copied from ai.google.dev/gemini-api/docs/pricing (docs/research/gemini-live-pricing.md); the evals' cost caps read the same file.
+STORED_PRICES = Path(__file__).parent / "prices.json"
 
 
 class CostReason(StrEnum):
-    """Why a record has no cost. The Portal stores the code as is; tests/test_cost_catalogue.py reaches every one."""
+    """Why the live lookup failed. It reaches a record only when the stored rates can't price the call either; the Portal stores the code as is; tests/test_cost_catalogue.py reaches every one."""
 
     NO_KEY = "no_billing_key"
     UNREACHABLE = "catalogue_unreachable"
@@ -199,19 +202,53 @@ def rates(
     return date, per_token
 
 
+def stored_rates(model: str, stored: Path) -> tuple[str, dict[Kind, Decimal]] | None:
+    """(the copy's as_of date, dollars per token of each kind) from the stored official rates, or None when they are not for this model."""
+    try:
+        copy = json.loads(stored.read_text("utf-8"))
+        if copy["model"] != model:
+            return None
+        per_m = copy["usd_per_million_tokens"]
+        names = {
+            ("input", "audio"): "audio_in",
+            ("input", "text"): "text_in",
+            ("output", "audio"): "audio_out",
+            ("output", "text"): "text_out",
+        }
+        per_token = {kind: Decimal(str(per_m[names[kind]])) / 10**6 for kind in KINDS}
+        # A bad edit must leave the call unpriced (the Portal counts its seconds), never lose its record.
+        if not all(r.is_finite() and r > 0 for r in per_token.values()):
+            return None
+        return datetime.fromisoformat(copy["as_of"]).date().isoformat(), per_token
+    except (OSError, ValueError, KeyError, TypeError, ArithmeticError):
+        return None
+
+
 def price(
-    totals: Mapping[str, int], model: str, key: str, base: str = CATALOGUE_URL
+    totals: Mapping[str, int],
+    model: str,
+    key: str,
+    base: str = CATALOGUE_URL,
+    stored: Path | None = STORED_PRICES,
 ) -> dict[str, str | None]:
     """The record's three cost fields (cost_usd, price_date, cost_reason) for one call's tokens. Blocks, so it runs in a thread."""
     try:
         if not key:
             raise Unpriced(CostReason.NO_KEY)
         date, per_token = rates(key, model, base)
-        total = sum(
-            (per_token[kind] * tokens for kind, tokens in token_kinds(totals).items()),
-            Decimal(0),
-        )
-        cost = format(total.quantize(Decimal("0.00000001")), "f")
-        return {"cost_usd": cost, "price_date": date, "cost_reason": None}
     except Unpriced as e:
-        return {"cost_usd": None, "price_date": None, "cost_reason": e.reason.value}
+        fallback = stored_rates(model, stored) if stored else None
+        if not fallback:
+            return {"cost_usd": None, "price_date": None, "cost_reason": e.reason.value}
+        date, per_token = fallback
+        logger.warning(
+            "price catalogue failed ({}): priced from the stored rates of {}",
+            e.reason.value,
+            date,
+        )
+    total = sum(
+        (per_token[kind] * tokens for kind, tokens in token_kinds(totals).items()),
+        Decimal(0),
+    )
+    cost = format(total.quantize(Decimal("0.00000001")), "f")
+    return {"cost_usd": cost, "price_date": date, "cost_reason": None}

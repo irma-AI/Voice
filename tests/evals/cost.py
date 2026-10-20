@@ -1,12 +1,12 @@
-"""What a call cost, from the usage the model reported. Prices are data in prices.json."""
+"""What a call cost, from the usage the model reported. Prices are the stored official rates in voice/prices.json, the core's own fallback (one copy)."""
 
 import json
 from pathlib import Path
 from typing import Any
 
-from voice.cost import token_kinds
+from voice.cost import STORED_PRICES, token_kinds
 
-PRICES_FILE = Path(__file__).parent / "prices.json"
+PRICES_FILE = STORED_PRICES
 
 
 def cost_sek(
