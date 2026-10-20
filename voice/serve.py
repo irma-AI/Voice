@@ -19,7 +19,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import uvicorn
 from dotenv import load_dotenv
@@ -537,7 +537,7 @@ def create_app(ticket_secret: str) -> FastAPI:
             page = await receive_page_facts(websocket)
             if page is None:
                 return
-            # A demo call counts when it starts; the page is listening for the close by now (it sent its facts first).
+            # A demo call counts when it starts. The page keeps the close code from the moment the socket opens, so it shows a used-up day even when it was slow to send its facts.
             if ticket.kind == "demo" and not demo_calls.take(
                 client_address(websocket), local_today()
             ):
@@ -566,6 +566,12 @@ def main() -> None:
     if not secret.strip():  # fail closed: without it no call link can be checked
         sys.exit(
             "CORE_SECRET is not set: put the Portal's secret in .env (see .env.example)."
+        )
+    try:  # read on every demo call: a bad name would break each one, so it stops the core here (fail closed, with the reason)
+        local_today()
+    except (ZoneInfoNotFoundError, ValueError):
+        sys.exit(
+            "TIME_ZONE is not a tz database name, like Europe/Stockholm (see .env.example)."
         )
     logger.info(
         describe_source()

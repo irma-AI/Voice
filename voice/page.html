@@ -373,7 +373,7 @@ async function start() {
   tick(0);
   lines = [];
   turn.replaceChildren();
-  let stream, ctx, ws;
+  let stream, ctx, ws, closedWith = null;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
     ctx = new AudioContext();
@@ -382,6 +382,8 @@ async function start() {
     ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws${location.search}`);
     ws.binaryType = "arraybuffer";
     await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = () => fail(new Error("ws")); });
+    // The core may close before the call is set up below (a slow page, or today's demo calls used up): keep its code.
+    ws.onclose = (e) => { closedWith = e.code; };
   } catch (e) {
     stream?.getTracks().forEach((t) => t.stop());
     ctx?.close();
@@ -471,6 +473,7 @@ async function start() {
   }
   ws.onclose = (e) => call && end(e.code);
   call = end;
+  if (closedWith !== null) return end(closedWith);
   show("live");
 }
 go.onclick = () => panel.dataset.state !== "connecting" && (call ? call() : start());
