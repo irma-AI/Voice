@@ -11,6 +11,7 @@ import binascii
 import contextlib
 import functools
 import json
+import shlex
 import threading
 from collections.abc import Callable, Iterator
 from dataclasses import replace
@@ -30,7 +31,7 @@ from mcp.server.mcpserver import Context, MCPServer
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from psycopg.errors import QueryCanceled
 
-from portal.accounts import changes, tokens
+from portal.accounts import changes, probe, tokens
 from portal.accounts.domain import shown_domain
 from portal.accounts.models import (
     AccessToken,
@@ -39,6 +40,7 @@ from portal.accounts.models import (
     CommandRecord,
     Module,
 )
+from portal.accounts.module_form import ModuleForm
 from portal.accounts.settings_form import changed, problems
 
 # What a Command needs from the token that sends it. An operator Command is split by read and write like a Business's,
@@ -49,13 +51,17 @@ Need = Literal["read", "write", "operator_read", "operator_write"]
 COMMANDS: dict[str, Need] = {
     "list_recent_calls": "read",
     "remove_module": "write",
+    "list_modules": "read",
+    "check_module": "read",
+    "add_module": "write",
     "read_settings": "read",
     "change_settings": "write",
     "change_business_details": "write",
 }
 
 # Each database statement of a Command stops after this (Postgres statement_timeout), so a stuck one gives its thread back.
-# shortcut: only each statement is timed, not the Command (a thread cannot be stopped); add a deadline of its own before a Command makes several slow queries or calls out to the network.
+# shortcut: only each statement is timed, not the Command (a thread cannot be stopped); check_module's probe has its own 2 s deadline, add_module's
+# address lookup none (as on the Modules page). Add one before a Command makes several slow queries or a lookup is seen to hang.
 COMMAND_TIMEOUT_MS = 5000
 
 # Requests served at once. gunicorn has 4 threads (Dockerfile.portal) and the core asks the Portal for settings at every
@@ -111,7 +117,7 @@ def failed(text: str) -> CallToolResult:
 
 
 def as_answer(staged: dict[str, Any]) -> CallToolResult:
-    """A staged change's answer, as data and as text, so no agent infers from prose that it is done."""
+    """An answer as data and as text (a staged change's, so no agent infers from prose that it is done)."""
     return CallToolResult(
         content=[TextContent(type="text", text=json.dumps(staged))],
         structured_content=staged,
@@ -303,15 +309,73 @@ def remove_module(ctx: Context[Any, Any], name: str) -> CallToolResult:
     """Asks to remove one of your Business's Modules, by its name. Nothing changes until the Business approves it in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
-    module = Module.objects.filter(business=token.business, name=name).first()
+    module = mine(token, name)
     if module is None:
-        return failed("Your Business has no Module by that name.")
+        return failed(NO_SUCH_MODULE)
     return as_answer(changes.stage(token, "remove_module", {"module": module.pk}))
 
 
 def locked(token: AccessToken) -> Business:
     """The token's Business as stored now, locked until the Command commits: the form writes every setting, so none read earlier is written back."""
     return Business.objects.select_for_update().get(pk=token.business.pk)
+
+
+def mine(token: AccessToken, name: str) -> Module | None:
+    """One of the token's own Business's Modules by name; another Business's is not found, like an unknown one."""
+    return Module.objects.filter(business=token.business, name=name.strip()).first()
+
+
+NO_SUCH_MODULE = "Your Business has no Module by that name."
+
+
+@command("List Modules", ToolAnnotations(read_only_hint=True))
+def list_modules(ctx: Context[Any, Any]) -> list[dict[str, str]]:
+    """Your Business's Modules, oldest first: each one's name and address. Listing asks none of them; check_module asks one."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    return [
+        {"name": m.name, "address": m.url or shlex.join([m.command, *m.args])}
+        for m in Module.objects.filter(business=token.business).order_by("id")
+    ]
+
+
+@command("Check a Module", ToolAnnotations(read_only_hint=True, open_world_hint=True))
+def check_module(ctx: Context[Any, Any], name: str) -> CallToolResult:
+    """Asks one of your Modules, by name, which Actions it offers right now, as the Modules page's Check does. Gives up after a few seconds and says why it could not be used."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    module = mine(token, name)
+    if module is None:
+        return failed(NO_SUCH_MODULE)
+    offer = probe.what_they_offer(
+        [(module.url, module.command, module.args)], settings.ALLOW_LOCAL_MODULES
+    )[0]
+    return as_answer(
+        {
+            "name": module.name,
+            "actions": [{"name": n, "description": d} for n, d in offer.actions],
+            "problem": offer.problem,
+        }
+    )
+
+
+@command("Add a Module", ToolAnnotations(read_only_hint=False, destructive_hint=False))
+def add_module(ctx: Context[Any, Any], name: str, address: str) -> CallToolResult:
+    """Adds a Module to your Business by its name and its web address, by the Modules page's rules: https, no password or key in the address, at most ten Modules, each name once."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    # Not locked: the address lookup has no deadline of its own, and the database's limits hold without the lock.
+    form = ModuleForm({"name": name, "address": address}, business=token.business)
+    if not form.is_valid():
+        return failed(problems(form))
+    if form.cleaned_data["address"][1]:
+        # A command line runs on the Portal's host at the next check: only the logged-in page adds a local Module.
+        return failed(
+            "Give the Module's web address. A local Module is added on the Modules page."
+        )
+    if form.add() is None:
+        return failed(problems(form))
+    return as_answer({"added": form.cleaned_data["name"]})
 
 
 def settings_of(business: Business) -> dict[str, Any]:

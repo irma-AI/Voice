@@ -59,6 +59,7 @@ from portal.accounts.models import (
     PendingChange,
     clean_email,
 )
+from portal.accounts.module_form import ModuleForm
 from portal.accounts.settings_form import SettingsForm
 from portal.accounts.theme import DEEP_SEA, FOAM, logo_type
 from portal.accounts.ticket import mint
@@ -475,77 +476,14 @@ def logo(request: HttpRequest, key: str) -> HttpResponse:
     return response
 
 
-class ModuleForm(forms.Form):
-    """Adding a Module: a name and an address. The address is parsed once here into what the database stores."""
-
-    name = forms.CharField(
-        max_length=module_rules.NAME_MAX,
-        error_messages={"required": "Give the Module a name."},
-        widget=forms.TextInput(attrs={"autocomplete": "off"}),
-    )
-    address = forms.CharField(
-        max_length=module_rules.URL_MAX,
-        error_messages={"required": "Give the Module's address."},
-        # Not type=url: a self-hosted Portal also takes a command line here.
-        widget=forms.TextInput(
-            attrs={
-                "inputmode": "url",
-                "autocomplete": "off",
-                "autocapitalize": "none",
-                "spellcheck": "false",
-            }
-        ),
-    )
-
-    def __init__(self, *args: Any, business: Business, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.label_suffix = ""
-        self.business = business
-
-    def clean_name(self) -> str:
-        name = self.cleaned_data["name"].strip()
-        if self.business.modules.filter(name=name).exists():  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
-            raise forms.ValidationError("You already have a Module with that name.")
-        return name
-
-    def clean_address(self) -> tuple[str, str, list[str]]:
-        try:
-            return module_rules.parse_address(
-                self.cleaned_data["address"], settings.ALLOW_LOCAL_MODULES
-            )
-        except ValueError as e:
-            raise forms.ValidationError(str(e)) from None
-
-    def save(self) -> Module:
-        url, command, args = self.cleaned_data["address"]
-        return Module.objects.create(
-            business=self.business,
-            name=self.cleaned_data["name"],
-            url=url,
-            command=command,
-            args=args,
-        )
-
-
 @login_required
 def modules(request: HttpRequest) -> HttpResponse:
     """The Business's Modules, the Actions each offers right now, and the form to add one."""
     business = get_object_or_404(Business, account=request.user)
     checking = request.method == "POST" and "check" in request.POST
     form = ModuleForm(None if checking else request.POST or None, business=business)
-    if request.method == "POST" and form.is_valid():
-        try:
-            with transaction.atomic():
-                form.save()
-        except (
-            IntegrityError
-        ):  # the database's own limit (ten per Business) or a name taken a moment ago
-            form.add_error(
-                None,
-                f"The Module was not added: a Business has at most {module_rules.MODULES_MAX} Modules, with different names.",
-            )
-        else:
-            return redirect("modules")
+    if request.method == "POST" and form.is_valid() and form.add():
+        return redirect("modules")
     mine = list(business.modules.order_by("id"))  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
     # The Modules are asked only when the Business presses Check: a slow one would otherwise hold a request thread on every page view, and
     # those threads also answer the core's settings request at each call start.
