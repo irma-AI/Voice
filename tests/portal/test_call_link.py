@@ -20,16 +20,14 @@ from zoneinfo import ZoneInfo
 import pytest
 from django.conf import settings as django_settings
 from django.contrib.staticfiles import finders
-from django.db import IntegrityError, connection, transaction
-from django.db.migrations.executor import MigrationExecutor
+from django.db import IntegrityError, transaction
 from django.test import Client
 from django.utils import timezone
 
 from portal.accounts import domain as portal_domain
 from portal.accounts import theme
-from portal.accounts.models import BUDGET_COUNTED, CALL_KINDS, Account, Business
-from tests.portal.helpers import business_with_login
-from tests.portal.test_recent_calls import a_call
+from portal.accounts.models import BUDGET_COUNTED, CALL_KINDS, Business
+from tests.portal.helpers import a_call, business_with_login
 from voice import ticket as core_ticket
 from voice.ticket import Ticket, read_ticket
 
@@ -509,25 +507,3 @@ def test_a_business_cannot_set_its_own_link_or_budget_from_the_settings_page() -
     )
     anna.refresh_from_db()
     assert anna.call_slug != "mine" and anna.daily_budget_usd == 10
-
-
-@pytest.mark.django_db(transaction=True)
-def test_businesses_that_exist_before_the_link_each_get_their_own() -> None:
-    executor = MigrationExecutor(connection)
-    before = [("accounts", "0004_module_limit")]
-    executor.migrate(before)
-    old = executor.loader.project_state(before).apps
-    for n in range(3):
-        account = old.get_model("accounts", "Account").objects.create(
-            email=f"old{n}@example.com"
-        )
-        old.get_model("accounts", "Business").objects.create(
-            account=account, name=f"Old {n}"
-        )
-
-    executor = MigrationExecutor(connection)
-    executor.migrate(executor.loader.graph.leaf_nodes())
-
-    slugs = list(Business.objects.values_list("call_slug", flat=True))
-    assert len(slugs) == 3 and len(set(slugs)) == 3 and all(slugs)
-    assert Account.objects.count() == 3

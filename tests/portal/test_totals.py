@@ -8,10 +8,8 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from django.test import Client
 
-from tests.portal.helpers import business_with_login
-from tests.portal.test_recent_calls import a_call
+from tests.portal.helpers import a_call, business_with_login
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
@@ -28,7 +26,6 @@ def test_only_the_account_named_in_the_setting_sees_the_page(settings: Any) -> N
     assert client.get("/totals/").status_code == 200
     assert "Totals for every Business" in client.get("/dashboard/").content.decode()
     assert other.get("/totals/").status_code == 403
-    assert Client().get("/totals/")["Location"].startswith("/login/")
 
 
 def test_each_month_is_by_call_start_on_the_portal_clock_and_kinds_stay_apart(

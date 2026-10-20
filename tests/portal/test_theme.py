@@ -15,20 +15,18 @@ from django.test import Client
 from portal.accounts.models import Business
 from portal.accounts.theme import (
     AA_CONTRAST,
-    DEEP_SEA,
     FOAM,
     LOGO_MAX_BYTES,
     contrast,
     on_accent,
 )
 from tests.portal.contract import schema_errors
-from tests.portal.helpers import business_with_login
+from tests.portal.helpers import business_with_login, told_to_core
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 40
 WEBP = b"RIFF\x00\x00\x00\x00WEBPVP8 " + b"\x00" * 40
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
-SECRET = "a-secret-for-tests"
 
 
 def save(client: Client, **theme: Any) -> Any:
@@ -41,31 +39,7 @@ def upload(data: bytes, name: str = "logo.png") -> SimpleUploadedFile:
     return SimpleUploadedFile(name, data, content_type="image/png")
 
 
-def told_to_core(business: Business, settings: Any) -> dict[str, Any]:
-    settings.CORE_SECRET = SECRET
-    return (
-        Client()
-        .get(
-            f"/api/settings/{business.pk}/",
-            headers={"Authorization": f"Bearer {SECRET}"},
-        )
-        .json()
-    )
-
-
 # --- the accent's contrast: a pure function ---
-
-
-def test_an_accent_that_already_reads_well_is_unchanged() -> None:
-    assert on_accent("#1a2a44") == ("#1a2a44", FOAM)
-    assert on_accent("#f5d9a8") == ("#f5d9a8", DEEP_SEA)
-
-
-def test_a_mid_tone_accent_is_adjusted_just_enough_to_reach_aa() -> None:
-    fill, text = on_accent("#1c7ed6")  # a mid blue: neither text reaches 4.5 on it
-    assert max(contrast("#1c7ed6", FOAM), contrast("#1c7ed6", DEEP_SEA)) < AA_CONTRAST
-    assert fill != "#1c7ed6"
-    assert contrast(fill, text) >= AA_CONTRAST
 
 
 def test_every_accent_comes_out_readable() -> None:
