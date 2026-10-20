@@ -396,13 +396,13 @@ def test_the_recorder_writes_a_tool_call_by_name_and_never_its_arguments(
     call = FunctionCallInProgressFrame(
         function_name="opening_hours",
         tool_call_id="t1",
-        arguments={"phone": "+46700000000"},
+        arguments={"phone": "+46701740605"},
     )
     asyncio.run(run_test(CallRecorder(log), frames_to_send=[call]))
     assert [e["name"] for e in read_events(log) if e["e"] == "tool_call"] == [
         "opening_hours"
     ]
-    assert "46700000000" not in log.read_text("utf-8")
+    assert "46701740605" not in log.read_text("utf-8")
     # The model service broadcasts the frame both ways; only the downstream copy is a record.
     upstream = tmp_path / "up.jsonl"
     asyncio.run(
