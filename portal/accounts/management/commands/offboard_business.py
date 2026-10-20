@@ -83,8 +83,7 @@ class Command(BaseCommand):
             # The Business first, as an approval and a Command lock it, so none of them waits on another in a ring.
             Business.objects.select_for_update().get(pk=business.pk)
             revoked = list(tokens)
-            for token in revoked:
-                token.revoke()
+            AccessToken.revoke_all(tokens)
             # A sign-in would mint new tokens: its connection ends too (VOI-119).
             for sign_in in list(
                 connections

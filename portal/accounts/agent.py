@@ -40,6 +40,7 @@ from portal.accounts.models import (
     CallRecord,
     CommandRecord,
     Module,
+    PendingChange,
     operator_account,
 )
 from portal.accounts.module_form import ModuleForm
@@ -61,6 +62,9 @@ COMMANDS: dict[str, Need] = {
     "invite_business": "operator_write",
     "get_call_button": "read",
     "get_test_call_link": "write",
+    "list_pending_changes": "read",
+    "approve_change": "write",
+    "reject_change": "write",
     "read_settings": "read",
     "change_settings": "write",
     "change_business_details": "write",
@@ -320,7 +324,7 @@ def list_recent_calls(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
     "Remove a Module", ToolAnnotations(read_only_hint=False, destructive_hint=True)
 )
 def remove_module(ctx: Context[Any, Any], name: str) -> CallToolResult:
-    """Asks to remove one of your Business's Modules, by its name. Nothing changes until the Business approves it in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
+    """Asks to remove one of your Business's Modules, by its name. Nothing changes until the person approves it, in the chat or in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
     module = mine(token, name)
@@ -413,7 +417,7 @@ def list_totals(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
     ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_hint=True),
 )
 def invite_business(ctx: Context[Any, Any], name: str, email: str) -> CallToolResult:
-    """Asks to invite a Business: its Account and an email with the link to set a password. Nothing is sent until you approve it in the Portal; the answer has staged: true, a preview, the risk level and what to do next."""
+    """Asks to invite a Business: its Account and an email with the link to set a password. Nothing is sent until you approve it, in the chat or in the Portal; the answer has staged: true, a preview, the risk level and what to do next."""
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
     try:
@@ -450,6 +454,71 @@ def get_test_call_link(ctx: Context[Any, Any]) -> CallToolResult:
         return failed(views.BUDGET_SPENT_REFUSAL)
     except views.CallsNotSetUp:
         return failed("Calls are not set up on this Portal yet.")
+
+
+@command("Pending changes", ToolAnnotations(read_only_hint=True))
+def list_pending_changes(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
+    """The changes that wait for the person's approval, oldest first: each one's number, what it would do, its risk level and when it expires."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    return [
+        {
+            "change": change.pk,
+            "preview": changes.preview(change),
+            "risk_level": changes.RISK[change.kind],  # pyright: ignore[reportArgumentType]
+            "expires_at": (change.staged_at + changes.WAITS).isoformat(),
+        }
+        for change in visible(
+            token, changes.waiting(token.business.account)
+        ).select_related("token__business")
+    ]
+
+
+def visible(token: AccessToken, chosen: Any) -> Any:
+    """An invite is the operator's token's to see and decide, as the invite itself (VOI-119); every other change, any token's."""
+    return chosen if is_operator(token) else chosen.exclude(kind="invite_business")
+
+
+# A decision the person can act on is an answer; one that changed nothing for another reason is an error the agent must relay.
+DONE = {"applied", "nothing_left", "rejected"}
+
+
+def decided(
+    ctx: Context[Any, Any], change: int, decision: Literal["approved", "rejected"]
+) -> CallToolResult:
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    found = (
+        visible(token, PendingChange.objects.filter(token__business=token.business))
+        .filter(pk=change)
+        .first()
+    )
+    if found is None:
+        return failed("Your Business has no pending change with that number.")
+    outcome = changes.decide(found, token.business.account, decision, by=token)
+    if outcome not in DONE:
+        return failed(views.OUTCOMES[outcome])
+    return as_answer(
+        {"change": change, "outcome": outcome, "message": views.OUTCOMES[outcome]}
+    )
+
+
+@command(
+    "Approve a pending change",
+    ToolAnnotations(read_only_hint=False, destructive_hint=True),
+)
+def approve_change(ctx: Context[Any, Any], change: int) -> CallToolResult:
+    """Makes a pending change the person approved here in the chat, by its number from list_pending_changes or the staged answer. Only after the person says yes."""
+    return decided(ctx, change, "approved")
+
+
+@command(
+    "Reject a pending change",
+    ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=True),
+)
+def reject_change(ctx: Context[Any, Any], change: int) -> CallToolResult:
+    """Drops a pending change the person said no to, by its number. Nothing changes."""
+    return decided(ctx, change, "rejected")
 
 
 def settings_of(business: Business) -> dict[str, Any]:
@@ -520,7 +589,7 @@ def change_business_details(
     instructions: str | None = None,
     languages: list[str] | None = None,
 ) -> CallToolResult:
-    """Asks to change your Business's name, instructions or languages (sv, en). Nothing changes until the Business approves it in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
+    """Asks to change your Business's name, instructions or languages (sv, en). Nothing changes until the person approves it, in the chat or in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
     given: dict[str, Any] = {
@@ -534,7 +603,9 @@ def change_business_details(
     }
     if not given:
         return failed("Name at least one of name, instructions or languages.")
-    form = changed(locked(token), **given)
+    form = changed(
+        Business.objects.get(pk=token.business.pk), **given
+    )  # staging writes no Business row: no lock
     if not form.is_valid():
         return failed(problems(form))
     values = {k: form.cleaned_data[k] for k in given}

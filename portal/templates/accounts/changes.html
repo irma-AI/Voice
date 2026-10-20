@@ -2,7 +2,7 @@
 {% block title %}Pending changes · Voice Portal{% endblock %}
 {% block content %}
 <h1 class="text-4xl sm:text-5xl">Pending changes</h1>
-<p class="mt-4 max-w-prose text-foam-muted">Some changes your AI assistant asks for, such as removing a Module, wait here until you approve them. Nothing changes before you do. A change you leave for {{ waits }} days expires and can no longer be approved.</p>
+<p class="mt-4 max-w-prose text-foam-muted">Some changes your AI assistant asks for, such as removing a Module, wait until you approve them: in the chat with your assistant, or here. Nothing changes before you do. A change you leave for {{ waits }} days expires and can no longer be approved.</p>
 
 {% if outcome %}<p class="mt-6 max-w-prose rounded-md border border-granite px-3 py-2" role="status">{{ outcome }}</p>{% endif %}
 

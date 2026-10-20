@@ -93,7 +93,7 @@ An AI assistant a Business connected by signing in to the Portal from the assist
 _Avoid_: OAuth app, integration
 
 **Pending change**:
-A change a destructive Command asked for, waiting for the Business to approve or reject it in the Portal. Nothing changes before the approval; it expires after 7 days, and revoking the Access token that asked for it cancels it. Removing a Module is one, and so is changing the Business's name, instructions or languages.
+A change a destructive Command asked for, waiting for the Business to approve or reject it, in the chat with its assistant or on the Portal's Pending changes page. Nothing changes before the approval; it expires after 7 days, and revoking the Access token that asked for it cancels it. Removing a Module is one, and so is changing the Business's name, instructions or languages.
 _Avoid_: staged operation, draft
 
 **Access token**:

@@ -592,3 +592,27 @@ def test_a_registration_the_store_refuses_is_a_plain_400(uris: list[Any]) -> Non
         "invalid_client_metadata",
     )
     assert not OAuthClient.objects.exists()
+
+
+def test_a_code_approved_before_offboarding_is_refused_after(settings: Any) -> None:
+    from tests.portal.test_offboard import EMAIL, offboard
+
+    settings.ENVIRONMENT = "local"
+    _, owner = business_with_login(EMAIL, "Owner A's Salon")
+    client_id = register()["client_id"]
+    verifier, challenge = pkce()
+    code = approve(owner, authorize_url(client_id, challenge))["code"][0]
+    offboard()
+    answer = exchange(
+        {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": BACK,
+            "client_id": client_id,
+            "code_verifier": verifier,
+        }
+    )
+    assert (
+        answer.json()["error"] == "invalid_grant"
+        and not OAuthConnection.objects.exists()
+    )

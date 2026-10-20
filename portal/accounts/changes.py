@@ -1,7 +1,7 @@
 # pyright: basic
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
-"""Staged changes (VOI-239): a destructive Command records a PendingChange, and only the Business's approval in the Portal
-applies it, through the same function the Portal page uses (CLAUDE.md hard rule 2). The database applies each once."""
+"""Staged changes (VOI-239): a destructive Command records a PendingChange, and only the Business's approval (in the chat,
+VOI-246, or in the Portal) applies it, through the same function the Portal page uses (CLAUDE.md hard rule 2). The database applies each once."""
 
 import logging
 from datetime import timedelta
@@ -108,7 +108,7 @@ def stage(
         "change": change.pk,
         "preview": preview(change),
         "risk_level": RISK[kind],
-        "next": f"Nothing has changed yet. Ask the Business to approve it at {page}; it expires in {WAITS.days} days.",
+        "next": f"Nothing has changed yet. Ask the person to approve it: here in the chat (approve_change with change {change.pk}), or at {page}. It expires in {WAITS.days} days.",
     }
 
 
@@ -140,9 +140,9 @@ def _apply(change: PendingChange) -> bool:
             values = _values(change)
             if not values:
                 return False
-            business = Business.objects.select_for_update().get(
+            business = Business.objects.get(
                 pk=change.token.business.pk
-            )  # as stored now: the form writes every setting
+            )  # as stored now; decide already holds its lock
             form = changed(business, **values)
             if (
                 not form.is_valid()
@@ -197,14 +197,17 @@ def refusal(change: PendingChange) -> Decided:
 
 
 def decide(
-    change: PendingChange, account: Account, decision: Literal["approved", "rejected"]
+    change: PendingChange,
+    account: Account,
+    decision: Literal["approved", "rejected"],
+    by: AccessToken | None = None,
 ) -> Decided:
     """The one way a change is decided, only by its own Business (the caller has checked it is). The database refuses a change
     already decided, cancelled by its token's revoke, or for an approval, expired: the answer says which."""
     applied = False
     try:
         with transaction.atomic(), connection.cursor() as cursor:
-            # The Business first, then the change, as a Command and offboarding lock them, so none waits on another in a ring.
+            # The Business, then the change: the one lock order (offboarding and a settings Command lock the Business first too).
             list(Business.objects.select_for_update().filter(account=account))
             cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
             decided = PendingChange.objects.filter(
@@ -222,14 +225,19 @@ def decide(
         return refusal(change)
     except NotApplied as not_now:
         return not_now.outcome
-    audit.info(
-        "%s pending change %s (%s) for business %s by account %s%s",
-        decision,
-        change.pk,
-        change.kind,
-        change.token.business.pk,
-        account.pk,
-        "" if applied or decision == "rejected" else ": nothing left to change",
+    who = f"account {account.pk}" if by is None else f"token {by.pk} in the chat"
+    note = "" if applied or decision == "rejected" else ": nothing left to change"
+    # On commit: a decision inside a Command's transaction may still roll back after this (as stage() does).
+    transaction.on_commit(
+        lambda: audit.info(
+            "%s pending change %s (%s) for business %s by %s%s",
+            decision,
+            change.pk,
+            change.kind,
+            change.token.business.pk,
+            who,
+            note,
+        )
     )
     if decision == "rejected":
         return "rejected"

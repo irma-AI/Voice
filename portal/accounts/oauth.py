@@ -194,6 +194,7 @@ class CodeGrant(grants.AuthorizationCodeGrant):
         row = OAuthCode.objects.filter(
             code_hash=hashed(code),
             client=client.row,
+            business__account__is_active=True,  # offboarding closes the Account: a code approved just before is spent
             used_at__isnull=True,
             created_at__gt=Now() - timedelta(seconds=CODE_SECONDS),
         ).first()
@@ -358,18 +359,6 @@ class Revocable:
         return self.connection.client.pk == client.row.pk
 
 
-def redirect_problem(uri: str) -> str | None:
-    """Why a client may not send people back to this address, or None: https, or http only to this machine (RFC 8252 §7.3)."""
-    parts = urlsplit(uri)
-    if parts.fragment or not parts.hostname:
-        return "a redirect_uri is an absolute address with no fragment"
-    if parts.scheme == "https":
-        return None
-    if parts.scheme == "http" and parts.hostname in ("localhost", "127.0.0.1", "::1"):
-        return None
-    return "a redirect_uri is https, or http to localhost"
-
-
 class Register(ClientRegistrationEndpoint):
     def extract_client_metadata(self, request: Any) -> dict[str, Any]:
         uris = request.payload.data.get("redirect_uris")
@@ -392,16 +381,9 @@ class Register(ClientRegistrationEndpoint):
     def save_client(
         self, client_info: dict[str, Any], client_metadata: dict[str, Any], request: Any
     ) -> OAuthClient:
+        # The rule for an address (one to five, https or http to localhost, no fragment) is the database's alone (migration
+        # 0031); its refusal below answers invalid_redirect_uri.
         uris = client_metadata.get("redirect_uris") or []
-        if (
-            not uris
-            or len(uris) > 5
-            or any(len(u) > 2000 or redirect_problem(u) for u in uris)
-        ):
-            raise OAuth2Error(
-                error="invalid_redirect_uri",
-                description="Give one to five redirect_uris, each https or http to localhost.",
-            )
         method = client_metadata.get(
             "token_endpoint_auth_method", "client_secret_basic"
         )
@@ -434,7 +416,9 @@ class Register(ClientRegistrationEndpoint):
                         redirect_uris=uris,
                         auth_method=method,
                     )
-            except IntegrityError:  # the store's own rule for an address (migration 0031), stricter than the check above
+            except (
+                IntegrityError
+            ):  # the store's own rule for an address (migration 0031)
                 raise OAuth2Error(
                     error="invalid_redirect_uri",
                     description="Give one to five redirect_uris, each https or http to localhost.",
