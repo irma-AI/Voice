@@ -2,8 +2,6 @@
   "files": {
     "voice/agent.py": "770991189d02f162276f2a712184621ca8a43b7c1524f02686305d91a031cff4",
     "voice/bargein.py": "9d7be92797e4eb0c8aee6d07ceaa03cb52d5a90885a634b3b091e9da2fa81536",
-    "voice/settings.py": "183d6261eb22e8f1c030d4e8849e8d01648067e0f1cc767a5fb202d731264240",
-    "voice/modules.py": "d31c8cceaa9d7498d5392f9022efb8bf0e161334d5c5e44e2abcc9d7726cfebe",
     "modules/example.py": "55e636c4e0e0ceb3872bf8867d27870917105ac4a476c8ab56f88a1420591f31",
     "modules/example_hostile.py": "0beea4a38b6a61bd52f03b5c4270014d084232264fffb6f956bea78d05091336",
     "modules/example_web.py": "a20c76bb1f295704af7d5fddbd8cf8c457f7130ee7a14224db989f167abc2974",
@@ -11,6 +9,7 @@
     "tests/evals/business_module.json": "d67058be789a385f7a3ddd437a6c87453c6c5afa698691bc978d456d2a7e2d2a",
     "tests/evals/business_hostile.json": "045f965c3d8642d7c6ad3aa211aaec49d9eeab2759e26dc45f603a309f66a7b9",
     "tests/evals/business_web.json": "04f26d0804bd34dbf536e5d445106c78deef38c7b6d8139dd553074c044c4caf",
-    "pyproject.toml": "a5a65f4704a85e1d63aecd363d6f6721893aad117e352ae180f3646b2d7c885e"
+    "pyproject.toml": "a5a65f4704a85e1d63aecd363d6f6721893aad117e352ae180f3646b2d7c885e",
+    "model-input": "f0aad329e4bbf25fc1c7aef2a1a8f4677279b4ea93f188f2d1b459281eade1a4"
   }
 }
