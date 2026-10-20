@@ -95,6 +95,9 @@ def test_an_assistant_with_no_token_sees_the_business_commands(era: str) -> None
     assert tool_names(ask("tools/list", era=era)) == [
         "list_recent_calls",
         "remove_module",
+        "list_modules",
+        "check_module",
+        "add_module",
         "read_settings",
         "change_settings",
         "change_business_details",
@@ -144,6 +147,8 @@ EXAMPLE_ARGUMENTS: dict[str, dict[str, Any]] = {
     "remove_module": {"name": "Bookings"},
     "change_settings": {"accent": "#1a2a44"},
     "change_business_details": {"name": "Owner A's Hair"},
+    "check_module": {"name": "Bookings"},
+    "add_module": {"name": "Hours", "address": "https://8.8.4.4/mcp"},
 }
 # What a Command that ran leaves in its Command record: a destructive one only stages its change (VOI-239).
 STAGED = {"remove_module", "change_business_details"}
@@ -180,6 +185,7 @@ def test_every_command_against_every_kind_of_token(era: str) -> None:
     business = a_business()
     Module.objects.create(business=business, name="Bookings", url="https://8.8.8.8/mcp")
     for kind, (scope, operator) in LIVE_KINDS.items():
+        Module.remove(Module.objects.filter(name="Hours"))  # what the last kind's add_module added
         secret = a_token(business, scope, operator)
         listed = tool_names(ask("tools/list", secret=secret, era=era))
         assert listed == [
