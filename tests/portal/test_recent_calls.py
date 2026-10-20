@@ -32,12 +32,18 @@ def test_a_business_sees_only_its_own_calls_newest_first_with_kind_and_length() 
         kind="test",
         length_seconds=65,
     )
+    a_call(
+        business_a,
+        "demo-call-000003",
+        datetime(2026, 10, 17, 4, 0, tzinfo=UTC),
+        kind="demo",
+    )
     a_call(business_b, "b-call-00000003", datetime(2026, 10, 17, 7, 0, tzinfo=UTC))
 
     page = shown(client)
     assert page.index("06:30") < page.index("05:00")  # newest first
     assert "07:00" not in page  # Owner B's call
-    assert "Test call" in page and "Call link" in page
+    assert "Test call" in page and "Call link" in page and "Demo call" in page
     assert "1:05" in page and "3:04" in page  # lengths as minutes:seconds
 
 

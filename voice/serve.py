@@ -49,8 +49,9 @@ from voice.ticket import frame_ancestors, from_query, read_ticket
 # What Gemini Live takes in and gives out; the page is served with these two numbers.
 IN_RATE = 16000
 OUT_RATE = 24000
-# ponytail: a hard cap per kind so a forgotten tab can't spend Gemini credit all night; make it a setting if calls legitimately run longer.
-# A demo call from the landing page gets 3 minutes (Petter, 2026-10-20, VOI-243). tests/test_serve.py fails for a kind with no cap.
+# ponytail: a hard cap so a forgotten tab can't spend Gemini credit all night; make it a setting if calls legitimately run longer.
+# Per kind: a demo call from the landing page gets 3 minutes (Petter, 2026-10-20, VOI-243). tests/test_serve.py fails for a kind of
+# voice/ticket.py KINDS with no cap here.
 CALL_SECS = {"test": 600, "call_link": 600, "demo": 180}
 # The longest call of any kind: the Portal's worst-case rate (tests/portal/test_call_link.py) and the drain wait are sized to it.
 MAX_CALL_SECS = max(CALL_SECS.values())
@@ -312,6 +313,18 @@ class CallTransport(FastAPIWebsocketTransport):
         )
 
 
+def call_params(kind: str) -> FastAPIWebsocketParams:
+    """How the socket carries one call: raw PCM at the model's rates, ended by Pipecat at the kind's cap (tests/test_serve.py)."""
+    return FastAPIWebsocketParams(
+        audio_in_enabled=True,
+        audio_out_enabled=True,
+        audio_in_sample_rate=IN_RATE,
+        audio_out_sample_rate=OUT_RATE,
+        serializer=RawPcmSerializer(),
+        session_timeout=CALL_SECS[kind],
+    )
+
+
 def same_site(origin: str | None, host: str | None) -> bool:
     """True only when the WebSocket was opened from this site's own page.
 
@@ -469,17 +482,7 @@ def create_app(ticket_secret: str) -> FastAPI:
             page = await receive_page_facts(websocket)
             if page is None:
                 return
-            transport = CallTransport(
-                websocket,
-                FastAPIWebsocketParams(
-                    audio_in_enabled=True,
-                    audio_out_enabled=True,
-                    audio_in_sample_rate=IN_RATE,
-                    audio_out_sample_rate=OUT_RATE,
-                    serializer=RawPcmSerializer(),
-                    session_timeout=CALL_SECS[ticket.kind],
-                ),
-            )
+            transport = CallTransport(websocket, call_params(ticket.kind))
 
             @transport.event_handler("on_session_timeout")
             async def _time_up(*_: object) -> None:  # pyright: ignore[reportUnusedFunction]

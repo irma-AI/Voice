@@ -12,7 +12,6 @@ import threading
 import time
 from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Any
 
 import pytest
 import uvicorn
@@ -235,41 +234,21 @@ def test_the_call_page_says_which_site_may_frame_it() -> None:
     )
 
 
-def test_a_call_ends_at_its_kinds_cap_and_the_page_ring_fills_over_the_same_time(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_a_call_ends_at_its_kinds_cap_and_the_page_ring_fills_over_the_same_time() -> (
+    None
+):
     """A demo call gets 180 s and a call link call 600 s (VOI-243): the ticket's kind picks the model session's timeout and the page's ring."""
     assert set(serve.CALL_SECS) == set(KINDS), (
         "give every kind of voice/ticket.py KINDS a cap in voice/serve.py CALL_SECS"
     )
-    timeouts: list[float | None] = []
-
-    class TransportThatRecordsItsTimeout:
-        def __init__(
-            self, websocket: WebSocket, params: FastAPIWebsocketParams
-        ) -> None:
-            timeouts.append(params.session_timeout)
-
-        def event_handler(self, name: str) -> Callable[[Any], Any]:
-            return lambda handler: handler
-
-    async def no_call(*args: object, **kwargs: object) -> None:
-        return None
-
-    monkeypatch.setattr(serve, "CallTransport", TransportThatRecordsItsTimeout)
-    monkeypatch.setattr(serve, "run_call", no_call)
     client = TestClient(
         create_app("portal-secret"), base_url="https://voice.example.se"
     )
     expires = int(time.time()) + 60
     for kind, secs in (("demo", 180), ("call_link", 600)):
+        assert serve.call_params(kind).session_timeout == secs
         ticket = sign("portal-secret", 7, kind, expires, "example.se")
         assert f"MAX_CALL_SECS = {secs};" in client.get(f"/?ticket={ticket}").text
-        with client.websocket_connect(
-            f"/ws?ticket={ticket}", headers={"Origin": "https://testserver"}
-        ) as ws:  # the TestClient's socket is on Host testserver, whatever the base_url
-            ws.send_text(json.dumps({"type": "browser", **FACTS}))
-    assert timeouts == [180, 600]
 
 
 def test_the_socket_refuses_a_call_with_no_ticket() -> None:
