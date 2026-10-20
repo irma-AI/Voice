@@ -821,8 +821,14 @@ def call_link_refused(
     )
 
 
+# Google's official rates (voice/prices.json, as of 2026-10-12) over the core's longest call, 600 s, in dollars a second: $1.125 / 600 s.
+# The call model is docs/research/demo-call-button.md section 2: 328k input audio tokens at $3/M (each 15 s turn re-bills the call so far),
+# 60k text prompt tokens at $0.75/M, 8k output audio tokens at $12/M. tests/portal/test_call_link.py derives it from the file and names the side to edit.
+WORST_CASE_USD_PER_SECOND = Decimal("0.001875")
+
+
 def spent_today(business: Business) -> Decimal:
-    """Today's spend in dollars on the kinds BUDGET_COUNTED counts, the day on TIME_ZONE like the totals page. A priced record counts as priced; one the core could not price, or priced at nothing (its usage reports never came), counts its seconds at the rate Google charged this Business's priced calls so far, and at nothing before the first priced call (Petter, 2026-10-18: no invented rate). An exempt kind does not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
+    """Today's spend in dollars on the kinds BUDGET_COUNTED counts, the day on TIME_ZONE like the totals page. A priced record counts as priced; one with no cost, or priced at nothing (its usage reports never came, so no tokens to price), counts its seconds at the rate Google charged this Business's priced calls so far, but never below WORST_CASE_USD_PER_SECOND (VOI-216, Petter 2026-10-20: fail closed, so no first priced call, nor one priced near $0, makes unpriced calls free), with a log line. An exempt kind does not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
     zone = ZoneInfo(settings.TIME_ZONE)
     today = datetime.combine(datetime.now(zone).date(), time.min, tzinfo=zone)
     counted = [kind for kind, counts in BUDGET_COUNTED.items() if counts]
@@ -836,9 +842,21 @@ def spent_today(business: Business) -> Decimal:
         unpriced_seconds=Sum("length_seconds", filter=~priced),
     )
     spent = sums["priced"] or Decimal(0)
-    if charged["seconds"] and sums["unpriced_seconds"]:
+    unpriced = sums["unpriced_seconds"]
+    if unpriced:
+        at_floor = WORST_CASE_USD_PER_SECOND * unpriced
         # Multiply before dividing: a rate rounded to 28 digits (1.00 / 300) would land just under the budget.
-        spent += charged["usd"] * sums["unpriced_seconds"] / charged["seconds"]
+        learned = (
+            charged["usd"] * unpriced / charged["seconds"] if charged["seconds"] else 0
+        )
+        log.warning(
+            "Business %s has unpriced seconds today: counted at %s",
+            business.pk,
+            "the rate of its priced calls"
+            if learned > at_floor
+            else f"Google's rate for a full call, ${WORST_CASE_USD_PER_SECOND} a second",
+        )
+        spent += max(learned, at_floor)
     return spent
 
 
