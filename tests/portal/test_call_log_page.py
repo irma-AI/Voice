@@ -3,7 +3,9 @@
 # pyright: basic
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 
+import html
 import json
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -15,7 +17,7 @@ from tests.portal.helpers import CALL, EVENTS, business_with_login
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
 EMAIL = "petter.testsson@example.com"  # synthetic
-PAGES = [f"/logs/{CALL}/", f"/logs/{CALL}/log.txt", "/logs/"]
+PAGES = [f"/logs/{CALL}/", "/logs/"]
 
 
 def a_log(owner: Business, call_id: str = CALL, events: Any = EVENTS) -> None:
@@ -118,15 +120,17 @@ def test_a_barge_in_with_no_words_after_it_is_marked_on_its_row(settings: Any) -
     assert response.content.decode().count("No words after") == 1
 
 
-def test_the_text_file_has_the_lines_the_core_wrote(settings: Any) -> None:
+def test_copy_as_text_copies_the_lines_the_core_wrote(settings: Any) -> None:
     settings.SUPER_ADMIN_EMAIL = EMAIL
     business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
     _, petter = business_with_login(EMAIL, "Petter's Business")
     a_log(business_a)
-    response = petter.get(f"/logs/{CALL}/log.txt")
-    assert response["Content-Type"].startswith("text/plain")
-    assert f'filename="call-log-{CALL}.txt"' in response["Content-Disposition"]
-    lines = response.content.decode().splitlines()
+    page = petter.get(f"/logs/{CALL}/").content.decode()
+    # portal.js's Copy button copies the hidden block's text, as the browser reads it back from the HTML.
+    assert 'data-copy="call-log-text"' in page and ">Copy as text</button>" in page
+    block = re.search(r'<pre id="call-log-text" hidden>(.*?)</pre>', page, re.DOTALL)
+    assert block
+    lines = html.unescape(block[1]).splitlines()
     # The recorder's lines, as voice/bargein.py logs them, character for character; config's vad keeps no key order.
     assert lines[1:] == [f"barge-in {json.dumps(e)}" for e in EVENTS[1:]]
     assert [json.loads(line.removeprefix("barge-in ")) for line in lines] == EVENTS

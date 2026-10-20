@@ -5,6 +5,7 @@ Paid (every call spends Gemini credit), never automatic: an agent asks Petter be
 passed, 1 a Scenario failed (or the first never reached the agent, which stops the run), 2 bad Scenario id, 3 a spend cap stopped the run.
 """
 
+import contextlib
 import json
 import os
 import re
@@ -53,6 +54,8 @@ SCENARIO_TIMEOUT_S = (
 # Scenarios in flight at once, each its own Gemini Live session; why 3: DECISIONS.md, VOI-209.
 PARALLEL = 3
 BASE_PORT = 7900  # Pipecat's default; slot k of a batch listens on BASE_PORT + k
+# The suites in flight, so a Ctrl-C can stop their bots (`interrupted`); each sits in its own process group.
+RUNNING: set[subprocess.Popen[bytes]] = set()
 SCENARIO_DIR = ROOT / "tests" / "evals" / "scenarios"
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
 # The disclosure is the legal line, so every call is checked for it, and for the opening's Business name, not one sample.
@@ -151,15 +154,25 @@ def _play(scenario: str, run_dir: Path, name: str, port: int) -> tuple[int, Path
         },
         start_new_session=True,
     )
+    RUNNING.add(proc)
     try:
         return proc.wait(timeout=SCENARIO_TIMEOUT_S), log
     except subprocess.TimeoutExpired:
-        if sys.platform == "win32":
-            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], check=False)
-        else:
-            os.killpg(proc.pid, signal.SIGKILL)
-        proc.wait()
+        _kill(proc)
         return -1, log
+    finally:
+        RUNNING.discard(proc)
+
+
+def _kill(proc: subprocess.Popen[bytes]) -> None:
+    """Kills the suite and the bot it spawned, which shares its process group."""
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], check=False)
+    else:
+        # A suite that just ended may still be listed: its group is gone, which is the goal.
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+    proc.wait()
 
 
 def _record(runs: Path, now: datetime, run_id: str, loop_id: str, sek: float) -> None:
@@ -167,6 +180,21 @@ def _record(runs: Path, now: datetime, run_id: str, loop_id: str, sek: float) ->
     entry = {"ts": now.isoformat(), "run": run_id, "loop": loop_id, "sek": sek}
     with (runs / "ledger.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
+
+
+def interrupted(
+    logs: list[Path], runs: Path, now: datetime, run_id: str, loop_id: str
+) -> None:
+    """Ctrl-C mid-batch: stops every call still running, then records what each call that left a log spent.
+
+    The bots run in their own process groups, so the Ctrl-C never reaches them: unkilled they would spend
+    until the time limit, and that spend would miss the ledger the day cap reads.
+    """
+    for proc in list(RUNNING):
+        _kill(proc)
+    for log in (log for log in logs if log.exists()):
+        usage = [e for e in read_events(log) if e.get("e") == "usage"]
+        _record(runs, now, run_id, loop_id, cost_sek(usage))
 
 
 def module_log(run_dir: Path, name: str) -> list[str]:
@@ -275,8 +303,14 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
             names, bases = [n for n, _ in batch], [b for _, b in batch]
             ports = [BASE_PORT + k for k in range(len(batch))]
             with ThreadPoolExecutor(len(batch)) as pool:
-                calls = pool.map(_play, bases, [run_dir] * len(batch), names, ports)
-                played = dict(zip(names, calls, strict=True))
+                try:
+                    calls = pool.map(_play, bases, [run_dir] * len(batch), names, ports)
+                    played = dict(zip(names, calls, strict=True))
+                except KeyboardInterrupt:
+                    # Here, not after the `with`: leaving it waits for every call to end first.
+                    logs = [run_dir / "calls" / f"{n}.jsonl" for n in names]
+                    interrupted(logs, runs, now, run_id, loop_id)
+                    raise
         code, log = played[sc]
         # A first call that never reached the agent means a broken harness: the rest would fail the same way.
         unreached = None if rows else never_reached(log)

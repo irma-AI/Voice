@@ -4,7 +4,11 @@
 <p class="text-sm"><a href="{% url 'call_logs' %}" class="link-inline inline-flex min-h-11 items-center">All call logs</a></p>
 <h1 class="mt-2 text-4xl tabular-nums sm:text-5xl"><span class="whitespace-nowrap">{{ log.started_at|date:"Y-m-d" }}</span> <span class="whitespace-nowrap">{{ log.started_at|date:"H:i" }}</span></h1>
 <p class="mt-4 max-w-prose text-foam-muted"><span class="break-words">{{ log.business.name }}</span> · {{ kind }} · {{ length }} · {{ barge_ins }} barge-in{{ barge_ins|pluralize }}, {{ no_words }} without words. Times are in {{ time_zone }}; each event shows the seconds since the call began.</p>
-<p class="mt-6"><a href="{% url 'call_log_text' log.call_id %}" class="ghost" download>Download as text</a></p>
+<div class="snippet mt-6">
+  <button type="button" class="ghost" data-copy="call-log-text" data-copied="Copied. Paste it into your agent." hidden>Copy as text</button>
+  <p class="snippet-copied" role="status"></p>
+  <pre id="call-log-text" hidden>{{ text }}</pre>
+</div>
 
 <ol class="mt-10 border-t border-granite" aria-label="Events">
   {% for t, name, fields, tone in events %}

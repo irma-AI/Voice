@@ -12,6 +12,7 @@ document.querySelectorAll("[data-copy]").forEach((button) => {
       await navigator.clipboard.writeText(source.textContent.trim());
       status.textContent = button.dataset.copied || "Copied. Paste it on your website.";
     } catch {
+      source.hidden = false;  // a hidden source (the call log's lines) must show before it can be selected
       status.textContent = "Could not copy. Select the code and copy it by hand.";
     }
   });
