@@ -1,7 +1,9 @@
 """Seam 1 without spend: a cap already reached stops `make eval` before anything is played."""
 
+import io
 import json
 import re
+import wave
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -14,7 +16,7 @@ from tests.evals.checks import (
     WEB_BUSINESS_FILE,
     Verdict,
 )
-from tests.evals.render_audio import LINES
+from tests.evals.render_audio import LINES, frames
 from tests.evals.run import (
     MAX_REPEATS,
     ROOT,
@@ -128,6 +130,18 @@ def test_a_module_line_in_the_bot_log_is_found(tmp_path: Path) -> None:
         "Module 'hours' skipped: TimeoutError"
     ]
     assert module_log(tmp_path, "module_hours_2") == []
+
+
+def test_a_tts_reply_that_is_already_a_wav_keeps_only_its_frames() -> None:
+    pcm = b"\x01\x00" * 240
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(24000)
+        w.writeframes(pcm)
+    assert frames(buf.getvalue()) == pcm  # no second header played as sound
+    assert frames(pcm) == pcm  # bare PCM passes through
 
 
 def test_a_call_that_never_reached_the_agent_is_named(tmp_path: Path) -> None:
