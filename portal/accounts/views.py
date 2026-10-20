@@ -5,6 +5,7 @@ import hmac
 import json
 import logging
 import re
+import secrets
 import unicodedata
 from collections.abc import Callable
 from datetime import datetime, time, timedelta
@@ -792,10 +793,17 @@ DEMO_CALLS_PER_ADDRESS = 2
 DEMO_CALLS_PER_DAY = 20
 
 
+# A key no one outside this process knows: a plain hash of an address could be reversed by trying every IPv4 address (VOI-245).
+# A restart makes a new one, which only clears the counts a restart clears anyway.
+DEMO_ADDRESS_KEY = secrets.token_bytes(32)
+
+
 def demo_address_key(request: HttpRequest, now: datetime) -> str:
-    """One count per visitor's address and day. The address is hashed at once with the day and kept only as the hash, in memory, until midnight (Petter, 2026-10-20: acceptable for the MVP); it never reaches a log or the database."""
+    """One count per visitor's address and day. The address is keyed at once with the day (HMAC-SHA-256 under DEMO_ADDRESS_KEY) and kept only as that code, in memory, until midnight (Petter, 2026-10-20: acceptable for the MVP); it never reaches a log or the database."""
     who = f"{client_address(request)}\n{now.date()}"
-    return "demo:" + hashlib.sha256(who.encode()).hexdigest()
+    return (
+        "demo:" + hmac.new(DEMO_ADDRESS_KEY, who.encode(), hashlib.sha256).hexdigest()
+    )
 
 
 def demo_call(request: HttpRequest, business: Business) -> HttpResponse:
