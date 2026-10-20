@@ -17,7 +17,9 @@ scenarios:
       - user: "Hur högt är Kaknästornet?"
         audio: ../audio/tower_height_sv.wav
         expect:
-          - event: bot_started_speaking
-            within_ms: 15000
+          - event: function_call_stopped  # the Action's result is back; a holding line may come before it
+            within_ms: 30000
+          - event: bot_started_speaking  # the answer, not the holding line
+            within_ms: 30000
           - event: bot_stopped_speaking  # the whole reply, not its first word
             within_ms: 30000

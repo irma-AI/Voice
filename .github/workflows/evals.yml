@@ -13,9 +13,9 @@ on:
         required: false
         default: ""
       target:
-        description: "eval, or voice-samples (VOI-156: one clip per voice setup, kept as an artifact)"
+        description: "eval, voice-samples (VOI-156: one clip per voice setup) or eval-audio (VOI-212: re-render the Caller audio); the last two are kept as an artifact"
         type: choice
-        options: [eval, voice-samples]
+        options: [eval, voice-samples, eval-audio]
         default: eval
 
 permissions:
@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - name: make eval
-        if: inputs.target != 'voice-samples'
+        if: inputs.target == 'eval'
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           SCENARIO: ${{ inputs.scenario }}
@@ -54,6 +54,20 @@ jobs:
         with:
           name: voice-samples
           path: eval-runs/voice-samples/
+          retention-days: 7
+      - name: make eval-audio
+        if: inputs.target == 'eval-audio'
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        # The script skips clips that exist, so remove the rendered Caller lines (not the licensed street noise) first.
+        run: |
+          rm -f tests/evals/audio/*_sv.wav tests/evals/audio/*_en.wav
+          make eval-audio
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.target == 'eval-audio'
+        with:
+          name: eval-audio
+          path: tests/evals/audio/*.wav
           retention-days: 7
       - name: Results
         if: always()

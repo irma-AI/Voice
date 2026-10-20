@@ -1,4 +1,4 @@
-# Street noise plays over the agent's answer and must not cut it off (the check reads the barge-in events).
+# Street noise plays over the agent's answer to the opening hours and must not cut it off (the checks read the barge-in events and the answer).
 user:
   modality: audio
 judge:
