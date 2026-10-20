@@ -174,7 +174,11 @@ def _per_token(price: dict[str, Any]) -> Decimal:
             Decimal(int(listed.get("units", 0)))
             + Decimal(int(listed.get("nanos", 0))) / 10**9
         )
-        return dollars / Decimal(rate["unitInfo"]["unitQuantity"]["value"])
+        per = dollars / Decimal(rate["unitInfo"]["unitQuantity"]["value"])
+        # No real token costs a dollar or more, nothing or less; such a rate would misprice a day of calls or overflow the sum.
+        if not (per.is_finite() and 0 < per < 1):
+            raise ValueError
+        return per
     except (KeyError, ValueError, TypeError, ArithmeticError):
         raise Unpriced(CostReason.SHAPE_UNKNOWN) from None
 
