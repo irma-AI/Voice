@@ -7,7 +7,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.core.validators import validate_email
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.encoding import force_bytes
@@ -65,6 +65,10 @@ def invite(name: str, email: str) -> Account:
                 None,
                 [account.email],
             )
+    except IntegrityError:  # the email was taken between the check and the create
+        raise ValueError(
+            "that email already has an account: its owner can use Forgot your password"
+        ) from None
     except (OSError, SMTPException):
         raise ValueError(
             "the invite email could not be sent, so nothing was created"

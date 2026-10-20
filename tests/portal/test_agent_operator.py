@@ -194,3 +194,45 @@ def test_an_invite_that_can_no_longer_go_out_keeps_waiting_and_creates_nothing(
     )
     assert PendingChange.objects.get().decision == ""
     assert mail.outbox == []
+
+
+def test_an_invite_is_not_sent_once_its_asker_is_no_longer_the_operator(
+    settings: Any,
+) -> None:
+    operator, client = the_operator()
+    run(
+        a_token(operator, "full", operator=True),
+        "invite_business",
+        name="New Salon",
+        email="new@example.com",
+    )
+    settings.SUPER_ADMIN_EMAIL = "someone-else@example.com"
+    page = html.unescape(decided(client, PendingChange.objects.get(), "approve"))
+    assert views.OUTCOMES["not_operator"] in page
+    assert (
+        not Account.objects.filter(email="new@example.com").exists()
+        and mail.outbox == []
+    )
+
+
+def test_an_invite_whose_mail_cannot_go_out_creates_nothing_and_keeps_waiting(
+    settings: Any,
+) -> None:
+    operator, client = the_operator()
+    run(
+        a_token(operator, "full", operator=True),
+        "invite_business",
+        name="New Salon",
+        email="new@example.com",
+    )
+    # A real mail connection to a port nobody listens on.
+    settings.MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+            "OPTIONS": {"host": "127.0.0.1", "port": 1},
+        }
+    }
+    page = html.unescape(decided(client, PendingChange.objects.get(), "approve"))
+    assert views.OUTCOMES["invite_refused"] in page
+    assert not Account.objects.filter(email="new@example.com").exists()
+    assert PendingChange.objects.get().decision == ""

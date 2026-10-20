@@ -39,6 +39,7 @@ from portal.accounts.models import (
     CallRecord,
     CommandRecord,
     Module,
+    operator_account,
 )
 from portal.accounts.module_form import ModuleForm
 from portal.accounts.settings_form import changed, problems
@@ -86,8 +87,7 @@ WITHOUT_TOKEN = {
 
 def is_operator(token: AccessToken) -> bool:
     """Made by the operator and still the operator's: none while `SUPER_ADMIN_EMAIL` is unset (fail closed)."""
-    named = settings.SUPER_ADMIN_EMAIL
-    return token.is_operator and bool(named) and token.business.account.email == named
+    return token.is_operator and operator_account(token.business.account)
 
 
 def may_use(token: AccessToken | None, need: Need | None) -> bool:

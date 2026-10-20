@@ -58,6 +58,7 @@ from portal.accounts.models import (
     Module,
     PendingChange,
     clean_email,
+    operator_account,
 )
 from portal.accounts.module_form import ModuleForm
 from portal.accounts.settings_form import SettingsForm
@@ -248,9 +249,7 @@ def showcase() -> dict[str, Any]:
 
 def sees_totals(account: Any) -> bool:
     """False when `SUPER_ADMIN_EMAIL` is unset: nobody is let in."""
-    return (
-        bool(settings.SUPER_ADMIN_EMAIL) and account.email == settings.SUPER_ADMIN_EMAIL
-    )
+    return operator_account(account)
 
 
 def origin(url: str) -> str:
@@ -527,6 +526,7 @@ OUTCOMES: dict[str, str] = {
     "already_decided": "That change was already approved or rejected, so nothing changed.",
     "cancelled": "That change was cancelled when the Access token that asked for it was revoked, so nothing changed.",
     "expired": "That change waited too long and expired, so nothing changed.",
+    "not_operator": "That invite was asked for by the operator's token, and this Account is no longer the operator, so nothing was sent. Reject it.",
     "invite_refused": "The invite was not sent: that email has an account now, or the mail could not go out. Nothing changed; approve again later or reject it.",
     "no_longer_fits": "Your saved settings no longer pass the settings page's checks, so nothing changed. Fix them on the settings page, then approve again, or reject the change.",
 }

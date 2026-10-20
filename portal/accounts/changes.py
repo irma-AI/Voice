@@ -22,6 +22,7 @@ from portal.accounts.models import (
     Module,
     PendingChange,
     StagedValues,
+    operator_account,
 )
 from portal.accounts.settings_form import changed
 
@@ -153,6 +154,10 @@ def _apply(change: PendingChange) -> bool:
             values = _values(change)
             if not values:
                 return False
+            if not operator_account(
+                change.token.business.account
+            ):  # as agent.is_operator, at approval too
+                raise NotApplied("not_operator")
             try:
                 invite.invite(values["name"], values["email"])
             except ValueError:  # taken since, or the mail failed: nothing was created, and the change waits
@@ -179,6 +184,7 @@ Decided = Literal[
     "expired",
     "no_longer_fits",
     "invite_refused",
+    "not_operator",
 ]
 
 
