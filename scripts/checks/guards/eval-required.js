@@ -5,7 +5,8 @@
 // only what the model is sent counts: the guard reruns `rendered.command` and compares its hash (VOI-211).
 // CI never runs the paid evals; Petter does, locally or through the Evals workflow.
 // The list is read from the base branch (scripts/base-config.js), so a PR cannot drop a file it changes from it.
-// Known limits: a hand-written receipt passes this check, so review checks that the receipt came from `make eval`;
+// Known limits: a hand-written receipt passes this check, so eval-receipt.json is fenced (scripts/low-risk-paths.json): a PR
+// that changes it needs Petter's evals-approved label (VOI-235);
 // and an edit to scripts/eval-receipt.js or to this guard does not trigger it, but those are
 // scripts/ files, which a green PR now merges without Petter reading them (VOI-49); and an edit to a `rendered.from`
 // file that changes the call but not what the model is sent at its start (how a tool call reaches its Module) passes.

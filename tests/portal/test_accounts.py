@@ -84,6 +84,11 @@ def test_an_invited_business_sets_a_password_logs_in_sees_its_dashboard_and_logs
     assert client.get("/dashboard/")["Location"] == "/login/?next=/dashboard/"
 
 
+def test_the_invite_email_shows_the_business_name_as_typed_not_html_escaped() -> None:
+    invite_as_petter(EMAIL, "Salon & Spa's")
+    assert "Hello Salon & Spa's," in mail.outbox[0].body
+
+
 def test_the_login_refuses_a_wrong_password_and_the_dashboard_needs_a_login() -> None:
     client = Client()
     invited_with_password(client)
