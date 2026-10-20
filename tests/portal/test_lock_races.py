@@ -133,7 +133,7 @@ def test_staging_and_offboarding() -> None:
 def test_a_revoke_in_flight_lets_a_command_still_record_itself() -> None:
     """The deadlock VOI-246 removed: a revoke that held its token FOR UPDATE blocked a Command's record (a foreign key to
     the token) while that Command held the change the revoke wanted next. The revoke's own lock must not block the record."""
-    business, _, _ = staged()
+    staged()
     token = AccessToken.objects.get()
     revoking = threading.Event()
 
