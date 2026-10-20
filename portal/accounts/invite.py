@@ -16,9 +16,18 @@ from django.utils.http import urlsafe_base64_encode
 from portal.accounts.models import Account, Business, clean_email
 
 
+# The columns' own limits, so a refusal comes here in words, not from the database at approval.
+NAME_MAX: int = Business._meta.get_field("name").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
+EMAIL_MAX: int = Account._meta.get_field("email").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
+
+
 def checked(name: str, email: str) -> tuple[str, str]:
     """The name and email an invite would use, or ValueError with the reason: what invite and the agent's invite_business refuse."""
     email = clean_email(email)
+    if (
+        len(email) > EMAIL_MAX
+    ):  # the most the email standard allows (RFC 5321's 256-octet path, less its brackets)
+        raise ValueError(f"that email is longer than {EMAIL_MAX} characters")
     try:
         validate_email(email)
     except ValidationError:
@@ -26,6 +35,8 @@ def checked(name: str, email: str) -> tuple[str, str]:
     name = name.strip()
     if not name:
         raise ValueError("a Business needs a name")
+    if len(name) > NAME_MAX:
+        raise ValueError(f"a Business's name is at most {NAME_MAX} characters")
     if "\n" in name or "\r" in name:
         raise ValueError("a Business's name goes on one line")
     if Account.objects.filter(email=email).exists():

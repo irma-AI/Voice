@@ -155,6 +155,8 @@ def test_an_invite_waits_for_the_operators_approval_then_goes_out_once() -> None
         ("  ", "new@example.com"),
         ("A\nB", "new@example.com"),
         ("Taken", "user-a@example.com"),
+        ("x" * 201, "new@example.com"),
+        ("Long", "a" * 64 + "@" + "b" * 186 + ".se"),
     ],
 )
 def test_an_invite_the_management_command_would_refuse_is_refused_plainly(
