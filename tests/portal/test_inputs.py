@@ -11,7 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 
 from portal.accounts.models import Business, Module
-from portal.accounts.views import INSTRUCTIONS_MAX
+from portal.accounts.settings_form import INSTRUCTIONS_MAX
 from tests.portal.helpers import PASSWORD, business_with_login
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]

@@ -6,6 +6,8 @@ Every Command lives here, so a move to another framework or host only relocates 
 serves it, and `django-stateless-mcp` (pinned) runs the SDK inside a Django view under gunicorn.
 """
 
+import base64
+import binascii
 import contextlib
 import functools
 import json
@@ -19,6 +21,7 @@ from django.conf import settings
 from django.db import DatabaseError, OperationalError, connection, transaction
 from django.db.models.functions import Now
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
+from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django_stateless_mcp import django_request, mcp_view
@@ -28,14 +31,28 @@ from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from psycopg.errors import QueryCanceled
 
 from portal.accounts import changes, tokens
-from portal.accounts.models import AccessToken, CallRecord, CommandRecord, Module
+from portal.accounts.domain import shown_domain
+from portal.accounts.models import (
+    AccessToken,
+    Business,
+    CallRecord,
+    CommandRecord,
+    Module,
+)
+from portal.accounts.settings_form import changed, problems
 
 # What a Command needs from the token that sends it. An operator Command is split by read and write like a Business's,
 # so the operator's read-only token runs no operator write.
 Need = Literal["read", "write", "operator_read", "operator_write"]
 
 # Deny by default: every Command has an entry, and a Command with no entry is refused even with a full operator token.
-COMMANDS: dict[str, Need] = {"list_recent_calls": "read", "remove_module": "write"}
+COMMANDS: dict[str, Need] = {
+    "list_recent_calls": "read",
+    "remove_module": "write",
+    "read_settings": "read",
+    "change_settings": "write",
+    "change_business_details": "write",
+}
 
 # Each database statement of a Command stops after this (Postgres statement_timeout), so a stuck one gives its thread back.
 # shortcut: only each statement is timed, not the Command (a thread cannot be stopped); add a deadline of its own before a Command makes several slow queries or calls out to the network.
@@ -290,6 +307,101 @@ def remove_module(ctx: Context[Any, Any], name: str) -> CallToolResult:
     if module is None:
         return failed("Your Business has no Module by that name.")
     return as_answer(changes.stage(token, "remove_module", {"module": module.pk}))
+
+
+def locked(token: AccessToken) -> Business:
+    """The token's Business as stored now, locked until the Command commits: the form writes every setting, so none read earlier is written back."""
+    return Business.objects.select_for_update().get(pk=token.business.pk)
+
+
+def settings_of(business: Business) -> dict[str, Any]:
+    """The settings as the settings page shows them, named as the Commands name them."""
+    return {
+        "name": business.name,
+        "instructions": business.instructions,
+        "languages": business.languages,
+        "website": shown_domain(business.website_domain),
+        "privacy_notice": business.privacy_url,
+        "accent": business.accent,
+        "logo": settings.PORTAL_URL.rstrip("/")
+        + reverse("logo", args=[business.logo_key])
+        if business.logo is not None
+        else None,
+    }
+
+
+@command("Read settings", ToolAnnotations(read_only_hint=True))
+def read_settings(ctx: Context[Any, Any]) -> dict[str, Any]:
+    """Your Business's settings: its name, the instructions the agent follows, the languages it speaks, your website, your privacy notice, and the Theme (accent colour, logo address) your Callers see."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    return settings_of(token.business)
+
+
+@command(
+    "Change website, privacy notice and Theme",
+    ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=True),
+)
+def change_settings(
+    ctx: Context[Any, Any],
+    website: str | None = None,
+    privacy_notice: str | None = None,
+    accent: str | None = None,
+    logo: str | None = None,
+    remove_logo: bool = False,
+) -> CallToolResult:
+    """Changes what you name, at once, by the Portal settings page's rules: website, privacy notice (https), accent ("" for none), logo (base64 PNG, WebP or JPEG, at most 256 KB). Answers with the settings as they now are."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    fields: dict[str, Any] = {}
+    if website is not None:
+        fields["website_domain"] = website
+    if privacy_notice is not None:
+        fields["privacy_url"] = privacy_notice
+    if accent is not None:
+        fields.update(use_accent="on" if accent else "", accent=accent)
+    if remove_logo:
+        fields["remove_logo"] = "on"
+    business = locked(token)
+    try:
+        upload = None if logo is None else base64.b64decode(logo, validate=True)
+    except binascii.Error:
+        return failed("That logo is not base64. Send the image's bytes as base64.")
+    form = changed(business, logo=upload, **fields)
+    if not form.is_valid():
+        return failed(problems(form))
+    return as_answer(settings_of(form.save()))
+
+
+@command(
+    "Change the name, instructions or languages",
+    ToolAnnotations(read_only_hint=False, destructive_hint=True),
+)
+def change_business_details(
+    ctx: Context[Any, Any],
+    name: str | None = None,
+    instructions: str | None = None,
+    languages: list[str] | None = None,
+) -> CallToolResult:
+    """Asks to change your Business's name, instructions or languages (sv, en). Nothing changes until the Business approves it in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    given: dict[str, Any] = {
+        k: v
+        for k, v in (
+            ("name", name),
+            ("instructions", instructions),
+            ("languages", languages),
+        )
+        if v is not None
+    }
+    if not given:
+        return failed("Name at least one of name, instructions or languages.")
+    form = changed(locked(token), **given)
+    if not form.is_valid():
+        return failed(problems(form))
+    values = {k: form.cleaned_data[k] for k in given}
+    return as_answer(changes.stage(token, "change_details", {}, values))
 
 
 served = mcp_view(server)
