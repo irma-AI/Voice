@@ -312,8 +312,10 @@ def test_the_call_page_links_the_business_privacy_notice_only_when_it_has_one(
     with fake_portal(body=given) as url:
         page = call_page(monkeypatch, portal_env(url))
     link = re.search(
-        r'<p class="privacy"><a href="([^"]*)" ([^>]*)>Privacy notice</a>', page
-    )  # the words were approved by Petter 2026-10-18
+        r'<p class="privacy"><a href="([^"]*)" ([^>]*)>Privacy notice'
+        r'<span class="sr-only"> \(opens in a new tab\)</span></a>',
+        page,
+    )  # the words were approved by Petter 2026-10-18; the hidden new-tab note 2026-10-19
     assert link and link[1] == "https://example.se/integritet?a=1&amp;b=&quot;2&quot;"
     # The page is often framed in the Business's own website: the notice opens outside the call, which goes on.
     assert link[2] == 'target="_blank" rel="noopener"'

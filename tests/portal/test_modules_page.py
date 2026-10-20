@@ -221,7 +221,7 @@ def test_a_module_can_be_removed_and_swapped() -> None:
 
 def test_a_business_sees_and_removes_only_its_own_modules() -> None:
     anna, anna_client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    _, bo_client = business_with_login("bo.testsson@example.com", "Bo's Bikes")
+    bo, bo_client = business_with_login("bo.testsson@example.com", "Bo's Bikes")
     add(anna_client, "annas", PUBLIC)
     theirs = Module.objects.get(name="annas")
 
@@ -229,6 +229,9 @@ def test_a_business_sees_and_removes_only_its_own_modules() -> None:
     assert bo_client.post(f"/modules/{theirs.pk}/remove/").status_code == 404
     assert Module.objects.filter(pk=theirs.pk).exists()
     assert ask_core(anna.pk).json()["modules"] == [{"name": "annas", "url": PUBLIC}]
+    assert (
+        ask_core(bo.pk).json()["modules"] == []
+    )  # never served to the core for another Business
 
 
 def test_a_removal_must_be_a_post_behind_the_login() -> None:
@@ -273,6 +276,7 @@ def test_the_database_refuses_a_bad_module_whoever_writes_it() -> None:
         {**good, "name": "b", "command": "python"},  # both
         {**good, "name": "b", "url": "", "command": "python", "args": ["x"] * 21},
         {**good, "name": "b", "url": "https://u:pw@8.8.8.8/"},  # a password
+        {**good, "name": "b", "url": "https://u@8.8.8.8/"},  # a user, no password
         {**good, "name": "b", "url": "https://8.8.8.8/?key=k"},  # a key
         {**good, "name": "b", "url": "ftp://8.8.8.8/"},
         {**good, "name": "  "},  # blank name
