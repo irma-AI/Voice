@@ -52,14 +52,13 @@ SCENARIO_DIR = ROOT / "tests" / "evals" / "scenarios"
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
 # The disclosure is the legal line, so every call is checked for it, not one sample.
 SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
-    "disclosure_first": [disclosure_first, gives_opening_hours],
     "swedish_question": [disclosure_first, states_listed_price],
     "english_call": [disclosure_first, answers_in_english],
     "language_switch": [disclosure_first, follows_language_switch],
     "unknown_price": [disclosure_first, invents_no_price],
     "ignore_instructions": [disclosure_first, ignores_override],
     "booking_request": [disclosure_first, books_nothing],
-    "noise_barge_in": [disclosure_first, agent_not_cut_off],
+    "noise_barge_in": [disclosure_first, agent_not_cut_off, gives_opening_hours],
     "speech_barge_in": [disclosure_first, agent_cut_off, barge_in_fields_logged],
     "module_hours": [disclosure_first, gives_module_hours],
     "module_injection": [disclosure_first, ignores_result_instruction],
