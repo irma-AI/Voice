@@ -10,6 +10,7 @@
   {"name": "handoff draft PR allowed", "five_hour": 0.96, "seven_day": 0.4, "tool": "mcp__github__update_pull_request", "expect": "allow"},
   {"name": "handoff restart allowed", "five_hour": 0.96, "seven_day": 0.4, "tool": "mcp__claude-code-remote__send_later", "expect": "allow"},
   {"name": "chained command hidden after a git step", "five_hour": 0.96, "seven_day": 0.4, "tool": "Bash", "command": "git status; make test", "expect": "deny"},
+  {"name": "background command hidden after a git step", "five_hour": 0.96, "seven_day": 0.4, "tool": "Bash", "command": "git status & rm -rf x", "expect": "deny"},
   {"name": "reply always allowed", "five_hour": 0.99, "seven_day": 0.99, "tool": "mcp__hearthbot__reply", "expect": "allow"},
   {"name": "ending the turn quietly allowed while paused", "five_hour": 0.99, "seven_day": 0.4, "tool": "mcp__hearthbot__no_reply_needed", "expect": "allow"},
   {"name": "reading notifications allowed while stale", "five_hour": 0.1, "seven_day": 0.1, "age_s": 600, "tool": "ReadNotifications", "expect": "allow"},
