@@ -2,7 +2,8 @@
 // Two entry points for one rule: work needs a ready Linear ticket (scripts/ticket-check.js).
 // 1. PreToolUse hook (Edit|Write|NotebookEdit): denies an edit to a repo file without one.
 // 2. `--staged`, run by scripts/git-hooks/pre-commit: refuses a commit whose staged files need one, however they
-//    were written (Bash scripts included). Only inside Claude Code ($CLAUDECODE), so Petter's own commits are free.
+//    were written (Bash scripts included); a merge commit, by the branch's own changes only. Only inside Claude Code
+//    ($CLAUDECODE), so Petter's own commits are free.
 // Files in "no_ticket" of scripts/low-risk-paths.json (as on origin/main, scripts/base-config.js), and files outside the repo, need none. The session's ticket
 // is $NEXT_STEP_TICKET, else the id in the file `next-step-ticket` in the git dir (/next-step writes it when it
 // starts a ticket; the SessionStart hook deletes it on a fresh start), else a ticket id in the branch name.
@@ -24,7 +25,14 @@ const deny = (why) => { console.error(`${staged ? 'Commit' : 'Edit'} denied: ${w
   let rel;
   if (staged) {
     if (!process.env.CLAUDECODE) return; // a person's commit: the CI guard is their check
-    rel = git('diff', '--cached', '--name-only', '--no-renames').split('\n').find((f) => f && needsTicket(root, f, { local: true }));
+    // A merge commit is judged from its merge base with origin/main, like the CI guard, so main's own files need no
+    // ticket here (VOI-203). No origin/main: judge every staged change, as for any other commit.
+    let from = [];
+    try {
+      const heads = fs.readFileSync(git('rev-parse', '--git-path', 'MERGE_HEAD'), 'utf8').split('\n').filter(Boolean);
+      if (heads.length) from = [git('merge-base', 'origin/main', 'HEAD', ...heads)];
+    } catch { /* not a merge, or no origin/main */ }
+    rel = git('diff', '--cached', '--name-only', '--no-renames', ...from).split('\n').find((f) => f && needsTicket(root, f, { local: true }));
     if (!rel) return;
   } else {
     let input;
