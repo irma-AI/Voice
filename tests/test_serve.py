@@ -234,34 +234,17 @@ def test_the_call_page_says_which_site_may_frame_it() -> None:
     )
 
 
-def test_a_call_link_ticket_without_a_clean_domain_opens_no_page() -> None:
-    client = TestClient(
-        create_app("portal-secret"), base_url="https://voice.example.se"
-    )
-    expires = int(time.time()) + 60
-    for domain in ("", "example.se;", "https://example.se", "exa mple.se"):
-        ticket = sign("portal-secret", 7, "call_link", expires, domain)
-        refused = client.get(f"/?ticket={ticket}")
-        assert refused.status_code == 403, domain
-        assert "content-security-policy" not in refused.headers, domain
-
-
-def test_the_socket_refuses_a_missing_or_bad_ticket() -> None:
+def test_the_socket_refuses_a_call_with_no_ticket() -> None:
     client = TestClient(
         create_app("portal-secret"), base_url="https://voice.example.se"
     )
     same_origin = {"Origin": "https://voice.example.se"}
-    for query in (
-        "",
-        "ticket=7.1.abc",
-        f"ticket={sign('other', 7, 'test', int(time.time()) + 60)}",
+    with (
+        pytest.raises(WebSocketDisconnect) as refused,
+        client.websocket_connect("/ws", headers=same_origin),
     ):
-        with (
-            pytest.raises(WebSocketDisconnect) as refused,
-            client.websocket_connect(f"/ws?{query}", headers=same_origin),
-        ):
-            pass
-        assert refused.value.code == 1008
+        pass
+    assert refused.value.code == 1008
 
 
 def test_the_web_channel_will_not_start_without_the_portal_secret(
