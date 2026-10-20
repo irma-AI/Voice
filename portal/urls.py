@@ -26,6 +26,7 @@ urlpatterns = [
     path("oauth/token/", oauth.token, name="oauth_token"),
     path("oauth/revoke/", oauth.revoke, name="oauth_revoke"),
     path("", views.home, name="home"),
+    path("privacy/", views.privacy, name="privacy"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("settings/", views.business_settings, name="business_settings"),
     path("modules/", views.modules, name="modules"),

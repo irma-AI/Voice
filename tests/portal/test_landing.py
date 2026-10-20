@@ -129,6 +129,37 @@ def test_a_demo_count_lives_until_local_midnight_even_on_a_25_hour_day(
     )
 
 
+def test_the_privacy_notice_is_open_and_linked_from_the_landing_page() -> None:
+    """VOI-245: a visitor reads the demo call's notice before calling; it names the controller, a contact and the supervisory authority."""
+    response = Client().get(reverse("privacy"))
+    assert response.status_code == 200
+    page = response.content.decode()
+    assert "Privacy notice for the Voice demo call" in page
+    assert "Irma AI AB" in page and "559534-1586" in page
+    assert 'href="mailto:privacy@getirma.ai"' in page
+    assert "Swedish Authority for Privacy Protection (IMY)" in page
+    assert f'href="{reverse("privacy")}"' in landing()
+
+
+def test_the_demo_address_code_cannot_be_reversed_by_hashing_addresses() -> None:
+    """VOI-245 skeptic: a plain SHA-256 of address and date could be matched by trying every IPv4 address; the code is keyed with a secret the process makes."""
+    import hashlib
+    from datetime import datetime
+
+    from django.test import RequestFactory
+
+    from portal.accounts.views import demo_address_key
+
+    now = datetime(2026, 10, 20, 12, 0)
+    request = RequestFactory().get("/", REMOTE_ADDR="203.0.113.7")
+    plain = hashlib.sha256(f"203.0.113.7\n{now.date()}".encode()).hexdigest()
+    key = demo_address_key(request, now)
+    assert key.startswith("demo:") and plain not in key
+    assert key == demo_address_key(
+        request, now
+    )  # the same visitor, the same day: one count
+
+
 def test_without_a_demo_business_the_page_carries_no_call_button(settings: Any) -> None:
     settings.DEMO_BUSINESS_ID = None
     page = landing()
