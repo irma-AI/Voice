@@ -10,8 +10,7 @@ from django.test import Client
 
 from portal.accounts.models import Business
 from tests.portal.contract import schema_errors
-from tests.portal.helpers import business_with_login
-from tests.portal.test_theme import told_to_core
+from tests.portal.helpers import business_with_login, told_to_core
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
