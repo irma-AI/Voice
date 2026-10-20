@@ -18,6 +18,7 @@ from tests.evals.run import (
     SCENARIOS,
     SETTINGS_FILES,
     Row,
+    batch_stop,
     main,
     missing_audio,
     module_log,
@@ -110,3 +111,12 @@ def test_a_module_line_in_the_bot_log_is_found(tmp_path: Path) -> None:
         "Module 'hours' skipped: TimeoutError"
     ]
     assert module_log(tmp_path, "module_hours_2") == []
+
+
+def test_a_batch_starts_only_if_its_worst_case_fits_under_the_caps(
+    tmp_path: Path,
+) -> None:
+    caps = Caps(per_run_sek=1, per_loop_sek=30, per_day_sek=50)
+    # 0.5 spent, the dearest Scenario so far cost 0.2: three more could reach 1.1
+    assert batch_stop(caps, tmp_path, 0.5, 0.2, 3, "", "2026-10-20") == "run cap 1 SEK"
+    assert batch_stop(caps, tmp_path, 0.5, 0.2, 2, "", "2026-10-20") is None

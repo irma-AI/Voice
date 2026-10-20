@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -46,8 +47,11 @@ from tests.evals.spend import Caps, stopped_by
 
 ROOT = Path(__file__).parent.parent.parent
 SCENARIO_TIMEOUT_S = (
-    180  # a hard stop on one call's spend: the caps are only checked between Scenarios
+    180  # a hard stop on one call's spend: the caps are only checked between batches
 )
+# Scenarios in flight at once, each its own Gemini Live session; why 3: DECISIONS.md, VOI-209.
+PARALLEL = 3
+BASE_PORT = 7900  # Pipecat's default; slot k of a batch listens on BASE_PORT + k
 SCENARIO_DIR = ROOT / "tests" / "evals" / "scenarios"
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
 # The disclosure is the legal line, so every call is checked for it, not one sample.
@@ -99,11 +103,12 @@ def _totals(runs: Path, run: float, loop_id: str, today: str) -> dict[str, float
     }
 
 
-def _play(scenario: str, run_dir: Path, name: str) -> tuple[int, Path]:
-    """Runs one Scenario through Pipecat's eval suite; returns its exit code and the call log."""
+def _play(scenario: str, run_dir: Path, name: str, port: int) -> tuple[int, Path]:
+    """Runs one Scenario through Pipecat's eval suite, its bot on `port`; returns its exit code and the call log."""
     log = run_dir / "calls" / f"{name}.jsonl"
     cmd = [sys.executable, "-m", "pipecat.evals", "suite", "tests/evals/manifest.yaml"]
     cmd += ["-s", scenario, "--name", name, "--runs-dir", str(run_dir)]
+    cmd += ["--base-port", str(port)]
     # Own process group: the suite spawns the bot, and killing only the suite would leave the
     # bot's Gemini session open and spending after the time limit.
     proc = subprocess.Popen(
@@ -181,6 +186,19 @@ def plan(only: str | None) -> list[tuple[str, str]] | None:
     return [(only, only)] if only in SCENARIOS else None
 
 
+def batch_stop(
+    caps: Caps,
+    runs: Path,
+    spent: float,
+    worst: float,
+    size: int,
+    loop_id: str,
+    today: str,
+) -> str | None:
+    """The cap a batch of `size` Scenarios could reach if each cost `worst` (the dearest so far), or None."""
+    return stopped_by(caps, **_totals(runs, spent + worst * size, loop_id, today))
+
+
 def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
     pairs = plan(only)
     if pairs is None:
@@ -206,13 +224,23 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
     )
     run_dir = runs / run_id
     spent, rows, stopped = 0.0, list[Row](), None
-    for sc, base in pairs:
-        # Fail closed: a cap already reached by earlier runs stops us before any spend.
-        if stopped := stopped_by(
-            caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))
-        ):
-            break
-        code, log = _play(base, run_dir, sc)
+    played: dict[str, tuple[int, Path]] = {}
+    for i, (sc, base) in enumerate(pairs):
+        if i % PARALLEL == 0:
+            # Fail closed: a cap already reached, or one this batch could reach, stops it before any spend.
+            # shortcut: the first batch has no cost seen yet, so only SCENARIO_TIMEOUT_S bounds it; upgrade with a per-Scenario price bound.
+            worst = max((r.sek for r in rows), default=0.0)
+            batch = pairs[i : i + PARALLEL]
+            if stopped := batch_stop(
+                caps, runs, spent, worst, len(batch), loop_id, now.strftime("%Y-%m-%d")
+            ):
+                break
+            names, bases = [n for n, _ in batch], [b for _, b in batch]
+            ports = [BASE_PORT + k for k in range(len(batch))]
+            with ThreadPoolExecutor(len(batch)) as pool:
+                calls = pool.map(_play, bases, [run_dir] * len(batch), names, ports)
+                played = dict(zip(names, calls, strict=True))
+        code, log = played[sc]
         if not log.exists():
             missing = Verdict(False, f"no call record (suite exit {code})")
             rows.append(Row(sc, {"suite exit": missing}, 0.0, 0, None))
@@ -238,11 +266,6 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
             # a call without its Module looks like a model miss; say what the bot logged about it
             for line in module_log(run_dir, sc) or ["no Module line in the bot log"]:
                 print(f"{sc}: {line}", file=sys.stderr)
-        stopped = stopped_by(
-            caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))
-        )
-        if stopped:
-            break
     return report(rows, run_dir, spent, stopped, skipped=len(ids) - len(rows))
 
 
