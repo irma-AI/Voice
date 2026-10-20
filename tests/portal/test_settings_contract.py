@@ -39,6 +39,11 @@ def test_what_the_portal_serves_matches_the_schema() -> None:
     errors = schema_errors(served)
     assert not errors, f"edit Business.as_settings or the schema: {errors}"
     assert served["modules"] == [{"name": "bookings", "url": "https://8.8.8.8/mcp"}]
+    # English, the default, is left out, so a core from before VOI-255 never sees a key it would refuse; Swedish is said.
+    assert "greeting" not in served and business.greeting_language == "en"  # pyright: ignore[reportUnknownMemberType]
+    business.greeting_language = "sv"
+    served = business.as_settings()
+    assert served["greeting"] == "sv" and not schema_errors(served)
 
 
 # The Business's Modules have their own page (VOI-28), so they are not among the settings form's fields.
@@ -51,12 +56,16 @@ PORTAL_ONLY = {"website_domain"}
 # The form's Theme fields, which the contract carries together as `theme` (VOI-83).
 THEME_FIELDS = {"logo", "remove_logo", "use_accent", "accent"}
 
+# Form fields the contract names otherwise.
+RENAMED = {"greeting_language": "greeting"}
+
 
 def test_the_editable_fields_are_exactly_the_schema_properties() -> None:
     fields = set(SettingsForm().fields) - PORTAL_ONLY
     assert THEME_FIELDS <= fields, (
         "SettingsForm lost a Theme field: edit THEME_FIELDS or the form"
     )
+    fields = {RENAMED.get(f, f) for f in fields}
     assert fields - THEME_FIELDS | {"theme"} == set(PROPERTIES) - MODULES_PAGE, (
         "SettingsForm.Meta.fields and the schema's properties must list the same settings: edit whichever is wrong"
     )
@@ -133,7 +142,9 @@ def test_what_the_portal_serves_for_modules_matches_the_schema() -> None:
 
 def test_each_text_setting_is_as_long_in_the_database_as_in_the_schema() -> None:
     for name, spec in PROPERTIES.items():
-        if spec["type"] == "string":
+        if (
+            spec["type"] == "string" and "enum" not in spec
+        ):  # a closed set has no length to keep in step
             assert Business._meta.get_field(name).max_length == spec["maxLength"], (  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
                 f"set Business.{name} max_length and the schema's maxLength to one number"
             )
@@ -142,6 +153,9 @@ def test_each_text_setting_is_as_long_in_the_database_as_in_the_schema() -> None
 def test_the_languages_are_the_same_set_in_the_model_and_the_schema() -> None:
     assert set(LANGUAGES) == set(PROPERTIES["languages"]["items"]["enum"]), (
         "LANGUAGES in models.py and the schema's languages enum must list the same codes"
+    )
+    assert set(LANGUAGES) == set(PROPERTIES["greeting"]["enum"]), (
+        "LANGUAGES in models.py and the schema's greeting enum must list the same codes"
     )
 
 

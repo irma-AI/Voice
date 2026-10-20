@@ -44,6 +44,10 @@ _Avoid_: branding, skin, white-label
 The words of a call shown to the Caller on the call page while it runs, for both sides. Shown only, never kept: it is not part of the Call record.
 _Avoid_: transcript log, captions
 
+**Greeting language**:
+The language every call of a Business opens in: the greeting with the Business's name and that the agent is an AI. English unless the Business picks Swedish in its settings. After the greeting the agent answers in the caller's language, among the Business's languages.
+_Avoid_: intro language, opening language
+
 **Test call**:
 A call a Business starts from its own Portal to try its agent. Every other call comes through its Call link.
 _Avoid_: trial call

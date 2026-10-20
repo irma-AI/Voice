@@ -71,6 +71,8 @@ class Settings:
     theme: Theme = Theme()
     # The Business's own privacy notice, linked on the call page; None for no link.
     privacy_url: str | None = None
+    # The language the call opens in (the greeting and the AI disclosure), "en" or "sv"; absent from the reply means English (VOI-255).
+    greeting: str = "en"
 
 
 def _theme(data: object) -> Theme:
@@ -145,11 +147,22 @@ def parse(data: object) -> Settings:
     if (
         not {"name", "instructions", "languages"}
         <= set(d)
-        <= {"name", "instructions", "languages", "modules", "theme", "privacy_url"}
+        <= {
+            "name",
+            "instructions",
+            "languages",
+            "modules",
+            "theme",
+            "privacy_url",
+            "greeting",
+        }
     ):
         raise SettingsRefused(
-            "settings do not have name, instructions and languages, and at most modules, a theme and a privacy_url besides"
+            "settings do not have name, instructions and languages, and at most modules, a theme, a privacy_url and a greeting besides"
         )
+    greeting = d.get("greeting", "en")
+    if not (isinstance(greeting, str) and greeting in LANGUAGES):
+        raise SettingsRefused("settings greeting is not a known language")
     name, instructions, languages = d["name"], d["instructions"], d["languages"]
     raw_modules = d.get("modules", [])
     if not (isinstance(raw_modules, list) and len(raw_modules) <= MODULES_MAX):  # pyright: ignore[reportUnknownArgumentType]
@@ -172,6 +185,7 @@ def parse(data: object) -> Settings:
         tuple(_module(m) for m in modules),
         _theme(d["theme"]) if "theme" in d else Theme(),
         _privacy_url(d["privacy_url"]) if "privacy_url" in d else None,
+        greeting,
     )
 
 

@@ -94,9 +94,9 @@ def test_opening_names_the_business(record: str, passes: bool) -> None:
 
 
 def test_the_stored_opening_is_the_agents_opening_word_for_word() -> None:
-    # The record holds a copy of the prompt's opening; edit voice/agent.py's opening() first, then this record.
+    # The record holds a copy of the prompt's Swedish opening (the eval clinic greets in Swedish, VOI-255); edit voice/agent.py's opening() first, then this record.
     first = Call.load(CALLS / "opening_kim.json").turns[0].text
-    assert first == opening("Tandkliniken Exempel")
+    assert first == opening("Tandkliniken Exempel", "sv")
 
 
 @pytest.mark.parametrize(

@@ -17,7 +17,7 @@ from dotenv import dotenv_values
 from tests.evals.checks import BUSINESS_FILE, MODULE_BUSINESS_FILE
 from tests.portal.contract import SCHEMA, schema_errors
 from voice.agent import (
-    DISCLOSURE,
+    DISCLOSURES,
     REFUSAL,
     opening,
     refusal_instruction,
@@ -215,6 +215,11 @@ MODULE_CASES: list[Any] = [
         *({**GOOD, "modules": modules} for modules in MODULE_CASES),
         *({**GOOD, "theme": theme} for theme in THEME_CASES),
         *({**GOOD, "privacy_url": url} for url in PRIVACY_URL_CASES),
+        {**GOOD, "greeting": "sv"},
+        {**GOOD, "greeting": "en"},
+        {**GOOD, "greeting": "de"},
+        {**GOOD, "greeting": ["sv"]},
+        {**GOOD, "greeting": None},
         {"name": "A", "instructions": ""},
         ["not", "an", "object"],
     ],
@@ -421,15 +426,34 @@ def test_the_secret_never_reaches_the_refusal_text() -> None:
 
 def test_the_prompt_is_built_from_the_business_and_keeps_the_disclosure() -> None:
     prompt = system_instruction(parse(GOOD))
+    # No greeting in the reply is English, the default (VOI-255).
+    assert parse(GOOD).greeting == "en"
     assert (
         f'Start every call by saying exactly: "{opening("Owner A's Salon")}"' in prompt
     )
-    assert DISCLOSURE in opening("Owner A's Salon")
+    assert opening("Owner A's Salon") == (
+        "Hi and welcome to Owner A's Salon! My name is Kim and I'm an AI assistant. How can I help you?"
+    )
     assert (
         "RESPOND IN SWEDISH OR ENGLISH. YOU MUST RESPOND UNMISTAKABLY IN SWEDISH OR ENGLISH."
         " Answer in the language the caller last spoke." in prompt
     )
     assert prompt.endswith("Business instructions:\nname: Owner A's Salon\nÖppet 8-17.")
+
+
+def test_a_business_that_greets_in_swedish_opens_in_swedish() -> None:
+    """VOI-255: the greeting language is the Business's choice; the disclosure is the approved line in that language, word for word."""
+    prompt = system_instruction(parse({**GOOD, "greeting": "sv"}))
+    swedish = opening("Owner A's Salon", "sv")
+    assert f'Start every call by saying exactly: "{swedish}"' in prompt
+    assert swedish == (
+        "Hej och välkommen till Owner A's Salon! Jag heter Kim och är en AI-assistent. Vad kan jag hjälpa dig med?"
+    )
+    assert set(DISCLOSURES) == set(LANGUAGES), (
+        "give every language of voice/settings.py LANGUAGES an approved disclosure in voice/agent.py DISCLOSURES"
+    )
+    for lang, disclosure in DISCLOSURES.items():
+        assert disclosure in opening("X", lang)
 
 
 def test_a_single_language_business_is_not_told_to_switch() -> None:
@@ -442,5 +466,5 @@ def test_a_refused_call_says_the_disclosure_then_the_reason_and_holds_no_facts()
     None
 ):
     prompt = refusal_instruction()
-    assert f'"Hej! {DISCLOSURE} {REFUSAL}"' in prompt
+    assert f'"Hi! {DISCLOSURES["en"]} {REFUSAL}"' in prompt
     assert "Business instructions" not in prompt
