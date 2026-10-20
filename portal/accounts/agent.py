@@ -495,8 +495,9 @@ def decided(
     )
     if found is None:
         return failed("Your Business has no pending change with that number.")
-    # The token first, shared: a revoke of it waits for this decision instead of deadlocking with it (the revoke locks the
-    # token, then the change; decide locks the Business, then the change; the Command record then needs the token).
+    # The Business, then the token, shared: the order staging and offboarding lock them, so a revoke of the token waits for
+    # this decision and nothing waits on another in a ring (decide locks the Business again, then the change).
+    list(Business.objects.select_for_update().filter(pk=token.business.pk))
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT 1 FROM accounts_accesstoken WHERE id = %s AND revoked_at IS NULL FOR SHARE",
