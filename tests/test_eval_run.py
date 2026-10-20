@@ -37,7 +37,7 @@ def test_a_reached_day_cap_stops_with_exit_3_before_any_spend(tmp_path: Path) ->
     (tmp_path / "ledger.jsonl").write_text(json.dumps(entry) + "\n", "utf-8")
     caps = Caps(per_run_sek=10, per_loop_sek=30, per_day_sek=0.5)
 
-    assert main("disclosure_first", runs=tmp_path, caps=caps) == 3
+    assert main("swedish_question", runs=tmp_path, caps=caps) == 3
     assert (
         not (tmp_path / "ledger.jsonl").read_text("utf-8").count("\n") > 1
     )  # nothing new was spent
