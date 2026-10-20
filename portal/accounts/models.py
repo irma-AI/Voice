@@ -583,6 +583,6 @@ class StagedValues(models.Model):
         primary_key=True,
         related_name="staged_values",
     )
-    values = (
-        models.JSONField()
-    )  # the settings page's own field names, such as {"name": "..."}
+    # The settings page's own field names, such as {"name": "..."}.
+    # shortcut: an expired change's values stay until its token's revoke or offboarding; add a sweep if they pile up.
+    values = models.JSONField()
