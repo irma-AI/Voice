@@ -162,18 +162,23 @@ def test_a_spent_daily_budget_refuses_with_no_ticket(
     assert link(bo).status_code == 403
 
 
-def test_a_call_with_no_cost_counts_at_the_rate_google_charged_the_priced_ones() -> (
-    None
-):
+def test_a_call_with_no_cost_counts_at_the_rate_google_charged_the_priced_ones(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     anna = a_business_with_a_budget("1.00")
     unpriced = {
         "cost_usd": None,
         "price_date": None,
         "cost_reason": "price_unavailable",
     }
-    # Before the first priced call there is no rate: an unpriced call counts nothing.
+    # Before the first priced call an unpriced call counts at the worst-case rate, $0.003 a second, not as free (VOI-216).
+    zed = a_business_with_a_budget("1.00")
+    a_call(zed, "unpriced-00000009", timezone.now(), length_seconds=333, **unpriced)
+    assert link(zed).status_code == 302  # $0.999
+    a_call(zed, "unpriced-00000010", timezone.now(), length_seconds=1, **unpriced)
+    assert link(zed).status_code == 403  # $1.002
+    assert f"Business {zed.pk} has no priced call yet" in caplog.text
     a_call(anna, "unpriced-00000001", timezone.now(), length_seconds=6000, **unpriced)
-    assert link(anna).status_code == 302
     # 100 s for $0.50 yesterday: half a cent a second, so 99 more unpriced seconds make $0.995 today.
     a_call(
         anna,

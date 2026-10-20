@@ -821,8 +821,12 @@ def call_link_refused(
     )
 
 
+# Dearest known cost of a second of call, in dollars: a 10-minute call (voice/serve.py MAX_CALL_SECS, the dearest per second, since each turn re-bills the call so far) is about $1.10 at tests/evals/prices.json's rates (docs/research/demo-call-button.md § 2); $0.003 counts it as $1.80.
+WORST_CASE_USD_PER_SECOND = Decimal("0.003")
+
+
 def spent_today(business: Business) -> Decimal:
-    """Today's spend in dollars on the kinds BUDGET_COUNTED counts, the day on TIME_ZONE like the totals page. A priced record counts as priced; one the core could not price, or priced at nothing (its usage reports never came), counts its seconds at the rate Google charged this Business's priced calls so far, and at nothing before the first priced call (Petter, 2026-10-18: no invented rate). An exempt kind does not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
+    """Today's spend in dollars on the kinds BUDGET_COUNTED counts, the day on TIME_ZONE like the totals page. A priced record counts as priced; one the core could not price, or priced at nothing (its usage reports never came), counts its seconds at the rate Google charged this Business's priced calls so far, and at WORST_CASE_USD_PER_SECOND before the first priced call, with a log line (VOI-216: fail closed, a broken price lookup must not leave the budget blind). An exempt kind does not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
     zone = ZoneInfo(settings.TIME_ZONE)
     today = datetime.combine(datetime.now(zone).date(), time.min, tzinfo=zone)
     counted = [kind for kind, counts in BUDGET_COUNTED.items() if counts]
@@ -839,6 +843,14 @@ def spent_today(business: Business) -> Decimal:
     if charged["seconds"] and sums["unpriced_seconds"]:
         # Multiply before dividing: a rate rounded to 28 digits (1.00 / 300) would land just under the budget.
         spent += charged["usd"] * sums["unpriced_seconds"] / charged["seconds"]
+    elif sums["unpriced_seconds"]:
+        # Fail closed (VOI-216): with no priced call to learn from, the price lookup may be broken, so count the worst case.
+        log.warning(
+            "Business %s has no priced call yet: unpriced seconds count at the worst-case $%s a second",
+            business.pk,
+            WORST_CASE_USD_PER_SECOND,
+        )
+        spent += WORST_CASE_USD_PER_SECOND * sums["unpriced_seconds"]
     return spent
 
 
