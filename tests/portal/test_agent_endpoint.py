@@ -27,6 +27,12 @@ from tests.portal.helpers import PASSWORD, a_call
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db(transaction=True)]
 
+
+@pytest.fixture(autouse=True)
+def operator_named(settings: Any) -> None:
+    settings.SUPER_ADMIN_EMAIL = "user-a@example.com"  # a_business()'s, so its operator tokens are the operator's
+
+
 ERAS = [
     "2025-11-25",
     "2026-07-28",
@@ -149,9 +155,10 @@ EXAMPLE_ARGUMENTS: dict[str, dict[str, Any]] = {
     "change_business_details": {"name": "Owner A's Hair"},
     "check_module": {"name": "Bookings"},
     "add_module": {"name": "Hours", "address": "https://8.8.4.4/mcp"},
+    "invite_business": {"name": "New Salon", "email": "new@example.com"},
 }
 # What a Command that ran leaves in its Command record: a destructive one only stages its change (VOI-239).
-STAGED = {"remove_module", "change_business_details"}
+STAGED = {"remove_module", "change_business_details", "invite_business"}
 
 
 def same_as_no_such_command(name: str, secret: str, era: str = "2026-07-28") -> bool:

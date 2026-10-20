@@ -537,6 +537,7 @@ class CommandRecord(models.Model):
 CHANGE_KINDS = {
     "remove_module": "Remove a Module",
     "change_details": "Change the name, instructions or languages",
+    "invite_business": "Invite a Business",
 }
 CHANGE_DECISIONS = {
     "approved": "Approved",

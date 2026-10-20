@@ -31,7 +31,7 @@ from mcp.server.mcpserver import Context, MCPServer
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from psycopg.errors import QueryCanceled
 
-from portal.accounts import changes, probe, tokens
+from portal.accounts import changes, invite, probe, tokens
 from portal.accounts.domain import shown_domain
 from portal.accounts.models import (
     AccessToken,
@@ -42,6 +42,7 @@ from portal.accounts.models import (
 )
 from portal.accounts.module_form import ModuleForm
 from portal.accounts.settings_form import changed, problems
+from portal.accounts.totals import totals_by_month
 
 # What a Command needs from the token that sends it. An operator Command is split by read and write like a Business's,
 # so the operator's read-only token runs no operator write.
@@ -54,6 +55,8 @@ COMMANDS: dict[str, Need] = {
     "list_modules": "read",
     "check_module": "read",
     "add_module": "write",
+    "list_totals": "operator_read",
+    "invite_business": "operator_write",
     "read_settings": "read",
     "change_settings": "write",
     "change_business_details": "write",
@@ -81,6 +84,12 @@ WITHOUT_TOKEN = {
 }
 
 
+def is_operator(token: AccessToken) -> bool:
+    """Made by the operator and still the operator's: none while `SUPER_ADMIN_EMAIL` is unset (fail closed)."""
+    named = settings.SUPER_ADMIN_EMAIL
+    return token.is_operator and bool(named) and token.business.account.email == named
+
+
 def may_use(token: AccessToken | None, need: Need | None) -> bool:
     """Whether a token may run a Command; None is no token, which may only see a Business's Commands listed."""
     if token is None or need is None:
@@ -92,9 +101,9 @@ def may_use(token: AccessToken | None, need: Need | None) -> bool:
         case "write":
             return full
         case "operator_read":
-            return token.is_operator
+            return is_operator(token)
         case "operator_write":
-            return token.is_operator and full
+            return is_operator(token) and full
         case _:
             assert_never(need)
 
@@ -378,6 +387,39 @@ def add_module(ctx: Context[Any, Any], name: str, address: str) -> CallToolResul
     return as_answer({"added": form.cleaned_data["name"]})
 
 
+@command("Totals", ToolAnnotations(read_only_hint=True))
+def list_totals(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
+    """The operator's totals page: every Business's calls, minutes, dollars and unpriced calls per month and call kind, newest month first."""
+    return [
+        {
+            "month": month,
+            "business": name,
+            "kinds": {
+                kind: {"calls": c, "minutes": m, "dollars": d, "unpriced": u}
+                for kind, (c, m, d, u) in kinds.items()
+            },
+        }
+        for month, name, kinds in totals_by_month()
+    ]
+
+
+@command(
+    "Invite a Business",
+    ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_hint=True),
+)
+def invite_business(ctx: Context[Any, Any], name: str, email: str) -> CallToolResult:
+    """Asks to invite a Business: its Account and an email with the link to set a password. Nothing is sent until you approve it in the Portal; the answer has staged: true, a preview, the risk level and what to do next."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    try:
+        name, email = invite.checked(name, email)
+    except ValueError as refused:
+        return failed(f"Not invited: {refused}.")
+    return as_answer(
+        changes.stage(token, "invite_business", {}, {"name": name, "email": email})
+    )
+
+
 def settings_of(business: Business) -> dict[str, Any]:
     """The settings as the settings page shows them, named as the Commands name them."""
     return {
@@ -496,7 +538,7 @@ def looked_up(secret: str) -> AccessToken | None:
         AccessToken.objects.filter(
             token_hash=tokens.hash_of(secret), revoked_at__isnull=True
         )
-        .select_related("business")
+        .select_related("business__account")
         .first()
     )
     if token is not None:
