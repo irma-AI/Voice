@@ -19,10 +19,13 @@ from tests.evals.checks import (
 from tests.evals.render_audio import LINES, frames
 from tests.evals.run import (
     MAX_REPEATS,
+    PARALLEL,
     ROOT,
     SCENARIOS,
     SETTINGS_FILES,
     Row,
+    batch_at,
+    batch_stop,
     main,
     missing_audio,
     module_log,
@@ -41,7 +44,7 @@ def test_a_reached_day_cap_stops_with_exit_3_before_any_spend(tmp_path: Path) ->
         "sek": 0.5,
     }
     (tmp_path / "ledger.jsonl").write_text(json.dumps(entry) + "\n", "utf-8")
-    caps = Caps(per_run_sek=10, per_loop_sek=30, per_day_sek=0.5)
+    caps = Caps(per_run_sek=10, per_loop_sek=30, per_day_sek=0.5, per_scenario_sek=0.5)
 
     assert main("swedish_question", runs=tmp_path, caps=caps) == 3
     assert (
@@ -130,6 +133,33 @@ def test_a_module_line_in_the_bot_log_is_found(tmp_path: Path) -> None:
         "Module 'hours' skipped: TimeoutError"
     ]
     assert module_log(tmp_path, "module_hours_2") == []
+
+
+def test_the_first_scenario_plays_alone_then_parallel_at_a_time() -> None:
+    pairs = plan(None)
+    assert pairs
+    got = [b for i in range(len(pairs)) if (b := batch_at(pairs, i)) is not None]
+    assert got[0] == pairs[:1]
+    assert all(len(b) <= PARALLEL for b in got)
+    assert [p for b in got for p in b] == pairs  # every Scenario once, in order
+
+
+def test_a_batch_starts_only_if_its_worst_case_fits_under_the_caps(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    entry = {"ts": "2026-10-19T08:00:00+00:00", "run": "earlier", "loop": ""}
+    caps = Caps(per_run_sek=2, per_loop_sek=30, per_day_sek=50, per_scenario_sek=0.5)
+    # each Scenario is priced at the per-Scenario bound when no ledgered call cost more
+    ledger.write_text(json.dumps({**entry, "sek": 0.2}) + "\n", "utf-8")
+    assert batch_stop(caps, tmp_path, 0.5, 3, "", "2026-10-20") == "run cap 2 SEK"
+    assert batch_stop(caps, tmp_path, 0.5, 2, "", "2026-10-20") is None
+    # and at the dearest ledgered call when one cost more than the bound
+    ledger.write_text(json.dumps({**entry, "sek": 0.8}) + "\n", "utf-8")
+    assert batch_stop(caps, tmp_path, 0.5, 2, "", "2026-10-20") == "run cap 2 SEK"
+    # an empty ledger still prices the first Scenario at the bound
+    ledger.unlink()
+    assert batch_stop(caps, tmp_path, 1.6, 1, "", "2026-10-20") == "run cap 2 SEK"
 
 
 def test_a_tts_reply_that_is_already_a_wav_keeps_only_its_frames() -> None:
