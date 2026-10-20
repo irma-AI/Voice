@@ -92,7 +92,7 @@ Invite yourself into the local Portal with `DJANGO_SETTINGS_MODULE=portal.settin
 
 - **Checks** (`make test`, free, in CI): pure functions on stored synthetic call records, plus the cost, settings, Modules and login rules.
 - **Portal** (`make test-db`, free, in CI): the Portal through Django's test client against a real Postgres, including each rule the database must refuse.
-- **Evals** (`make eval`, paid): Scenarios played against the real agent with stored Caller audio, under the spend caps in `tests/evals/caps.json`. Evals spend Gemini credit, so each run needs the maintainer's approval: locally, or from the manual Evals workflow, never on push or PR. A change to the prompt, the test Business or the Pipecat pin needs a matching `eval-receipt.json`.
+- **Evals** (`make eval`, paid): Scenarios played against the real agent with stored Caller audio, under the spend caps in `tests/evals/caps.json`. Evals spend Gemini credit, so each run needs the maintainer's approval: locally, or from the manual Evals workflow, never on push or PR. A change to the prompt, the test Business, the Pipecat pin or the locked live-call library versions needs a matching `eval-receipt.json`.
 
 ## Tech stack
 

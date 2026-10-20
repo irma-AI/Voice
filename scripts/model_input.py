@@ -1,11 +1,13 @@
 """Prints what the model is sent for each eval Business, as JSON: the eval receipt hashes this (scripts/eval-receipt.js).
 
-The system instruction and the tool declarations as `voice/agent.py` builds them, the model and the VAD settings.
+The system instruction and the tool declarations as `voice/agent.py` builds them, the model, the VAD settings and the
+installed versions of the live-call libraries, which uv.lock pins and Dependabot bumps (VOI-232).
 So an edit to voice/settings.py or voice/modules.py that the model never sees (a theme key, the privacy_url) needs
 no paid run, and one that changes what it is sent does. Starts the example Modules locally; calls nothing paid.
 """
 
 import asyncio
+import importlib.metadata
 import json
 from pathlib import Path
 
@@ -14,6 +16,9 @@ from voice.bargein import VAD
 from voice.cost import MODEL
 from voice.modules import connect_modules
 from voice.settings import load_settings
+
+# The libraries that carry the call to Gemini Live: Pipecat, Google's client under it, and its websocket transport.
+LIBRARIES = ("pipecat-ai", "google-genai", "websockets")
 
 
 async def render(business: Path) -> dict[str, object]:
@@ -42,6 +47,7 @@ async def main() -> None:
     out = {
         "model": MODEL,
         "vad": VAD.model_dump(mode="json"),
+        "libraries": {lib: importlib.metadata.version(lib) for lib in LIBRARIES},
         "businesses": {b.name: await render(b) for b in businesses},
     }
     print(json.dumps(out, sort_keys=True, ensure_ascii=False, indent=1))

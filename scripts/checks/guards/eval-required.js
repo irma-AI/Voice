@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Guard: a change to something only the evals can test (the list in scripts/eval-required.json: the agent's
-// prompt and settings, the Business's instructions, the Pipecat pin) needs a receipt from a passing full `make eval`
-// that matches the files as they are now. For the list's `rendered.from` files (voice/settings.py, voice/modules.py)
+// prompt and settings, the Business's instructions, the Pipecat pin, the live-call library versions) needs a receipt from a passing full `make eval`
+// that matches the files as they are now. For the list's `rendered.from` files (voice/settings.py, voice/modules.py, uv.lock)
 // only what the model is sent counts: the guard reruns `rendered.command` and compares its hash (VOI-211).
 // CI never runs the paid evals; Petter does, locally or through the Evals workflow.
 // The list is read from the base branch (scripts/base-config.js), so a PR cannot drop a file it changes from it.
