@@ -4,17 +4,22 @@ Pipecat's own runner (voice/web.py) stays for the eval Channel; Pipecat calls it
 """
 
 import asyncio
+import hashlib
+import hmac
 import html
 import json
 import math
 import os
+import secrets
 import socket
 import sys
 import time
 from collections.abc import Callable
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 import uvicorn
 from dotenv import load_dotenv
@@ -195,6 +200,7 @@ def render_page(settings: Settings | None, call_secs: int) -> str:
         PAGE.replace("__IN_RATE__", str(IN_RATE))
         .replace("__OUT_RATE__", str(OUT_RATE))
         .replace("__MAX_CALL_SECS__", str(call_secs))
+        .replace("__DEMO_CAPPED__", str(DEMO_CAPPED))
         .replace(
             "__SERVED_AT__", str(int(time.time()))
         )  # the page tells an expired ticket by the core's clock
@@ -360,6 +366,54 @@ class OneCallPerBusiness:
         return sorted(self._open)
 
 
+# The landing page's demo (VOI-244; Petter, 2026-10-20): one visitor's address may start this many demo calls a day. Counted here,
+# when a call starts, so opening and closing the Call button's panel counts nothing (Petter, 2026-10-20).
+DEMO_CALLS_PER_ADDRESS = 2
+# The close code that tells the call page the visitor's demo calls are used up for today (voice/page.html reads it).
+DEMO_CAPPED = 4003
+
+
+class DemoCalls:
+    """Each visitor address's demo calls today. An address is kept only as HMAC-SHA-256 of it and the day under a key made per
+    process, so it cannot be turned back by trying addresses; it is never logged. The counts go at midnight on TIME_ZONE.
+
+    shortcut: counts in this process's memory, so a restart clears them and a second process would count apart; move them to shared storage before a second one.
+    """
+
+    def __init__(self) -> None:
+        self._key = secrets.token_bytes(32)
+        self._day: date | None = None
+        self._counts: dict[str, int] = {}
+
+    def take(self, address: str, today: date) -> bool:
+        """True and one call counted, or False when this address has started its demo calls for today."""
+        if today != self._day:
+            self._day, self._counts = today, {}
+        code = hmac.new(
+            self._key, f"{address}\n{today}".encode(), hashlib.sha256
+        ).hexdigest()
+        if self._counts.get(code, 0) >= DEMO_CALLS_PER_ADDRESS:
+            return False
+        self._counts[code] = self._counts.get(code, 0) + 1
+        return True
+
+
+def local_today() -> date:
+    """Today on TIME_ZONE (the Portal's setting of the same name; UTC when unset), the day the demo counts go by."""
+    return datetime.now(
+        ZoneInfo(os.environ.get("TIME_ZONE", "UTC").strip() or "UTC")
+    ).date()
+
+
+def client_address(websocket: WebSocket) -> str:
+    """Where the call comes from: behind the one proxy (Traefik on Dokploy) the last X-Forwarded-For entry is the address it saw;
+    entries before it are whatever the client wrote. Without the header, the socket's own peer."""
+    forwarded = websocket.headers.get("x-forwarded-for", "")
+    return forwarded.split(",")[-1].strip() or (
+        websocket.client.host if websocket.client else ""
+    )
+
+
 class DrainingServer(uvicorn.Server):
     """uvicorn, except that a stop (a deploy) waits for the open calls to end before it hangs up on anyone.
 
@@ -420,6 +474,7 @@ class SecurityHeaders:
 def create_app(ticket_secret: str) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     one_call = app.state.one_call = OneCallPerBusiness()
+    demo_calls = app.state.demo_calls = DemoCalls()
     app.add_middleware(TicketGate, ticket_secret=ticket_secret)
     app.add_middleware(SecurityHeaders)  # added last, so it wraps the gate
 
@@ -482,6 +537,14 @@ def create_app(ticket_secret: str) -> FastAPI:
             page = await receive_page_facts(websocket)
             if page is None:
                 return
+            # A demo call counts when it starts; the page is listening for the close by now (it sent its facts first).
+            if ticket.kind == "demo" and not demo_calls.take(
+                client_address(websocket), local_today()
+            ):
+                logger.warning(
+                    "refused /ws: Business {} demo cap per_address", ticket.business
+                )
+                return await websocket.close(code=DEMO_CAPPED)
             transport = CallTransport(websocket, call_params(ticket.kind))
 
             @transport.event_handler("on_session_timeout")

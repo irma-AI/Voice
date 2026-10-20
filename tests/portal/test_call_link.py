@@ -21,7 +21,6 @@ from zoneinfo import ZoneInfo
 import pytest
 from django.conf import settings as django_settings
 from django.contrib.staticfiles import finders
-from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.test import Client
 from django.utils import timezone
@@ -169,32 +168,23 @@ def test_a_spent_daily_budget_refuses_with_no_ticket(
     assert link(business_b).status_code == 403
 
 
-def test_the_demo_business_mints_demo_tickets_two_per_address_a_day(
+def test_the_demo_business_mints_a_demo_ticket_each_time_the_panel_opens(
     settings: Any, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """VOI-244: the Business DEMO_BUSINESS_ID names mints kind demo, at most twice a day from one address; another address has its own count, another Business is untouched, and the setting unset makes it a plain call link."""
-    cache.clear()
+    """VOI-244: the Business DEMO_BUSINESS_ID names mints kind demo; another Business is untouched, and the setting unset makes it a plain call link.
+    Opening the panel mints a ticket, so opening and closing it must not use up a visitor's calls (Petter, 2026-10-20: it did).
+    The cap per address counts calls as they start, in the core (tests/test_serve.py)."""
     demo = a_business_with_a_budget("5.00")
     other = a_business_with_a_budget("5.00")
     settings.DEMO_BUSINESS_ID = demo.pk
 
-    first = link(demo)
-    assert first.status_code == 302
-    ticket = parse_qs(urlsplit(first["Location"]).query)["ticket"][0]
+    opened = [link(demo) for _ in range(5)]
+    assert [r.status_code for r in opened] == [302] * 5
+    ticket = parse_qs(urlsplit(opened[0]["Location"]).query)["ticket"][0]
     assert read_ticket(ticket, SECRET) == Ticket(demo.pk, "demo", "site-a.example.se")
     assert f"demo call minted: Business {demo.pk}" in caplog.text
-    assert link(demo).status_code == 302
-    third = link(demo)
-    assert third.status_code == 403 and "Location" not in third
-    assert_the_refusal_page(third.content.decode(), BUDGET_SPENT)
-    assert f"call refused: Business {demo.pk} demo cap per_address" in caplog.text
     assert "127.0.0.1" not in caplog.text  # the address never reaches a log
 
-    elsewhere = Client().get(
-        f"/call/{demo.call_slug}/", headers=IN_A_FRAME, REMOTE_ADDR="10.0.0.9"
-    )
-    assert elsewhere.status_code == 302 and "10.0.0.9" not in caplog.text
-    assert link(other).status_code == 302  # its own count, and kind call_link
     ticket = parse_qs(urlsplit(link(other)["Location"]).query)["ticket"][0]
     assert read_ticket(ticket, SECRET) == Ticket(
         other.pk, "call_link", "site-a.example.se"
@@ -211,7 +201,6 @@ def test_the_demo_business_takes_twenty_demo_calls_a_day_then_its_budget(
     settings: Any, caplog: pytest.LogCaptureFixture
 ) -> None:
     """VOI-244: the day's cap counts the demo Business's Call records of kind demo (unpriced ones too, so a pricing failure cannot lift it), before the budget; yesterday's and other kinds' records do not count."""
-    cache.clear()
     demo = a_business_with_a_budget(
         "100.00"
     )  # unpriced calls count at the floor rate: well under
@@ -245,12 +234,8 @@ def test_the_demo_business_takes_twenty_demo_calls_a_day_then_its_budget(
     assert budget.status_code == 403
     assert f"Business {spent.pk} has spent its daily budget (kind demo)" in caplog.text
     assert f"call refused: Business {spent.pk} demo cap budget" in caplog.text
-    # A refusal gives the address's count back: with budget again, a fresh address still has its two.
-    cache.clear()
-    assert link(spent).status_code == 403  # the budget again, counted and given back
     Business.objects.filter(pk=spent.pk).update(daily_budget_usd="100.00")
-    assert link(spent).status_code == 302 and link(spent).status_code == 302
-    assert link(spent).status_code == 403
+    assert link(spent).status_code == 302  # budget again: a ticket
 
 
 def test_a_call_with_no_cost_counts_at_the_rate_google_charged_the_priced_ones() -> (
