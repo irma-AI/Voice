@@ -15,6 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
+import pytest
 from jsonschema import Draft202012Validator
 from loguru import logger
 from pipecat.frames.frames import EndFrame, MetricsFrame
@@ -192,6 +193,27 @@ def test_delivery_tries_again_while_the_portal_fails() -> None:
         )
     assert len(seen) == 3
     assert sum("trying again" in line for line in lines) == 2
+
+
+@pytest.mark.parametrize("code", [400, 401, 404, 408, 429])
+def test_a_refusal_no_retry_can_change_is_given_up_at_once(code: int) -> None:
+    """VOI-229: a 4xx other than a timeout or a rate limit holds a sender thread for nothing if retried."""
+    seen: list[Any] = []
+    with fake_portal([code], seen) as portal, log_lines() as lines:
+        delivered = post(
+            "/api/calls/",
+            a_record(),
+            "record",
+            portal_env(portal),
+            window_s=5,
+            pause_s=0.01,
+        )
+    if code in (408, 429):
+        assert delivered is True and len(seen) == 2
+        return
+    assert delivered is False and len(seen) == 1
+    assert lines[-1].startswith("call ") and f"127.0.0.1 (answered {code})" in lines[-1]
+    assert portal not in "".join(lines) and SECRET not in "".join(lines)
 
 
 def test_delivery_gives_up_when_the_window_ends_and_says_so() -> None:
