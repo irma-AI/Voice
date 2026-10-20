@@ -81,7 +81,7 @@ The Portal's note of one Command an assistant sent: which Command, with which Ac
 _Avoid_: audit log, history
 
 **Pending change**:
-A change a destructive Command asked for, waiting for the Business to approve or reject it in the Portal. Nothing changes before the approval, and it expires after 7 days. Removing a Module is one.
+A change a destructive Command asked for, waiting for the Business to approve or reject it in the Portal. Nothing changes before the approval; it expires after 7 days, and revoking the Access token that asked for it cancels it. Removing a Module is one.
 _Avoid_: staged operation, draft
 
 **Access token**:

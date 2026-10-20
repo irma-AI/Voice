@@ -4,8 +4,7 @@
 <h1 class="text-4xl sm:text-5xl">Pending changes</h1>
 <p class="mt-4 max-w-prose text-foam-muted">Some changes your AI assistant asks for, such as removing a Module, wait here until you approve them. Nothing changes before you do. A change you leave for {{ waits }} days expires and can no longer be approved.</p>
 
-{% if nothing_left %}<p class="mt-6 max-w-prose rounded-md border border-granite px-3 py-2" role="status">Approved. What it would have changed was already gone, so nothing else changed.</p>{% endif %}
-{% if refused %}<p class="mt-6 max-w-prose rounded-md border border-red-300 px-3 py-2 text-red-300" role="alert">That change was already approved, rejected or has expired, so nothing changed.</p>{% endif %}
+{% if outcome %}<p class="mt-6 max-w-prose rounded-md border border-granite px-3 py-2" role="status">{{ outcome }}</p>{% endif %}
 
 <ul class="mt-10 border-t border-granite">
   {% for change, preview, risk in rows %}

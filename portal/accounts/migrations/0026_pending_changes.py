@@ -17,6 +17,12 @@ BEGIN
         RAISE EXCEPTION 'pending_change_is_staged_undecided: only the Business decides, in the Portal'
             USING ERRCODE = 'check_violation';
     END IF;
+    -- Held until the staging Command commits, so a revoke either waits and then cancels this change, or wins and refuses it.
+    PERFORM 1 FROM accounts_accesstoken WHERE id = NEW.token_id AND revoked_at IS NULL FOR SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'pending_change_token_is_revoked: a revoked token stages nothing'
+            USING ERRCODE = 'restrict_violation';
+    END IF;
     RETURN NEW;
 END
 $$ LANGUAGE plpgsql;
@@ -46,8 +52,8 @@ BEGIN
         RAISE EXCEPTION 'pending_change_has_expired: a change waits 7 days for approval, then only a rejection is left'
             USING ERRCODE = 'restrict_violation';
     END IF;
-    IF NEW.decision = 'approved' AND EXISTS (SELECT 1 FROM accounts_accesstoken WHERE id = OLD.token_id AND revoked_at IS NOT NULL) THEN
-        RAISE EXCEPTION 'pending_change_token_is_revoked: a change its token asked for before it was revoked can only be rejected'
+    IF NEW.decision = 'cancelled' AND NOT EXISTS (SELECT 1 FROM accounts_accesstoken WHERE id = OLD.token_id AND revoked_at IS NOT NULL) THEN
+        RAISE EXCEPTION 'pending_change_is_cancelled_by_its_tokens_revoke: use AccessToken.revoke'
             USING ERRCODE = 'restrict_violation';
     END IF;
     RETURN NEW;
@@ -79,7 +85,7 @@ class Migration(migrations.Migration):
                 ('kind', models.CharField(choices=[('remove_module', 'Remove a Module')], max_length=20)),
                 ('target', models.JSONField()),
                 ('staged_at', models.DateTimeField(db_default=django.db.models.functions.datetime.Now())),
-                ('decision', models.CharField(blank=True, choices=[('approved', 'Approved'), ('rejected', 'Rejected')], default='', max_length=10)),
+                ('decision', models.CharField(blank=True, choices=[('approved', 'Approved'), ('rejected', 'Rejected'), ('cancelled', 'Cancelled')], default='', max_length=10)),
                 ('decided_at', models.DateTimeField(blank=True, null=True)),
             ],
         ),
@@ -107,7 +113,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='pendingchange',
-            constraint=models.CheckConstraint(condition=models.Q(('decision__in', ['', 'approved', 'rejected'])), name='pending_change_decision_must_be_approved_or_rejected'),
+            constraint=models.CheckConstraint(condition=models.Q(('decision__in', ['', 'approved', 'rejected', 'cancelled'])), name='pending_change_decision_must_be_a_known_decision'),
         ),
         migrations.AddConstraint(
             model_name='pendingchange',

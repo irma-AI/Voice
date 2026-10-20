@@ -21,6 +21,7 @@ from portal.accounts import theme, tokens
 from portal.accounts.domain import DOMAIN_MAX, DOMAIN_PATTERN
 
 log = logging.getLogger(__name__)
+audit = logging.getLogger("portal.audit")
 
 # The languages a Business may pick; contract/business-settings.schema.json lists the same two (tests/portal/test_settings_contract.py).
 LANGUAGES = {"sv": "Swedish", "en": "English"}
@@ -466,10 +467,29 @@ class AccessToken(models.Model):
         return made, secret
 
     def revoke(self) -> None:
-        """The one way a token stops working (the Access tokens page). The database sets the time (its own clock, refused if any other) and a revoked token stays revoked."""
-        type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(
-            revoked_at=Now()
-        )
+        """The one way a token stops working (the Access tokens page, offboarding). The database sets the time (its own clock, refused if any other) and a revoked token stays revoked.
+        The changes it asked for that still wait are cancelled with it, so a leaked token's asks die when it does (VOI-239)."""
+        with transaction.atomic(), connection.cursor() as cursor:
+            type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(
+                revoked_at=Now()
+            )
+            # Each change's row lock orders this against an approval in flight: whichever decides first wins, the other is refused.
+            cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
+            cancelled = list(
+                PendingChange.objects.filter(token=self, decision="").values_list(
+                    "pk", flat=True
+                )
+            )
+            PendingChange.objects.filter(pk__in=cancelled, decision="").update(
+                decision="cancelled", decided_at=Now()
+            )
+            cursor.execute("SELECT set_config('voice.change_decide', '', true)")
+        if cancelled:
+            audit.info(
+                "cancelled pending changes %s with the revoke of token %s",
+                cancelled,
+                self.pk,
+            )
 
 
 # How a Command ended. A Command refused for its token is recorded too; an unknown one never reaches a Command, so it is not.
@@ -510,7 +530,11 @@ class CommandRecord(models.Model):
 
 # What a destructive Command may stage. tests/portal/test_pending_changes.py fails until a new kind is also in changes.Kind and changes.RISK, where the closed matches handle it.
 CHANGE_KINDS = {"remove_module": "Remove a Module"}
-CHANGE_DECISIONS = {"approved": "Approved", "rejected": "Rejected"}
+CHANGE_DECISIONS = {
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "cancelled": "Cancelled",  # its token was revoked (AccessToken.revoke)
+}
 
 
 class PendingChange(models.Model):
@@ -537,7 +561,7 @@ class PendingChange(models.Model):
             ),
             models.CheckConstraint(
                 condition=models.Q(decision__in=["", *CHANGE_DECISIONS]),
-                name="pending_change_decision_must_be_approved_or_rejected",
+                name="pending_change_decision_must_be_a_known_decision",
             ),
             models.CheckConstraint(
                 condition=models.Q(decision="", decided_at__isnull=True)

@@ -727,8 +727,19 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     return redirect("modules")
 
 
+# What the page says after a decision, by changes.decide's answer; every answer has one (tests/portal/test_pending_changes.py).
+OUTCOMES: dict[str, str] = {
+    "applied": "Approved. The change is made.",
+    "nothing_left": "Approved. What it would have changed was already gone, so nothing else changed.",
+    "rejected": "Rejected. Nothing changed.",
+    "already_decided": "That change was already approved or rejected, so nothing changed.",
+    "cancelled": "That change was cancelled when the Access token that asked for it was revoked, so nothing changed.",
+    "expired": "That change waited too long and expired, so nothing changed.",
+}
+
+
 @login_required
-def pending_changes(request: HttpRequest, refused: bool = False) -> HttpResponse:
+def pending_changes(request: HttpRequest) -> HttpResponse:
     """The changes the Business's AI assistant asked for that wait for its approval (VOI-239)."""
     rows = [
         (change, changes.preview(change), changes.RISK[change.kind])  # pyright: ignore[reportArgumentType]
@@ -739,12 +750,10 @@ def pending_changes(request: HttpRequest, refused: bool = False) -> HttpResponse
         "accounts/changes.html",
         {
             "rows": rows,
-            "refused": refused,
-            "nothing_left": "nothing_left" in request.GET,
+            "outcome": OUTCOMES.get(request.GET.get("outcome", "")),
             "waits": changes.WAITS.days,
             "time_zone": settings.TIME_ZONE,
         },
-        status=409 if refused else 200,
     )
 
 
@@ -758,13 +767,8 @@ def decide_change(request: HttpRequest, change_id: int, decision: str) -> HttpRe
         pk=change_id,
         token__business__account=request.user,
     )
-    match changes.decide(change, request.user, decision):  # pyright: ignore[reportArgumentType]
-        case "refused":
-            return pending_changes(request, refused=True)
-        case "nothing_left":
-            return redirect(f"{reverse('pending_changes')}?nothing_left=1")
-        case "applied" | "rejected":
-            return redirect("pending_changes")
+    outcome = changes.decide(change, request.user, decision)  # pyright: ignore[reportArgumentType]
+    return redirect(f"{reverse('pending_changes')}?outcome={outcome}")
 
 
 class AccessTokenForm(forms.Form):

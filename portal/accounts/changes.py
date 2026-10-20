@@ -74,7 +74,6 @@ def waiting(account: Account) -> QuerySet[PendingChange]:
         token__business__account=account,
         decision="",
         staged_at__gt=Now() - WAITS,
-        token__revoked_at__isnull=True,  # the database refuses to approve those
     ).order_by("staged_at", "id")
 
 
@@ -95,14 +94,24 @@ def _apply(change: PendingChange) -> bool:
             assert_never(kind)
 
 
-Decided = Literal["applied", "nothing_left", "rejected", "refused"]
+Decided = Literal[
+    "applied", "nothing_left", "rejected", "already_decided", "cancelled", "expired"
+]
+
+
+def refusal(change: PendingChange) -> Decided:
+    """Why the database refused a decision, read back from the change as it now stands."""
+    now = PendingChange.objects.get(pk=change.pk).decision
+    if now == "cancelled":
+        return "cancelled"
+    return "already_decided" if now else "expired"
 
 
 def decide(
     change: PendingChange, account: Account, decision: Literal["approved", "rejected"]
 ) -> Decided:
-    """The one way a change is decided, only by its own Business. "refused" when it was already decided or, for an approval,
-    has expired or its token was revoked (the database refuses those), or is another Business's."""
+    """The one way a change is decided, only by its own Business (the caller has checked it is). The database refuses a change
+    already decided, cancelled by its token's revoke, or for an approval, expired: the answer says which."""
     applied = False
     try:
         with transaction.atomic(), connection.cursor() as cursor:
@@ -112,13 +121,13 @@ def decide(
             ).update(decision=decision, decided_at=Now())
             cursor.execute("SELECT set_config('voice.change_decide', '', true)")
             if not decided:
-                return "refused"
+                return refusal(change)
             if decision == "approved":
                 applied = _apply(change)
     except IntegrityError as error:
         if "pending_change_" not in str(error):
             raise
-        return "refused"
+        return refusal(change)
     audit.info(
         "%s pending change %s (%s) for business %s by account %s%s",
         decision,

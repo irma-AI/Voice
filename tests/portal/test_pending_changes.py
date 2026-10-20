@@ -14,7 +14,7 @@ import pytest
 from django.db import IntegrityError, connection, transaction
 from django.test import Client
 
-from portal.accounts import changes
+from portal.accounts import changes, views
 from portal.accounts.models import CHANGE_KINDS, CommandRecord, Module, PendingChange
 from tests.portal.helpers import business_with_login
 from tests.portal.test_agent_endpoint import a_token, ask
@@ -30,6 +30,15 @@ def remove(secret: str, name: str) -> dict[str, Any]:
     )
     assert answer.status_code == 200, answer.content
     return answer.json()["result"]
+
+
+def decided(client: Client, change: PendingChange, decision: str) -> str:
+    """Approve or Reject on the page: it always goes back to the page, which says what happened."""
+    answer = client.post(f"/changes/{change.pk}/{decision}/")
+    assert answer.status_code == 302 and answer["Location"].startswith(
+        "/changes/?outcome="
+    )
+    return client.get(answer["Location"]).content.decode()
 
 
 def audited(caplog: pytest.LogCaptureFixture) -> list[str]:
@@ -61,12 +70,12 @@ def test_removing_a_module_is_staged_and_only_the_businesss_approval_removes_it(
     assert CommandRecord.objects.get().result == "staged"
     assert "Remove the Module “Bookings”" in client.get("/changes/").content.decode()
 
-    assert client.post(f"/changes/{change.pk}/approve/").status_code == 302
+    assert views.OUTCOMES["applied"] in decided(client, change, "approve")
     assert not Module.objects.filter(pk=module.pk).exists()
     assert PendingChange.objects.get().decision == "approved"
     # A second approval is refused and nothing is left on the page to approve.
-    assert client.post(f"/changes/{change.pk}/approve/").status_code == 409
-    assert "Remove the Module" not in client.get("/changes/").content.decode()
+    page = decided(client, change, "approve")
+    assert views.OUTCOMES["already_decided"] in page and "Remove the Module" not in page
     assert audited(caplog) == [
         f"staged pending change {change.pk} (remove_module) for business {module.business.pk} by token {change.token.pk}",
         f"approved pending change {change.pk} (remove_module) for business {module.business.pk} by account {module.business.account_id}",
@@ -78,8 +87,8 @@ def test_a_rejected_change_never_applies(caplog: pytest.LogCaptureFixture) -> No
     client, secret, module = a_business_with_a_module()
     remove(secret, "Bookings")
     change = PendingChange.objects.get()
-    assert client.post(f"/changes/{change.pk}/reject/").status_code == 302
-    assert client.post(f"/changes/{change.pk}/approve/").status_code == 409
+    assert views.OUTCOMES["rejected"] in decided(client, change, "reject")
+    assert views.OUTCOMES["already_decided"] in decided(client, change, "approve")
     assert Module.objects.filter(pk=module.pk).exists()
     assert PendingChange.objects.get().decision == "rejected"
     assert audited(caplog)[-1].startswith(
@@ -195,7 +204,7 @@ def test_the_database_refuses_to_approve_an_expired_change() -> None:
     client = Client()
     client.force_login(change.token.business.account)
     assert "Bookings" not in client.get("/changes/").content.decode()
-    assert client.post(f"/changes/{change.pk}/approve/").status_code == 409
+    assert views.OUTCOMES["expired"] in decided(client, change, "approve")
     assert Module.objects.exists()
 
 
@@ -234,7 +243,7 @@ def test_a_change_can_be_approved_until_its_last_minute() -> None:
     client = Client()
     client.force_login(change.token.business.account)
     assert "Bookings" in client.get("/changes/").content.decode()
-    assert client.post(f"/changes/{change.pk}/approve/").status_code == 302
+    assert views.OUTCOMES["applied"] in decided(client, change, "approve")
     assert not Module.objects.exists()
 
 
@@ -256,27 +265,48 @@ def test_approving_a_removal_whose_module_is_already_gone_changes_nothing_else(
     again = Module.objects.create(
         business=module.business, name="Bookings", url=ADDRESS
     )
-    answer = client.post(f"/changes/{change.pk}/approve/", follow=True)
-    assert "already gone" in answer.content.decode()
+    assert views.OUTCOMES["nothing_left"] in decided(client, change, "approve")
     assert Module.objects.filter(
         pk=again.pk
     ).exists()  # the change named the Module that was, not its name
     assert audited(caplog)[-1].endswith(": nothing left to change")
 
 
-def test_a_change_keeps_no_module_name_and_dies_with_its_token() -> None:
-    """Offboarding revokes every token and removes the Modules: a change it leaves holds no name and can no longer be approved."""
+def test_a_change_keeps_no_module_name_and_revoking_its_token_cancels_it(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Offboarding revokes every token and removes the Modules: a change it leaves holds no name and is cancelled."""
+    caplog.set_level(logging.INFO, logger="portal.audit")
     client, secret, module = a_business_with_a_module()
     remove(secret, "Bookings")
     change = PendingChange.objects.get()
     assert change.target == {"module": module.pk}
     change.token.revoke()
+    assert PendingChange.objects.get().decision == "cancelled"
+    assert (
+        audited(caplog)[-1]
+        == f"cancelled pending changes [{change.pk}] with the revoke of token {change.token.pk}"
+    )
     assert "Bookings" not in client.get("/changes/").content.decode()
-    assert client.post(f"/changes/{change.pk}/approve/").status_code == 409
+    for decision in ("approve", "reject"):
+        assert views.OUTCOMES["cancelled"] in decided(client, change, decision)
     assert Module.objects.filter(pk=module.pk).exists()
+
+
+def test_only_a_revoke_cancels_and_a_revoked_token_stages_nothing() -> None:
+    change = stage_one()
     refused(
         GATE
-        + "UPDATE accounts_pendingchange SET decision = 'approved', decided_at = statement_timestamp()",
+        + "UPDATE accounts_pendingchange SET decision = 'cancelled', decided_at = statement_timestamp()",
+        "pending_change_is_cancelled_by_its_tokens_revoke",
+    )
+    change.token.revoke()
+    refused(
+        f"INSERT INTO accounts_pendingchange (token_id, kind, target, staged_at, decision) "
+        f"VALUES ({change.token.pk}, 'remove_module', '{{}}', statement_timestamp(), '')",
         "pending_change_token_is_revoked",
     )
-    assert client.post(f"/changes/{change.pk}/reject/").status_code == 302
+
+
+def test_every_outcome_of_a_decision_has_its_words() -> None:
+    assert set(views.OUTCOMES) == set(get_args(changes.Decided))
