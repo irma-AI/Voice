@@ -1,0 +1,13 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: the agent greets, names the Business, then says the disclosure word for word.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Hej och välkommen till Tandkliniken Exempel! Du pratar med en AI-assistent. Vad kan jag hjälpa dig med?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  }
+ ]
+}
