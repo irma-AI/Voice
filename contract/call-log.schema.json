@@ -49,7 +49,7 @@
         "echo_cancellation": { "description": "The microphone track's applied setting, from getSettings().", "$ref": "#/$defs/switch" },
         "noise_suppression": { "$ref": "#/$defs/switch" },
         "auto_gain_control": { "$ref": "#/$defs/switch" },
-        "loopback": { "description": "Whether the page's echo-cancelling WebRTC route for the agent's audio was set up or fell back to plain playback.", "enum": ["set_up", "fell_back"] },
+        "loopback": { "description": "Whether the page's echo-cancelling WebRTC route for the agent's audio was set up, fell back to plain playback, or was skipped (iOS, where it plays silence).", "enum": ["set_up", "fell_back", "skipped"] },
         "sample_rate": { "description": "The page's audio context, in Hz.", "$ref": "#/$defs/number" },
         "base_latency_ms": { "$ref": "#/$defs/number" },
         "output_latency_ms": { "$ref": "#/$defs/number" },

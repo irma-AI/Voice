@@ -69,7 +69,7 @@ FONTS = {
 # in; contract/call-log.schema.json lists the same values (tests/test_serve.py fails when they differ).
 BROWSERS = ("chrome", "edge", "firefox", "safari", "samsung", "other")
 SYSTEMS = ("android", "ios", "macos", "windows", "linux", "chromeos", "other")
-LOOPBACK = ("set_up", "fell_back")
+LOOPBACK = ("set_up", "fell_back", "skipped")  # skipped: iOS plays without it (VOI-222)
 # getSettings() reports an audio setting as true or false, or (newer browsers) which audio echo cancelling covers.
 SWITCH = (True, False, "all", "remote-only")
 PAGE_MESSAGE_MAX = 1024  # characters; the page's messages are a few hundred
