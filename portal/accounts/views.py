@@ -10,7 +10,7 @@ from collections.abc import Callable
 from datetime import datetime, time
 from decimal import Decimal
 from functools import wraps
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
@@ -204,7 +204,7 @@ def home(request: HttpRequest) -> HttpResponse:
     demo = demo_business()
     context = {
         "contact_email": settings.CONTACT_EMAIL,
-        "button_html": demo and demo.website_domain and call_button_tag(demo),
+        "button_html": demo and demo.website_domain and call_button_tag(demo, "en"),
         **showcase(),
     }
     if not context["button_html"]:
@@ -813,13 +813,13 @@ def demo_call(request: HttpRequest, business: Business) -> HttpResponse:
 
 # The Call button script a Business's website loads, and the hash of its bytes that the pasted tag names (VOI-135):
 # `make generate` writes the hash, and `make generate-check` fails when the file changed without it.
-CALL_BUTTON_FILE = settings.BASE_DIR / "static" / "portal" / "call-button.v1.js"
+CALL_BUTTON_FILE = settings.BASE_DIR / "static" / "portal" / "call-button.v2.js"
 CALL_BUTTON_INTEGRITY = (
-    (settings.BASE_DIR / "call-button.v1.integrity").read_text().strip()
+    (settings.BASE_DIR / "call-button.v2.integrity").read_text().strip()
 )
 # A tag with a malformed hash (a `make generate` with no openssl writes a bare "sha384-") would be run unchecked by browsers, so the Portal refuses to start on one.
 assert re.fullmatch(r"sha384-[A-Za-z0-9+/]{64}", CALL_BUTTON_INTEGRITY), (
-    "portal/call-button.v1.integrity is not a sha384 hash: run make generate (it needs openssl)"
+    "portal/call-button.v2.integrity is not a sha384 hash: run make generate (it needs openssl)"
 )
 
 
@@ -833,11 +833,14 @@ def tag_attributes(business: Business | None) -> dict[str, str]:
     }
 
 
-def call_button_tag(business: Business) -> str:
-    """The script tag the Business pastes: the versioned file with its hash, so a browser runs only that exact file (and asks for it with CORS, which WhiteNoise's `Access-Control-Allow-Origin: *` answers), and the attributes the file reads."""
+def call_button_tag(business: Business, lang: Literal["sv", "en"] = "sv") -> str:
+    """The script tag the Business pastes: the versioned file with its hash, so a browser runs only that exact file (and asks for it with CORS, which WhiteNoise's `Access-Control-Allow-Origin: *` answers), and the attributes the file reads.
+    A Business's tag says nothing of the language, so its label stays Swedish; the English landing page asks for English (VOI-244)."""
     data = " ".join(f'data-{k}="{v}"' for k, v in tag_attributes(business).items())
+    if lang == "en":
+        data += ' data-lang="en"'
     return (
-        f'<script async src="{settings.PORTAL_URL.rstrip("/")}{static("portal/call-button.v1.js")}?business={business.call_slug}"'
+        f'<script async src="{settings.PORTAL_URL.rstrip("/")}{static("portal/call-button.v2.js")}?business={business.call_slug}"'
         f' {data} integrity="{CALL_BUTTON_INTEGRITY}" crossorigin="anonymous"></script>'
     )
 

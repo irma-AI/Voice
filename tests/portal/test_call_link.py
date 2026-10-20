@@ -485,7 +485,7 @@ def test_the_dashboard_shows_the_script_snippet_only_with_a_saved_website() -> N
     page = client.get("/dashboard/").content.decode()
     assert "closed" not in page
     assert snippet(page) == (
-        f'<script async src="https://portal.example.se/static/portal/call-button.v1.js?business={business_a.call_slug}"'
+        f'<script async src="https://portal.example.se/static/portal/call-button.v2.js?business={business_a.call_slug}"'
         f' data-core="https://voice.example.se" data-fill="{theme.DEEP_SEA}" data-ink="{theme.FOAM}"'
         f' integrity="{served_file_hash()}" crossorigin="anonymous"></script>'
     )
@@ -515,18 +515,21 @@ def test_the_dashboard_names_the_addresses_a_security_policy_must_allow() -> Non
     assert snippet(page).startswith("<script")  # the new text sits after the snippet
 
 
-def served_file() -> bytes:
-    """The versioned script as collectstatic ships it and WhiteNoise serves it."""
-    path = finders.find("portal/call-button.v1.js")
+def served_file(version: int = 2) -> bytes:
+    """A versioned script as collectstatic ships it and WhiteNoise serves it: the current one by default (tags pasted before VOI-244 still name v1)."""
+    path = finders.find(f"portal/call-button.v{version}.js")
     assert isinstance(path, str), (
-        "portal/static/portal/call-button.v1.js is not a static file"
+        f"portal/static/portal/call-button.v{version}.js is not a static file"
     )
     with open(path, "rb") as f:
         return f.read()
 
 
-def served_file_hash() -> str:
-    return "sha384-" + base64.b64encode(hashlib.sha384(served_file()).digest()).decode()
+def served_file_hash(version: int = 2) -> str:
+    return (
+        "sha384-"
+        + base64.b64encode(hashlib.sha384(served_file(version)).digest()).decode()
+    )
 
 
 def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw() -> (
@@ -543,11 +546,12 @@ def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw
         f' integrity="{served_file_hash()}"' in tag
         and ' crossorigin="anonymous"' in tag
     )
-    # The hash `make generate` wrote is the file's (`make generate-check` keeps it current).
-    with open(django_settings.BASE_DIR / "call-button.v1.integrity") as f:
-        assert f.read().strip() == served_file_hash(), (
-            "portal/call-button.v1.integrity is stale: run make generate (a changed script belongs in call-button.v2.js)"
-        )
+    # The hash `make generate` wrote is each file's (`make generate-check` keeps it current); v1 stays for tags pasted before v2.
+    for version in (1, 2):
+        with open(django_settings.BASE_DIR / f"call-button.v{version}.integrity") as f:
+            assert f.read().strip() == served_file_hash(version), (
+                f"portal/call-button.v{version}.integrity is stale: run make generate (a changed script belongs in a new version)"
+            )
     fill, ink = theme.on_accent("#ffd60a")
     assert (
         f' data-core="https://voice.example.se" data-fill="{fill}" data-ink="{ink}"'
@@ -555,7 +559,7 @@ def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw
     )
     # WhiteNoise serves the file with the CORS header a cross-origin integrity check needs (here from the source tree, as a local run does; the image serves the collected copy).
     response = Client().get(
-        f"/static/portal/call-button.v1.js?business={business_a.call_slug}"
+        f"/static/portal/call-button.v2.js?business={business_a.call_slug}"
     )
     assert (
         response.status_code == 200 and response["Access-Control-Allow-Origin"] == "*"
@@ -565,6 +569,15 @@ def test_the_snippet_names_the_served_file_by_its_hash_and_tells_it_what_to_draw
     script = served_file().decode()
     assert "tag.dataset.core" in script and "{ fill, ink } = tag.dataset" in script
     assert "{{" not in script
+
+
+def test_the_label_is_swedish_unless_the_tag_asks_for_english() -> None:
+    """VOI-244: v1 said Swedish on the English landing page. Both words are Petter's (Swedish VOI-73, English 2026-10-20)."""
+    script = served_file().decode()
+    assert 'sv: "Prata med vår AI-assistent", en: "Talk to our AI assistant"' in script
+    assert 'const lang = tag.dataset.lang === "en" ? "en" : "sv";' in script
+    assert "launcher.lang = lang;" in script and "panel.lang = lang;" in script
+    assert 'const label = "Prata med vår AI-assistent";' in served_file(1).decode()
 
 
 def test_the_script_is_served_with_the_core_it_lets_the_microphone_into() -> None:
