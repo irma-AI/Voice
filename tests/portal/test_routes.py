@@ -31,6 +31,7 @@ OPEN = {
     "oauth_register",
     "oauth_token",
     "oauth_revoke",
+    "privacy",  # the demo call's privacy notice: visitors read it before they call (VOI-245)
 }
 
 

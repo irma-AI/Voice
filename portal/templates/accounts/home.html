@@ -176,6 +176,7 @@
     {# The address is written out, so a visitor whose browser opens no mail app can still write to it. #}
     {% if contact_email %}<a href="mailto:{{ contact_email }}?subject=Access%20to%20Voice" class="land-navlink">{{ contact_email }}</a>{% endif %}
     <a href="https://github.com/irma-AI/Voice#self-host" class="land-navlink">Self-host</a>
+    <a href="{% url 'privacy' %}" class="land-navlink">Privacy</a>
     {% if user.is_authenticated %}<a href="{% url 'dashboard' %}" class="land-navlink">Your dashboard</a>{% else %}<a href="{% url 'login' %}" class="land-navlink">Log in</a>{% endif %}
   </nav>
 </footer>

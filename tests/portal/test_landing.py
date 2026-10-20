@@ -103,30 +103,16 @@ def test_request_access_mails_contact_email_when_it_is_set(settings: Any) -> Non
     assert ">hello@example.com</a>" in page
 
 
-def test_a_demo_count_lives_until_local_midnight_even_on_a_25_hour_day(
-    settings: Any,
-) -> None:
-    """VOI-244 skeptic: a 24 h window from 00:00:30 on the day the clocks go back ended at 23:00:30, an hour before the date (and the key) did."""
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-
-    from portal.accounts.views import seconds_to_midnight
-
-    settings.TIME_ZONE = "Europe/Stockholm"
-    zone = ZoneInfo("Europe/Stockholm")
-    assert (
-        seconds_to_midnight(datetime(2026, 10, 25, 0, 0, 30, tzinfo=zone))
-        == 25 * 3600 - 30
-    )
-    assert (
-        seconds_to_midnight(datetime(2026, 10, 20, 23, 59, 59, 900000, tzinfo=zone))
-        == 1
-    )
-    # A time in another zone counts to Stockholm's midnight, not that zone's (21:30 UTC is 23:30 in Stockholm).
-    assert (
-        seconds_to_midnight(datetime(2026, 10, 20, 21, 30, tzinfo=ZoneInfo("UTC")))
-        == 1800
-    )
+def test_the_privacy_notice_is_open_and_linked_from_the_landing_page() -> None:
+    """VOI-245: a visitor reads the demo call's notice before calling; it names the controller, a contact and the supervisory authority."""
+    response = Client().get(reverse("privacy"))
+    assert response.status_code == 200
+    page = response.content.decode()
+    assert "Privacy notice for the Voice demo call" in page
+    assert "Irma AI AB" in page and "559534-1586" in page
+    assert 'href="mailto:privacy@getirma.ai"' in page
+    assert "Swedish Authority for Privacy Protection (IMY)" in page
+    assert f'href="{reverse("privacy")}"' in landing()
 
 
 def test_without_a_demo_business_the_page_carries_no_call_button(settings: Any) -> None:
@@ -157,10 +143,11 @@ def test_the_demo_business_call_button_is_the_pasted_tag_and_the_panel_may_reach
     page = response.content.decode()
     slug = str(demo.call_slug)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  (django-stubs types fields for mypy only)
     assert (
-        f'<script async src="https://portal.example.se/static/portal/call-button.v1.js?business={slug}"'
+        f'<script async src="https://portal.example.se/static/portal/call-button.v2.js?business={slug}"'
         in page
     )
     assert 'integrity="sha384-' in page and page.count("<script async") == 1
+    assert ' data-lang="en"' in page  # the English site's label (VOI-244)
     policy = response["Content-Security-Policy"]
     # The tag names PORTAL_URL, not the host this page was served from, so the policy names it too.
     assert "script-src 'self' https://portal.example.se" in policy

@@ -6,11 +6,13 @@ The Live transcript runs through a real Pipecat pipeline and socket, with a stan
 
 import asyncio
 import contextlib
+import hashlib
 import json
 import re
 import threading
 import time
 from collections.abc import Callable, Generator
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -249,6 +251,63 @@ def test_a_call_ends_at_its_kinds_cap_and_the_page_ring_fills_over_the_same_time
         assert serve.call_params(kind).session_timeout == secs
         ticket = sign("portal-secret", 7, kind, expires, "example.se")
         assert f"MAX_CALL_SECS = {secs};" in client.get(f"/?ticket={ticket}").text
+
+
+def test_a_visitor_has_two_demo_calls_a_day_counted_under_a_code_that_hides_the_address() -> (
+    None
+):
+    """VOI-244: counted when a call starts, so opening the Call button's panel counts nothing (Petter, 2026-10-20)."""
+    calls, today = serve.DemoCalls(), date(2026, 10, 20)
+    assert calls.take("203.0.113.7", today) and calls.take("203.0.113.7", today)
+    assert not calls.take("203.0.113.7", today)  # the third of the day
+    assert calls.take("198.51.100.4", today)  # another visitor has their own
+    assert calls.take("203.0.113.7", date(2026, 10, 21))  # a new day, new counts
+    # A plain hash of address and day could be matched by trying every IPv4 address: the code is keyed per process.
+    plain = hashlib.sha256(b"203.0.113.7\n2026-10-21").hexdigest()
+    assert plain not in str(vars(calls))
+
+
+def test_the_visitor_address_is_the_last_forwarded_entry_the_proxy_adds() -> None:
+    app = FastAPI()
+    seen: list[str] = []
+
+    @app.websocket("/ws")
+    async def ws(websocket: WebSocket) -> None:  # pyright: ignore[reportUnusedFunction]
+        seen.append(serve.client_address(websocket))
+        await websocket.close()
+
+    client = TestClient(app)
+    for headers in ({"X-Forwarded-For": "6.6.6.6, 203.0.113.7"}, {}):
+        with (
+            pytest.raises(WebSocketDisconnect),
+            client.websocket_connect("/ws", headers=headers) as socket,
+        ):
+            socket.receive_text()
+    assert seen == ["203.0.113.7", "testclient"]  # what the client wrote is ignored
+
+
+def test_a_third_demo_call_ends_at_start_with_the_code_the_page_shows_as_used_up() -> (
+    None
+):
+    """The call page reads DEMO_CAPPED and says the approved refusal sentence (voice/page.html)."""
+    app = create_app("portal-secret")
+    for _ in range(serve.DEMO_CALLS_PER_ADDRESS):
+        assert app.state.demo_calls.take("testclient", serve.local_today())
+    client = TestClient(app, base_url="https://voice.example.se")
+    ticket = sign("portal-secret", 7, "demo", int(time.time()) + 60, "example.se")
+    page = client.get(f"/?ticket={ticket}").text
+    assert f"const DEMO_CAPPED = {serve.DEMO_CAPPED};" in page
+    assert "Something went wrong. We can't take calls right now." in page
+    with (
+        pytest.raises(WebSocketDisconnect) as capped,
+        client.websocket_connect(
+            f"/ws?ticket={ticket}", headers={"Origin": "https://testserver"}
+        ) as ws,
+    ):
+        ws.send_text(json.dumps({"type": "browser", **FACTS}))
+        ws.receive_text()
+    assert capped.value.code == serve.DEMO_CAPPED
+    assert app.state.one_call.take(7)  # the slot was given back
 
 
 def test_the_socket_refuses_a_call_with_no_ticket() -> None:
