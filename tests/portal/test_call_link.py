@@ -12,6 +12,7 @@ import re
 import time
 from datetime import datetime, timedelta
 from datetime import time as clock
+from decimal import Decimal
 from html import unescape
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
@@ -27,8 +28,11 @@ from django.utils import timezone
 from portal.accounts import domain as portal_domain
 from portal.accounts import theme
 from portal.accounts.models import BUDGET_COUNTED, CALL_KINDS, Business
+from portal.accounts.views import WORST_CASE_USD_PER_SECOND
 from tests.portal.helpers import a_call, business_with_login
 from voice import ticket as core_ticket
+from voice.cost import STORED_PRICES
+from voice.serve import MAX_CALL_SECS
 from voice.ticket import Ticket, read_ticket
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
@@ -173,11 +177,9 @@ def test_a_call_with_no_cost_counts_at_the_rate_google_charged_the_priced_ones()
         "price_date": None,
         "cost_reason": "price_unavailable",
     }
-    # Before the first priced call there is no rate: an unpriced call counts nothing.
     a_call(
         business_a, "unpriced-00000001", timezone.now(), length_seconds=6000, **unpriced
     )
-    assert link(business_a).status_code == 302
     # 100 s for $0.50 yesterday: half a cent a second, so 99 more unpriced seconds make $0.995 today.
     a_call(
         business_a,
@@ -212,6 +214,65 @@ def test_a_call_with_no_cost_counts_at_the_rate_google_charged_the_priced_ones()
     a_call(cem, "priced-000000003", timezone.now(), length_seconds=300, cost_usd="1.00")
     a_call(cem, "unpriced-00000003", timezone.now(), length_seconds=300, **unpriced)
     assert link(cem).status_code == 403
+
+
+def test_an_unpriced_call_counts_at_least_at_googles_rate_for_a_full_call(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """VOI-216: with no priced call yet, or one priced near $0, unpriced seconds still count at $0.001875 a second."""
+    unpriced = {
+        "cost_usd": None,
+        "price_date": None,
+        "cost_reason": "price_unavailable",
+    }
+    business_a = a_business_with_a_budget("1.00")
+    a_call(
+        business_a, "unpriced-00000001", timezone.now(), length_seconds=533, **unpriced
+    )
+    assert link(business_a).status_code == 302  # $0.999375
+    a_call(
+        business_a, "unpriced-00000002", timezone.now(), length_seconds=1, **unpriced
+    )
+    assert link(business_a).status_code == 403  # $1.00125
+    assert f"Business {business_a.pk} has unpriced seconds today" in caplog.text
+    business_b = a_business_with_a_budget("1.00")
+    a_call(
+        business_b,
+        "priced-000000001",
+        timezone.now() - timedelta(days=1),
+        length_seconds=600,
+        cost_usd="0.00000100",
+    )
+    a_call(
+        business_b, "unpriced-00000003", timezone.now(), length_seconds=534, **unpriced
+    )
+    assert link(business_b).status_code == 403  # the floor, not $0.00000089
+
+
+def test_the_worst_case_rate_is_googles_official_rate_for_a_full_call() -> None:
+    """Parity: the Portal's rate (portal/accounts/views.py) against the stored official rates (voice/prices.json) over the core's longest call.
+
+    The call model is docs/research/demo-call-button.md § 2: 1,600 audio tokens a minute, a turn every 15 s that re-bills the call
+    so far as input audio plus a 1,500-token text prompt, and the agent speaking half the call."""
+    per_m = {
+        k: Decimal(str(v))
+        for k, v in json.loads(STORED_PRICES.read_text())[
+            "usd_per_million_tokens"
+        ].items()
+    }
+    turns = MAX_CALL_SECS // 15
+    audio_per_turn = 1600 * 15 // 60
+    input_audio = audio_per_turn * turns * (turns + 1) // 2
+    text_in = 1500 * turns
+    output_audio = 1600 * MAX_CALL_SECS // 60 // 2
+    usd = (
+        input_audio * per_m["audio_in"]
+        + text_in * per_m["text_in"]
+        + output_audio * per_m["audio_out"]
+    ) / 10**6
+    assert WORST_CASE_USD_PER_SECOND == usd / MAX_CALL_SECS, (
+        f"set WORST_CASE_USD_PER_SECOND in portal/accounts/views.py to {usd / MAX_CALL_SECS}"
+    )
 
 
 def test_a_test_call_neither_counts_nor_is_refused() -> None:

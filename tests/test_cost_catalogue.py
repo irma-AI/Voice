@@ -39,6 +39,9 @@ TOTALS = {
 }
 # 1000 audio in at $3/M, 200 text in at $0.75/M, 300 audio out at $12/M, 40 + 10 thinking text out at $4.5/M.
 COST = "0.00697500"
+# A stored copy of the official rates with synthetic numbers (the real copy is voice/prices.json): 1000 x $2 + 200 x $1 + 300 x $8 + 50 x $4 per M.
+STORED = ROOT / "tests/cost/synthetic_prices.json"
+STORED_COST = "0.00480000"
 
 
 @pytest.fixture(autouse=True)
@@ -93,7 +96,8 @@ def google(
 
 
 def the_cost(base: str, totals: dict[str, int] = TOTALS) -> dict[str, str | None]:
-    return price(totals, MODEL, KEY, base)
+    """The live catalogue alone: no stored copy to fall back on."""
+    return price(totals, MODEL, KEY, base, stored=None)
 
 
 def without(words: str) -> list[Any]:
@@ -154,23 +158,23 @@ def two_tiers() -> dict[str, Any]:
     return tiered
 
 
-def reached(reason: CostReason) -> dict[str, str | None]:
-    """Runs the one situation that gives this reason."""
+def reached(reason: CostReason, stored: Path | None = None) -> dict[str, str | None]:
+    """Runs the one situation that gives this reason, falling back on `stored` if given."""
     if reason is CostReason.NO_KEY:
-        return price(TOTALS, MODEL, "")
+        return price(TOTALS, MODEL, "", stored=stored)
     if reason is CostReason.UNREACHABLE:
         with google() as (base, _):
             pass  # closed again: nothing listens on this address
-        return the_cost(base)
+        return price(TOTALS, MODEL, KEY, base, stored=stored)
     if reason is CostReason.UNREADABLE:
         with google(body=b"<html>not a catalogue</html>") as (base, _):
-            return the_cost(base)
+            return price(TOTALS, MODEL, KEY, base, stored=stored)
     if reason is CostReason.NOT_MATCHED:
         with google(without("text output")) as (base, _):
-            return the_cost(base)
+            return price(TOTALS, MODEL, KEY, base, stored=stored)
     if reason is CostReason.SHAPE_UNKNOWN:
         with google(prices=two_tiers()) as (base, _):
-            return the_cost(base)
+            return price(TOTALS, MODEL, KEY, base, stored=stored)
     raise AssertionError(f"no situation for {reason}: add one in reached()")
 
 
@@ -181,6 +185,42 @@ def test_every_reason_gives_an_empty_cost_that_says_why(reason: CostReason) -> N
         "price_date": None,
         "cost_reason": reason.value,
     }
+
+
+@pytest.mark.parametrize("reason", list(CostReason))
+def test_a_failed_lookup_prices_the_tokens_at_the_stored_official_rates(
+    reason: CostReason,
+) -> None:
+    """VOI-216: known tokens are priced exactly from the stored copy, dated by it, and the log says so."""
+    lines: list[str] = []
+    sink = logger.add(lambda m: lines.append(m.record["message"]), level="INFO")
+    try:
+        assert reached(reason, STORED) == {
+            "cost_usd": STORED_COST,
+            "price_date": "2026-01-01",
+            "cost_reason": None,
+        }
+    finally:
+        logger.remove(sink)
+    assert (
+        f"price catalogue failed ({reason.value}): priced from the stored rates of 2026-01-01"
+        in lines
+    )
+
+
+def test_a_stored_copy_for_another_model_prices_nothing() -> None:
+    assert price(TOTALS, "models/another-live", "", stored=STORED) == {
+        "cost_usd": None,
+        "price_date": None,
+        "cost_reason": "no_billing_key",
+    }
+
+
+def test_the_stored_official_rates_are_for_the_model_the_core_runs() -> None:
+    stored = json.loads(cost.STORED_PRICES.read_text())
+    assert stored["model"] == MODEL, (
+        f"voice/prices.json holds rates for {stored['model']}: copy Google's official rates for {MODEL} into it"
+    )
 
 
 def test_reasons_are_codes_the_contract_accepts() -> None:
