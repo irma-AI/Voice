@@ -72,7 +72,7 @@ ROOT = Path(__file__).parent.parent
     ],
 )
 def test_disclosure_first(record: str, passes: bool) -> None:
-    verdict = disclosure_first(Call.load(CALLS / f"{record}.json"))
+    verdict = disclosure_first(Call.load(CALLS / f"{record}.json"), "sv")
     assert verdict.passed is passes, verdict.reason
     assert verdict.reason
 
@@ -381,7 +381,7 @@ def test_call_log_becomes_turns(tmp_path: Path) -> None:
         ("agent", "Jag heter Kim och är en AI-assistent."),
         ("caller", "Hej"),
     ]
-    assert disclosure_first(call).passed
+    assert disclosure_first(call, "sv").passed
 
 
 def test_the_disclosure_must_be_in_the_scenarios_greeting_language() -> None:
@@ -408,7 +408,7 @@ def test_a_log_cut_short_by_a_killed_run_still_reads(tmp_path: Path) -> None:
         '{"t": 0, "e": "agent_tts", "text": "Jag heter Kim och är en AI-assistent."}\n{"t": 1, "e": "ca',
         "utf-8",
     )
-    assert disclosure_first(call_from_log(log)).passed
+    assert disclosure_first(call_from_log(log), "sv").passed
 
 
 def test_every_stored_call_says_it_is_made_up_and_what_it_shows() -> None:

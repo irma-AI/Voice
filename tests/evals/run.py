@@ -24,7 +24,6 @@ from tests.evals.checks import (
     HOSTILE_BUSINESS_FILE,
     MODULE_BUSINESS_FILE,
     WEB_BUSINESS_FILE,
-    Call,
     Verdict,
     agent_cut_off,
     agent_not_cut_off,
@@ -59,7 +58,7 @@ RUNNING: set[subprocess.Popen[bytes]] = set()
 SCENARIO_DIR = ROOT / "tests" / "evals" / "scenarios"
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
 # The disclosure is the legal line, so every call is checked for it, and for the opening's Business name, not one sample.
-SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
+SCENARIOS: dict[str, list[Callable[..., Verdict]]] = {
     "swedish_question": [
         disclosure_first,
         opening_names_the_business,
