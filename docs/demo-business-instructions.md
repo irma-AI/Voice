@@ -1,6 +1,6 @@
 # Demo Business: draft instructions
 
-A draft of the instructions for the demo Business whose Call button the landing page carries (VOI-244). Petter edits this and pastes it into that Business's settings page himself; no code reads this file. Drawn from the landing page copy and the README on 2026-10-20. Everything the agent may claim is what works today; planned features are named as planned. The AI disclosure is the core's own line, spoken at every call's start, so the draft does not repeat it (caller wording is Petter's: CLAUDE.md § Stop and ask).
+A draft of the instructions for the demo Business whose Call button the landing page carries (VOI-244). Petter edits this and pastes it into that Business's settings page himself; no code reads this file. Drawn from the landing page copy and the README on 2026-10-20. Everything the agent may claim is what works today; planned features are named as planned. The AI disclosure is the core's own line, spoken at every call's start, so the draft does not repeat it, and it makes no claim about what is kept: both are caller wording, Petter's to write (CLAUDE.md § Stop and ask).
 
 ## Svenska
 
@@ -12,7 +12,7 @@ Voice svarar ett företags uppringare på företagets egen webbplats, på svensk
 - Testsamtal: en knapp i Portalen öppnar ett samtal med de sparade inställningarna, så företaget kan prova sin agent direkt.
 - Samtalsknappen: företaget sparar sin webbplats adress och får en liten kodrad att klistra in på sin sida. Besökare trycker på knappen och pratar med agenten i webbläsaren, inget att installera. Samtalet kan bara öppnas från företagets egen webbplats.
 - Moduler och Åtgärder: företaget kopplar in tjänster som talar MCP, till exempel ett bokningssystem. Varje Modul ger agenten Åtgärder den kan utföra under samtalet, som att hitta en ledig tid eller flytta en bokning, medan uppringaren väntar i luren.
-- Samtalslogg: företaget ser när varje samtal kom in och hur länge det varade. Inga ord och inget ljud sparas; agenten visar vad som sägs under samtalet, men inget av det lagras.
+- Samtalslogg: företaget ser när varje samtal kom in och hur länge det varade.
 - Språk: svenska och engelska, som företaget väljer.
 
 Planerat men inte byggt ännu: att koppla ett samtal vidare till en människa, telefonsamtal (inte bara webbplatsen) och att företagets egna AI-agenter kan göra allt som går att göra i Portalen.
@@ -31,7 +31,7 @@ Voice answers a business's callers on the business's own website, in Swedish or 
 - Test call: one button in the Portal opens a call with the saved settings, so the business can try its agent at once.
 - The Call button: the business saves its website address and gets a short tag to paste into its page. Visitors press the button and talk to the agent in the browser, nothing to install. The call opens only from the business's own website.
 - Modules and Actions: the business connects services that speak MCP, a booking system for example. Each Module gives the agent Actions it can take during the call, such as finding a free time or moving a booking, while the caller is still on the line.
-- Call history: the business sees when each call came in and how long it lasted. No words and no audio are kept; the agent shows what is said during the call, but none of it is stored.
+- Call history: the business sees when each call came in and how long it lasted.
 - Languages: Swedish and English, as the business chooses.
 
 Planned, not built yet: putting a caller through to a person, phone calls (not only the website), and letting the business's own AI agents do everything the Portal can.

@@ -8,7 +8,7 @@ import re
 import unicodedata
 from collections import defaultdict
 from collections.abc import Callable
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from functools import wraps
 from typing import Any
@@ -178,6 +178,15 @@ class ResetForm(PasswordResetForm):
     def get_users(self, email):
         # Django's form skips an account with no password yet, which would leave an invitee with an expired link stuck.
         return Account.objects.filter(email=clean_email(email), is_active=True)
+
+
+class Reset(auth.PasswordResetView):
+    form_class = ResetForm
+
+    @property
+    def extra_email_context(self) -> dict[str, str]:  # pyright: ignore[reportIncompatibleVariableOverride]
+        # Read when the mail goes, not when the URL map is imported: a test that changes PORTAL_URL first would otherwise fix it for every later test.
+        return {"portal_url": settings.PORTAL_URL.rstrip("/")}
 
 
 class Login(auth.LoginView):
@@ -764,11 +773,10 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
 # The landing page's demo (VOI-244; Petter, 2026-10-20): one visitor's address may start this many demo calls a day, and all visitors together this many.
 DEMO_CALLS_PER_ADDRESS = 2
 DEMO_CALLS_PER_DAY = 20
-DAY_S = 24 * 60 * 60
 
 
 def demo_address_key(request: HttpRequest) -> str:
-    """One count per visitor's address and day. The address is hashed at once with the day and kept only as the hash, in memory, for a day (Petter, 2026-10-20: acceptable for the MVP); it never reaches a log or the database."""
+    """One count per visitor's address and day. The address is hashed at once with the day and kept only as the hash, in memory, until midnight (Petter, 2026-10-20: acceptable for the MVP); it never reaches a log or the database."""
     who = f"{client_address(request)}\n{start_of_today().date()}"
     return "demo:" + hashlib.sha256(who.encode()).hexdigest()
 
@@ -776,24 +784,45 @@ def demo_address_key(request: HttpRequest) -> str:
 def demo_call(request: HttpRequest, business: Business) -> HttpResponse:
     """A `demo` ticket for the landing page's Business, under caps the daily budget alone cannot hold (an unpriced call counts at the floor only): this address's calls today, every visitor's demo calls today (from Call records, so pricing failures do not open it), then the budget in `to_core`. A refusal shows the spent-budget sentence, which Petter reuses for every demo refusal (2026-10-20), and logs the Business and the reason, never the address."""
     key = demo_address_key(request)
-    if cache.get(key, 0) >= DEMO_CALLS_PER_ADDRESS:
+    # Counted first, with the cache's atomic increment, so parallel requests from one address cannot all pass; a refusal gives it back.
+    if count_try(key, seconds_to_midnight()) > DEMO_CALLS_PER_ADDRESS:
+        give_back(key)
         log.warning("call refused: Business %s demo cap per_address", business.pk)
         return call_link_refused(request, BUDGET_SPENT_REFUSAL)
     demo_calls_today = CallRecord.objects.filter(
         business=business, kind="demo", started_at__gte=start_of_today()
     ).count()
     if demo_calls_today >= DEMO_CALLS_PER_DAY:
+        give_back(key)
         log.warning("call refused: Business %s demo cap per_day", business.pk)
         return call_link_refused(request, BUDGET_SPENT_REFUSAL)
     response = to_core(request, business, "demo", business.website_domain)
-    if response.status_code == 302:  # minted; a budget refusal counts no call
-        count_try(key, DAY_S)
+    if response.status_code == 302:
         log.info("demo call minted: Business %s", business.pk)
-    elif (
+        return response
+    give_back(key)  # no ticket, no call counted
+    if (
         response.status_code == 403
     ):  # to_core's budget refusal, under the demo's reason names
         log.warning("call refused: Business %s demo cap budget", business.pk)
     return response
+
+
+def give_back(key: str) -> None:
+    """Undoes one count_try for a request that got no ticket; a key already gone has nothing to give back."""
+    try:
+        cache.decr(key)
+    except ValueError:
+        pass
+
+
+def seconds_to_midnight(now: datetime | None = None) -> int:
+    """How long today's demo counts live: until the next midnight on TIME_ZONE, so a 23- or 25-hour day ends its count when its date does."""
+    zone = ZoneInfo(settings.TIME_ZONE)
+    now = now or datetime.now(zone)
+    midnight = datetime.combine(now.date() + timedelta(days=1), time.min, tzinfo=zone)
+    # Same-zone subtraction is wall-clock time in Python, which would hide the hour a clock change adds or takes away.
+    return max(1, int(midnight.timestamp() - now.timestamp()))
 
 
 # The Call button script a Business's website loads, and the hash of its bytes that the pasted tag names (VOI-135):

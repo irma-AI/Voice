@@ -245,6 +245,12 @@ def test_the_demo_business_takes_twenty_demo_calls_a_day_then_its_budget(
     assert budget.status_code == 403
     assert f"Business {spent.pk} has spent its daily budget (kind demo)" in caplog.text
     assert f"call refused: Business {spent.pk} demo cap budget" in caplog.text
+    # A refusal gives the address's count back: with budget again, a fresh address still has its two.
+    cache.clear()
+    assert link(spent).status_code == 403  # the budget again, counted and given back
+    Business.objects.filter(pk=spent.pk).update(daily_budget_usd="100.00")
+    assert link(spent).status_code == 302 and link(spent).status_code == 302
+    assert link(spent).status_code == 403
 
 
 def test_a_call_with_no_cost_counts_at_the_rate_google_charged_the_priced_ones() -> (

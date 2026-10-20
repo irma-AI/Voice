@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib.auth import views as auth
 from django.urls import path
 
@@ -49,10 +48,7 @@ urlpatterns = [
     path("logout/", auth.LogoutView.as_view(), name="logout"),
     path(
         "password-reset/",
-        auth.PasswordResetView.as_view(
-            form_class=views.ResetForm,
-            extra_email_context={"portal_url": settings.PORTAL_URL.rstrip("/")},
-        ),
+        views.Reset.as_view(),
         name="password_reset",
     ),
     path(

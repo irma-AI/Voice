@@ -103,6 +103,27 @@ def test_request_access_mails_contact_email_when_it_is_set(settings: Any) -> Non
     assert ">hello@example.com</a>" in page
 
 
+def test_a_demo_count_lives_until_local_midnight_even_on_a_25_hour_day(
+    settings: Any,
+) -> None:
+    """VOI-244 skeptic: a 24 h window from 00:00:30 on the day the clocks go back ended at 23:00:30, an hour before the date (and the key) did."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from portal.accounts.views import seconds_to_midnight
+
+    settings.TIME_ZONE = "Europe/Stockholm"
+    zone = ZoneInfo("Europe/Stockholm")
+    assert (
+        seconds_to_midnight(datetime(2026, 10, 25, 0, 0, 30, tzinfo=zone))
+        == 25 * 3600 - 30
+    )
+    assert (
+        seconds_to_midnight(datetime(2026, 10, 20, 23, 59, 59, 900000, tzinfo=zone))
+        == 1
+    )
+
+
 def test_without_a_demo_business_the_page_carries_no_call_button(settings: Any) -> None:
     settings.DEMO_BUSINESS_ID = None
     page = landing()
