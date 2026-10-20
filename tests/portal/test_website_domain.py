@@ -10,7 +10,7 @@ from django.test import Client
 
 from portal.accounts.models import Business
 from tests.portal.contract import schema_errors
-from tests.portal.helpers import business_with_login
+from tests.portal.helpers import business_with_login, told_to_core
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
@@ -98,18 +98,10 @@ def test_the_dashboard_shows_the_domain_or_that_none_is_set() -> None:
 
 
 def test_the_core_is_not_told_the_domain(settings: Any) -> None:
-    settings.CORE_SECRET = "a-secret-for-tests"
     business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     save(client, "example.se")
 
-    told = (
-        Client()
-        .get(
-            f"/api/settings/{business.pk}/",
-            headers={"Authorization": "Bearer a-secret-for-tests"},
-        )
-        .json()
-    )
+    told = told_to_core(business, settings)
 
     assert "website_domain" not in told
     assert not schema_errors(told)
