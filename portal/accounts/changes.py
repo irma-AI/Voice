@@ -1,7 +1,7 @@
 # pyright: basic
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
-"""Staged changes (VOI-239): a destructive Command records a PendingChange, and only the Business's approval in the Portal
-applies it, through the same function the Portal page uses (CLAUDE.md hard rule 2). The database applies each once."""
+"""Staged changes (VOI-239): a destructive Command records a PendingChange, and only the Business's approval (in the chat,
+VOI-246, or in the Portal) applies it, through the same function the Portal page uses (CLAUDE.md hard rule 2). The database applies each once."""
 
 import logging
 from datetime import timedelta
@@ -225,14 +225,19 @@ def decide(
         return refusal(change)
     except NotApplied as not_now:
         return not_now.outcome
-    audit.info(
-        "%s pending change %s (%s) for business %s by %s%s",
-        decision,
-        change.pk,
-        change.kind,
-        change.token.business.pk,
-        f"account {account.pk}" if by is None else f"token {by.pk} in the chat",
-        "" if applied or decision == "rejected" else ": nothing left to change",
+    who = f"account {account.pk}" if by is None else f"token {by.pk} in the chat"
+    note = "" if applied or decision == "rejected" else ": nothing left to change"
+    # On commit: a decision inside a Command's transaction may still roll back after this (as stage() does).
+    transaction.on_commit(
+        lambda: audit.info(
+            "%s pending change %s (%s) for business %s by %s%s",
+            decision,
+            change.pk,
+            change.kind,
+            change.token.business.pk,
+            who,
+            note,
+        )
     )
     if decision == "rejected":
         return "rejected"

@@ -324,7 +324,7 @@ def list_recent_calls(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
     "Remove a Module", ToolAnnotations(read_only_hint=False, destructive_hint=True)
 )
 def remove_module(ctx: Context[Any, Any], name: str) -> CallToolResult:
-    """Asks to remove one of your Business's Modules, by its name. Nothing changes until the Business approves it in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
+    """Asks to remove one of your Business's Modules, by its name. Nothing changes until the person approves it, in the chat or in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
     module = mine(token, name)
@@ -417,7 +417,7 @@ def list_totals(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
     ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_hint=True),
 )
 def invite_business(ctx: Context[Any, Any], name: str, email: str) -> CallToolResult:
-    """Asks to invite a Business: its Account and an email with the link to set a password. Nothing is sent until you approve it in the Portal; the answer has staged: true, a preview, the risk level and what to do next."""
+    """Asks to invite a Business: its Account and an email with the link to set a password. Nothing is sent until you approve it, in the chat or in the Portal; the answer has staged: true, a preview, the risk level and what to do next."""
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
     try:
@@ -468,10 +468,15 @@ def list_pending_changes(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
             "risk_level": changes.RISK[change.kind],  # pyright: ignore[reportArgumentType]
             "expires_at": (change.staged_at + changes.WAITS).isoformat(),
         }
-        for change in changes.waiting(token.business.account).select_related(
-            "token__business"
-        )
+        for change in visible(
+            token, changes.waiting(token.business.account)
+        ).select_related("token__business")
     ]
+
+
+def visible(token: AccessToken, chosen: Any) -> Any:
+    """An invite is the operator's token's to see and decide, as the invite itself (VOI-119); every other change, any token's."""
+    return chosen if is_operator(token) else chosen.exclude(kind="invite_business")
 
 
 # A decision the person can act on is an answer; one that changed nothing for another reason is an error the agent must relay.
@@ -483,11 +488,24 @@ def decided(
 ) -> CallToolResult:
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
-    found = PendingChange.objects.filter(
-        pk=change, token__business=token.business
-    ).first()
+    found = (
+        visible(token, PendingChange.objects.filter(token__business=token.business))
+        .filter(pk=change)
+        .first()
+    )
     if found is None:
         return failed("Your Business has no pending change with that number.")
+    # The token first, shared: a revoke of it waits for this decision instead of deadlocking with it (the revoke locks the
+    # token, then the change; decide locks the Business, then the change; the Command record then needs the token).
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT 1 FROM accounts_accesstoken WHERE id = %s AND revoked_at IS NULL FOR SHARE",
+            [token.pk],
+        )
+        if cursor.fetchone() is None:
+            return refused(
+                "approve_change" if decision == "approved" else "reject_change"
+            )
     outcome = changes.decide(found, token.business.account, decision, by=token)
     if outcome not in DONE:
         return failed(views.OUTCOMES[outcome])
@@ -582,7 +600,7 @@ def change_business_details(
     instructions: str | None = None,
     languages: list[str] | None = None,
 ) -> CallToolResult:
-    """Asks to change your Business's name, instructions or languages (sv, en). Nothing changes until the Business approves it in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
+    """Asks to change your Business's name, instructions or languages (sv, en). Nothing changes until the person approves it, in the chat or in the Portal: the answer has staged: true, a preview, the risk level and what to do next."""
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
     given: dict[str, Any] = {

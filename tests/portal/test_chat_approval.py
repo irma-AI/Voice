@@ -94,3 +94,42 @@ def test_a_read_only_token_cannot_decide() -> None:
     for command in ("approve_change", "reject_change"):
         assert text(run(read, command, change=change)) == f"Unknown tool: {command}"
     assert PendingChange.objects.get().decision == ""
+
+
+def test_a_settings_change_is_approved_in_the_chat() -> None:
+    business, _ = business_with_login("user-a@example.com", "Owner's Salon")
+    secret = a_token(business, "full")
+    change = run(secret, "change_business_details", name="Owner's Hair")[
+        "structuredContent"
+    ]["change"]
+    assert (
+        run(secret, "approve_change", change=change)["structuredContent"]["outcome"]
+        == "applied"
+    )
+    business.refresh_from_db()
+    assert business.name == "Owner's Hair"
+
+
+def test_only_an_operators_token_sees_or_decides_an_invite(settings: Any) -> None:
+    settings.SUPER_ADMIN_EMAIL = "operator@example.com"
+    operator, _ = business_with_login("operator@example.com", "Voice")
+    staged = run(
+        a_token(operator, "full", operator=True),
+        "invite_business",
+        name="New Salon",
+        email="new@example.com",
+    )
+    change = staged["structuredContent"]["change"]
+    plain = a_token(
+        operator, "full"
+    )  # the operator's Business, but no operator token (a sign-in is never one)
+    assert run(plain, "list_pending_changes")["structuredContent"]["result"] == []
+    refused = run(plain, "approve_change", change=change)
+    assert refused.get("isError") and "no pending change" in text(refused)
+    assert PendingChange.objects.get().decision == ""
+    assert (
+        run(a_token(operator, "full", operator=True), "approve_change", change=change)[
+            "structuredContent"
+        ]["outcome"]
+        == "applied"
+    )
