@@ -106,7 +106,7 @@ def _play(scenario: str, run_dir: Path, name: str, port: int) -> tuple[int, Path
     """Runs one Scenario through Pipecat's eval suite, its bot on `port`; returns its exit code and the call log."""
     log = run_dir / "calls" / f"{name}.jsonl"
     cmd = [sys.executable, "-m", "pipecat.evals", "suite", "tests/evals/manifest.yaml"]
-    cmd += ["-s", scenario, "--name", name, "--runs-dir", str(run_dir)]
+    cmd += ["-s", scenario, "--name", name, "--runs-dir", str(run_dir), "--audio"]
     cmd += ["--base-port", str(port)]
     # Own process group: the suite spawns the bot, and killing only the suite would leave the
     # bot's Gemini session open and spending after the time limit.
