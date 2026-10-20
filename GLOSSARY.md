@@ -49,7 +49,7 @@ A call a Business starts from its own Portal to try its agent. Every other call 
 _Avoid_: trial call
 
 **Demo call**:
-A visitor's call from Voice's own landing page, through the demo Business's Call link, cut at 3 minutes where every other call gets 10. Counts toward that Business's daily budget. Nothing starts one yet (VOI-244).
+A visitor's call from Voice's own landing page, through the Call button of the Business the Portal's `DEMO_BUSINESS_ID` names, cut at 3 minutes where every other call gets 10. Capped at 2 a day per visitor's address and 20 a day in all, then that Business's daily budget.
 _Avoid_: trial call, public call
 
 **Call record**:

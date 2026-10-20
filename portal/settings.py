@@ -56,6 +56,11 @@ SUPER_ADMIN_EMAIL = os.environ.get("SUPER_ADMIN_EMAIL", "").strip().lower()
 # Where the landing page's Request access email goes. Empty hides the button, so the page never shows a dead link.
 CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "").strip()
 
+# The Business whose Call button the landing page carries, for a capped demo call (VOI-244). Empty, the default: no button, and
+# that Business's call link mints like any other. A value that is not a number refuses to start.
+_demo = os.environ.get("DEMO_BUSINESS_ID", "").strip()
+DEMO_BUSINESS_ID = int(_demo) if _demo else None
+
 INSTALLED_APPS = [
     "whitenoise.runserver_nostatic",  # a local run serves static files through WhiteNoise too, with the CORS header the Call button's integrity check needs
     "django.contrib.auth",

@@ -103,6 +103,78 @@ def test_request_access_mails_contact_email_when_it_is_set(settings: Any) -> Non
     assert ">hello@example.com</a>" in page
 
 
+def test_a_demo_count_lives_until_local_midnight_even_on_a_25_hour_day(
+    settings: Any,
+) -> None:
+    """VOI-244 skeptic: a 24 h window from 00:00:30 on the day the clocks go back ended at 23:00:30, an hour before the date (and the key) did."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from portal.accounts.views import seconds_to_midnight
+
+    settings.TIME_ZONE = "Europe/Stockholm"
+    zone = ZoneInfo("Europe/Stockholm")
+    assert (
+        seconds_to_midnight(datetime(2026, 10, 25, 0, 0, 30, tzinfo=zone))
+        == 25 * 3600 - 30
+    )
+    assert (
+        seconds_to_midnight(datetime(2026, 10, 20, 23, 59, 59, 900000, tzinfo=zone))
+        == 1
+    )
+    # A time in another zone counts to Stockholm's midnight, not that zone's (21:30 UTC is 23:30 in Stockholm).
+    assert (
+        seconds_to_midnight(datetime(2026, 10, 20, 21, 30, tzinfo=ZoneInfo("UTC")))
+        == 1800
+    )
+
+
+def test_without_a_demo_business_the_page_carries_no_call_button(settings: Any) -> None:
+    settings.DEMO_BUSINESS_ID = None
+    page = landing()
+    assert "call-button" not in page and "<script async" not in page
+
+
+@pytest.mark.db
+@pytest.mark.django_db
+def test_the_demo_business_call_button_is_the_pasted_tag_and_the_panel_may_reach_the_core(
+    settings: Any,
+) -> None:
+    """With DEMO_BUSINESS_ID set (VOI-244) the page carries that Business's own tag, once it has saved its website like any Business, and a frame-src that lets the panel follow the call link to the core."""
+    settings.CORE_URL, settings.PORTAL_URL = (
+        "https://voice.example.se/",
+        "https://portal.example.se",
+    )
+    demo, _ = business_with_login("demo@example.com", "Voice itself")
+    settings.DEMO_BUSINESS_ID = demo.pk
+    assert (
+        "call-button" not in landing()
+    )  # no website saved yet: the link would refuse, so no button
+
+    demo.website_domain = "portal.example.se"
+    demo.save()
+    response = Client().get(reverse("home"))
+    page = response.content.decode()
+    slug = str(demo.call_slug)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  (django-stubs types fields for mypy only)
+    assert (
+        f'<script async src="https://portal.example.se/static/portal/call-button.v1.js?business={slug}"'
+        in page
+    )
+    assert 'integrity="sha384-' in page and page.count("<script async") == 1
+    policy = response["Content-Security-Policy"]
+    # The tag names PORTAL_URL, not the host this page was served from, so the policy names it too.
+    assert "script-src 'self' https://portal.example.se" in policy
+    assert (
+        "frame-src 'self' https://portal.example.se https://voice.example.se" in policy
+    )
+    assert "frame-ancestors 'none'" in policy
+
+    settings.DEMO_BUSINESS_ID = demo.pk + 1000  # names no Business: nothing
+    response = Client().get(reverse("home"))
+    assert "call-button" not in response.content.decode()
+    assert "frame-src" not in response["Content-Security-Policy"]
+
+
 @pytest.mark.db
 @pytest.mark.django_db
 def test_a_logged_in_business_sees_its_dashboard_link_instead_of_log_in() -> None:
