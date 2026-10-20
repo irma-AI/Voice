@@ -63,7 +63,7 @@ ROOT = Path(__file__).parent.parent
         ("disclosure_first", True),
         ("greeting_then_disclosure", True),
         ("opening_kim", True),
-        ("opening_name_before_disclosure", False),
+        ("opening_old_disclosure", False),
         ("no_disclosure", False),
         ("late_disclosure", False),
         ("disclosure_after_answer", False),
@@ -352,15 +352,15 @@ def test_call_log_becomes_turns(tmp_path: Path) -> None:
     log = tmp_path / "call.jsonl"
     events = [
         {"t": 0.1, "e": "agent_start"},
-        {"t": 0.2, "e": "agent_tts", "text": "Du pratar med "},
-        {"t": 0.3, "e": "agent_tts", "text": "en AI-assistent."},
+        {"t": 0.2, "e": "agent_tts", "text": "Jag heter Kim och "},
+        {"t": 0.3, "e": "agent_tts", "text": "är en AI-assistent."},
         {"t": 1.0, "e": "caller", "text": "Hej"},
         {"t": 1.1, "e": "usage", "prompt_tokens": 5},
     ]
     log.write_text("\n".join(json.dumps(e) for e in events), "utf-8")
     call = call_from_log(log)
     assert [(t.speaker, t.text) for t in call.turns] == [
-        ("agent", "Du pratar med en AI-assistent."),
+        ("agent", "Jag heter Kim och är en AI-assistent."),
         ("caller", "Hej"),
     ]
     assert disclosure_first(call).passed
@@ -369,7 +369,7 @@ def test_call_log_becomes_turns(tmp_path: Path) -> None:
 def test_a_log_cut_short_by_a_killed_run_still_reads(tmp_path: Path) -> None:
     log = tmp_path / "call.jsonl"
     log.write_text(
-        '{"t": 0, "e": "agent_tts", "text": "Du pratar med en AI-assistent."}\n{"t": 1, "e": "ca',
+        '{"t": 0, "e": "agent_tts", "text": "Jag heter Kim och är en AI-assistent."}\n{"t": 1, "e": "ca',
         "utf-8",
     )
     assert disclosure_first(call_from_log(log)).passed
@@ -387,7 +387,7 @@ def test_a_caller_transcript_that_arrives_after_the_answer_is_placed_before_it(
     log = tmp_path / "call.jsonl"
     events = [
         {"e": "agent_start"},
-        {"e": "agent_tts", "text": "Du pratar med en AI-assistent."},
+        {"e": "agent_tts", "text": "Jag heter Kim och är en AI-assistent."},
         {"e": "agent_start"},
         {"e": "agent_tts", "text": "En tandrengöring kostar 850 kronor."},
         {"e": "caller", "text": "Vad kostar"},
@@ -395,7 +395,7 @@ def test_a_caller_transcript_that_arrives_after_the_answer_is_placed_before_it(
     ]
     log.write_text("\n".join(json.dumps(e) for e in events), "utf-8")
     assert [(t.speaker, t.text) for t in call_from_log(log).turns] == [
-        ("agent", "Du pratar med en AI-assistent."),
+        ("agent", "Jag heter Kim och är en AI-assistent."),
         ("caller", "Vad kostar en tandrengöring?"),
         ("agent", "En tandrengöring kostar 850 kronor."),
     ]

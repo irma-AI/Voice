@@ -421,8 +421,10 @@ def test_the_secret_never_reaches_the_refusal_text() -> None:
 
 def test_the_prompt_is_built_from_the_business_and_keeps_the_disclosure() -> None:
     prompt = system_instruction(parse(GOOD))
-    assert f'Start every call by saying exactly: "{opening("Anna's Salon")}"' in prompt
-    assert DISCLOSURE.removesuffix(".") in opening("Anna's Salon")
+    assert (
+        f'Start every call by saying exactly: "{opening("Owner A's Salon")}"' in prompt
+    )
+    assert DISCLOSURE in opening("Owner A's Salon")
     assert (
         "RESPOND IN SWEDISH OR ENGLISH. YOU MUST RESPOND UNMISTAKABLY IN SWEDISH OR ENGLISH."
         " Answer in the language the caller last spoke." in prompt

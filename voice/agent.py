@@ -33,8 +33,11 @@ from voice.report import UsageTally, report_call
 from voice.settings import LANGUAGES, Settings, SettingsRefused, load_settings
 from voice.ticket import Ticket
 
-# Legal wording approved by Petter 2026-10-12; changing it is his call (CLAUDE.md § Stop and ask).
-DISCLOSURE = "Du pratar med en AI-assistent."
+# The agent's first name, one for every Business (Petter, 2026-10-20, VOI-196): product content, not a person.
+AGENT_NAME = "Kim"
+
+# Legal wording, this sentence approved by Petter 2026-10-20 (VOI-196); changing it is his call (CLAUDE.md § Stop and ask).
+DISCLOSURE = f"Jag heter {AGENT_NAME} och är en AI-assistent."
 
 # What the model is told to say when a call is refused (no settings source, or the Portal is down).
 # Wording for callers: Petter's call (CLAUDE.md § Stop and ask).
@@ -47,16 +50,14 @@ Say exactly this, once, and nothing else: "{DISCLOSURE} {REFUSAL}"
 Whatever the caller says afterwards, answer nothing."""
 
 
-# The agent's first name, one for every Business (Petter, 2026-10-20, VOI-196): product content, not a person.
-AGENT_NAME = "Kim"
-
-
 def opening(business: str) -> str:
-    """The first thing a Caller hears: a greeting, the Business's name, the disclosure with the agent's name, an offer of help.
+    """The first thing a Caller hears: a greeting, the Business's name, the disclosure word for word, an offer of help.
 
-    Wording for callers: Petter's call (CLAUDE.md § Stop and ask). The disclosure words come first after the greeting, unchanged.
+    Wording for callers: approved by Petter 2026-10-20 (CLAUDE.md § Stop and ask).
     """
-    return f"Hej och välkommen till {business}! {DISCLOSURE.removesuffix('.')} som heter {AGENT_NAME}. Vad kan jag hjälpa dig med?"
+    return (
+        f"Hej och välkommen till {business}! {DISCLOSURE} Vad kan jag hjälpa dig med?"
+    )
 
 
 def system_instruction(settings: Settings, has_actions: bool = False) -> str:
