@@ -23,11 +23,13 @@ const allowed = (ident) => ident.endsWith(`<${EMAIL}>`); // "Name <email>" of an
 // GitHub commits a squash merge itself, so a push to main (tip-only run) sees it as the committer (VOI-144).
 const GITHUB = 'GitHub <noreply@github.com>';
 const MESSAGE = require(path.join(__dirname, '..', '..', 'claude-attribution.js')); // shared with the GitHub write hook
+const { inFixture } = require(path.join(__dirname, '..', '..', 'base-config.js'));
 
-// A fixture has `.guard-commits.json` (a list of {sha, author, committer, message}) in place of git.
+// A fixture has `.guard-commits.json` (a list of {sha, author, committer, message}) in place of git; only under
+// fixtures/, so a PR cannot add its own at the repo root (VOI-234).
 function commits() {
   const stored = path.join(ROOT, '.guard-commits.json');
-  if (fs.existsSync(stored)) return JSON.parse(fs.readFileSync(stored, 'utf8'));
+  if (inFixture(ROOT) && fs.existsSync(stored)) return JSON.parse(fs.readFileSync(stored, 'utf8'));
   const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' });
   const local = !process.env.GITHUB_ACTIONS && spawnSync('git', ['rev-parse', '-q', '--verify', 'origin/main'], { cwd: ROOT }).status === 0;
   const base = process.env.GUARD_BASE || (local ? 'origin/main' : '');
@@ -43,7 +45,7 @@ function commits() {
 const list = commits();
 // A fixture has `.guard-pr-text` in place of the CI env.
 const prFile = path.join(ROOT, '.guard-pr-text');
-const prText = fs.existsSync(prFile) ? fs.readFileSync(prFile, 'utf8') : process.env.GUARD_PR_TEXT || '';
+const prText = inFixture(ROOT) && fs.existsSync(prFile) ? fs.readFileSync(prFile, 'utf8') : process.env.GUARD_PR_TEXT || '';
 console.log(`#scanned ${list.length + 2}`); // +2: the commit range and the PR text, which can be empty
 const prWhy = MESSAGE.filter(([re]) => re.test(prText)).map(([, what]) => `has ${what}`);
 if (prWhy.length) {
