@@ -13,13 +13,12 @@ from django.test import Client
 
 from portal.accounts import modules as module_rules
 from portal.accounts import probe
-from portal.accounts.models import Business, Module
+from portal.accounts.models import Module
 from tests.portal.contract import schema_errors
-from tests.portal.helpers import business_with_login
+from tests.portal.helpers import SECRET, ask_core, business_with_login
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
-SECRET = "a-secret-for-tests"
 PUBLIC = (
     "https://8.8.8.8/mcp"  # a literal public address, so the form's check needs no DNS
 )
@@ -32,13 +31,6 @@ EXAMPLE = (
 def core_secret(settings: Any) -> None:
     settings.CORE_SECRET = SECRET
     settings.ALLOW_LOCAL_MODULES = False  # hosted, unless a test says it is self-hosted
-
-
-def told(business: Business) -> dict[str, Any]:
-    reply = Client().get(
-        f"/api/settings/{business.pk}/", headers={"Authorization": f"Bearer {SECRET}"}
-    )
-    return reply.json()
 
 
 def add(client: Client, name: str, address: str) -> Any:
@@ -63,7 +55,7 @@ def test_several_modules_can_be_added_and_the_core_is_told_about_all_of_them() -
     assert add(client, "bookings", PUBLIC)["Location"] == "/modules/"
     assert add(client, "hours", "https://1.1.1.1/hours/mcp")["Location"] == "/modules/"
 
-    settings_told = told(business)
+    settings_told = ask_core(business.pk).json()
     assert settings_told["modules"] == [
         {"name": "bookings", "url": PUBLIC},
         {"name": "hours", "url": "https://1.1.1.1/hours/mcp"},
@@ -75,7 +67,7 @@ def test_several_modules_can_be_added_and_the_core_is_told_about_all_of_them() -
 
 def test_a_business_with_no_modules_is_told_an_empty_list() -> None:
     business, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    assert told(business)["modules"] == []
+    assert ask_core(business.pk).json()["modules"] == []
 
 
 def test_hosted_refuses_what_could_reach_our_network_or_hold_a_password() -> None:
@@ -103,9 +95,9 @@ def test_a_local_module_is_refused_by_the_settings_check_itself_not_only_by_the_
     )
     Module.objects.create(business=business, name="ok", url=PUBLIC)
 
-    assert told(business)["modules"] == [{"name": "ok", "url": PUBLIC}]
+    assert ask_core(business.pk).json()["modules"] == [{"name": "ok", "url": PUBLIC}]
     settings.ALLOW_LOCAL_MODULES = True  # self-hosting serves it
-    assert told(business)["modules"] == [
+    assert ask_core(business.pk).json()["modules"] == [
         {"name": "sneaky", "command": "python", "args": ["-m", "x"]},
         {"name": "ok", "url": PUBLIC},
     ]
@@ -119,7 +111,7 @@ def test_a_self_hosted_portal_accepts_a_local_module_and_a_plain_http_address(
     add(client, "local", "python -m modules.example --port '8 8'")
     add(client, "mine", "http://127.0.0.1:9000/mcp")
 
-    assert told(business)["modules"] == [
+    assert ask_core(business.pk).json()["modules"] == [
         {
             "name": "local",
             "command": "python",
@@ -127,7 +119,7 @@ def test_a_self_hosted_portal_accepts_a_local_module_and_a_plain_http_address(
         },
         {"name": "mine", "url": "http://127.0.0.1:9000/mcp"},
     ]
-    assert not schema_errors(told(business))
+    assert not schema_errors(ask_core(business.pk).json())
     refused(client, "pw", "http://u:secret@127.0.0.1:9000/mcp")  # even here
 
 
@@ -222,7 +214,9 @@ def test_a_module_can_be_removed_and_swapped() -> None:
     old = Module.objects.get(name="old")
     assert client.post(f"/modules/{old.pk}/remove/")["Location"] == "/modules/"
     add(client, "new", "https://1.1.1.1/mcp")
-    assert told(business)["modules"] == [{"name": "new", "url": "https://1.1.1.1/mcp"}]
+    assert ask_core(business.pk).json()["modules"] == [
+        {"name": "new", "url": "https://1.1.1.1/mcp"}
+    ]
 
 
 def test_a_business_sees_and_removes_only_its_own_modules() -> None:
@@ -234,8 +228,10 @@ def test_a_business_sees_and_removes_only_its_own_modules() -> None:
     assert "annas" not in bo_client.get("/modules/").content.decode()
     assert bo_client.post(f"/modules/{theirs.pk}/remove/").status_code == 404
     assert Module.objects.filter(pk=theirs.pk).exists()
-    assert told(anna)["modules"] == [{"name": "annas", "url": PUBLIC}]
-    assert told(bo)["modules"] == []  # never served to the core for another Business
+    assert ask_core(anna.pk).json()["modules"] == [{"name": "annas", "url": PUBLIC}]
+    assert (
+        ask_core(bo.pk).json()["modules"] == []
+    )  # never served to the core for another Business
 
 
 def test_a_removal_must_be_a_post_behind_the_login() -> None:
@@ -309,7 +305,7 @@ def test_the_database_refuses_an_eleventh_module() -> None:
 def test_an_address_typed_with_a_capital_scheme_is_stored_in_lower_case() -> None:
     business, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
     add(client, "shouted", "HTTPS://8.8.8.8/Mcp")
-    assert told(business)["modules"] == [
+    assert ask_core(business.pk).json()["modules"] == [
         {"name": "shouted", "url": "https://8.8.8.8/Mcp"}
     ]
 

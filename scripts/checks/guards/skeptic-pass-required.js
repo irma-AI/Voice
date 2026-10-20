@@ -3,7 +3,7 @@
 // scripts/low-risk-paths.json) needs a "Skeptic pass" section in its body: the frozen SHA the skeptics read, then
 // the counterexamples found or "none found" (the skeptic-pass skill's output). The list is read from the base
 // branch (scripts/base-config.js), so a PR cannot drop a file it changes from it. CI sets GUARD_BASE and
-// GUARD_PR_TEXT (title, a newline, body) on pull requests; outside a pull-request run (a local make guards)
+// GUARD_PR_TEXT (title, a literal \n, body) on pull requests; outside a pull-request run (a local make guards)
 // nothing is compared, and a note says so. Known limit: the guard sees that the section is there, not that
 // skeptics ran or that the SHA is a commit of this PR.
 'use strict';

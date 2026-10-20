@@ -15,8 +15,7 @@ from django.core.management.base import CommandError
 from django.test import Client
 
 from portal.accounts.models import AccessToken, Account, Business, CallRecord, Module
-from tests.portal.helpers import PASSWORD, business_with_login
-from tests.portal.test_recent_calls import a_call
+from tests.portal.helpers import PASSWORD, a_call, business_with_login
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
