@@ -13,6 +13,12 @@
     <button type="button" class="ghost" data-copy="new-token" data-copied="Copied. Paste it into your agent." hidden>Copy token</button>
     <p class="snippet-copied" role="status"></p>
   </div>
+  <p class="mt-6 text-sm text-foam-muted">In Claude Code, run this once in a terminal. It holds the token, so it shows only now.</p>
+  <div class="snippet mt-2">
+    <pre id="claude-line" tabindex="0"><code>{{ made.claude }}</code></pre>
+    <button type="button" class="ghost" data-copy="claude-line" data-copied="Copied. Run it in a terminal." hidden>Copy line</button>
+    <p class="snippet-copied" role="status"></p>
+  </div>
 </section>
 {% endif %}
 
@@ -63,6 +69,16 @@
 </ul>
 {% endif %}
 <p class="mt-3 text-sm text-foam-muted">Times are in {{ time_zone }}.</p>
+
+<section class="mt-12 max-w-prose" aria-labelledby="connect-title">
+  <h2 id="connect-title" class="text-2xl">Connect an assistant</h2>
+  <p class="mt-2 text-foam-muted">Your Voice's address for assistants is <code class="break-all text-foam">{{ endpoint }}</code>.</p>
+  <ul class="mt-4 list-disc space-y-2 pl-5 text-foam-muted">
+    <li><strong class="font-medium text-foam">claude.ai or ChatGPT:</strong> add a custom connector with that address. You are sent here to log in, and you pick read-only or full. No token needed.</li>
+    <li><strong class="font-medium text-foam">Claude Code:</strong> make a token below, then run the line shown with it.</li>
+    <li><strong class="font-medium text-foam">A script:</strong> make a token, then send MCP requests to that address with the header <code class="whitespace-nowrap text-foam">Authorization: Bearer</code> and the token.</li>
+  </ul>
+</section>
 
 <form method="post" class="mt-12 max-w-md space-y-5">
   {% csrf_token %}

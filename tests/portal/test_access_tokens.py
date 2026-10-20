@@ -262,3 +262,21 @@ def test_a_label_is_changed_only_when_offboarding_blanks_a_revoked_token() -> No
             update_label(label, switch)
     token.refresh_from_db()
     assert token.label == "Owner A's laptop"
+
+
+def test_a_new_token_comes_with_the_line_that_connects_claude_code(
+    settings: Any,
+) -> None:
+    settings.PORTAL_URL = "https://portal.example.se"
+    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    page = make(client).content.decode()
+    secret = secret_in(page)
+    line = f"claude mcp add --transport http voice https://portal.example.se/mcp/ --header &quot;Authorization: Bearer {secret}&quot;"
+    assert line in page
+    later = client.get("/tokens/").content.decode()
+    assert (
+        "https://portal.example.se/mcp/" in later
+    )  # the address for a sign-in, and for a script
+    assert (
+        "claude mcp add" not in later
+    )  # the line holds the secret, so it shows once with it
