@@ -459,12 +459,12 @@ def test_transcript_messages_name_the_speaker() -> None:
     assert asyncio.run(RawPcmSerializer().serialize(LLMTextFrame("Hej hej"))) is None
 
 
-# What voice/page.html sends at call start: an iPhone with the loopback route up.
+# What voice/page.html sends at call start: an iPhone, which skips the loopback route (VOI-222).
 FACTS = {
     "echo_cancellation": True,
     "noise_suppression": True,
     "auto_gain_control": "remote-only",
-    "loopback": "set_up",
+    "loopback": "skipped",
     "sample_rate": 48000,
     "base_latency_ms": 5.3,
     "output_latency_ms": 0,

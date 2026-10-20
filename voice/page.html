@@ -318,6 +318,9 @@ function resampler(fromRate) {
 
 // What the browser applied, for the call's log (voice/serve.py checks each field): the microphone's settings, the
 // audio context, and the browser family and OS from fixed lists. The user-agent string itself never leaves the page.
+// Every browser on iOS, an iPad asking for desktop sites included (it says Macintosh but has touch).
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
 async function browserFacts(stream, ctx) {
   const facts = { sample_rate: ctx.sampleRate }, s = stream.getAudioTracks()[0]?.getSettings() ?? {};
   for (const [key, name] of [["echoCancellation", "echo_cancellation"], ["noiseSuppression", "noise_suppression"], ["autoGainControl", "auto_gain_control"]]) {
@@ -329,7 +332,7 @@ async function browserFacts(stream, ctx) {
   const ua = navigator.userAgent;
   facts.browser = /SamsungBrowser/.test(ua) ? "samsung" : /Edg(A|iOS)?\//.test(ua) ? "edge" : /Firefox|FxiOS/.test(ua) ? "firefox"
     : /Chrome|CriOS/.test(ua) ? "chrome" : /Safari/.test(ua) ? "safari" : "other";
-  facts.os = /iPhone|iPad|iPod/.test(ua) ? "ios" : /Android/.test(ua) ? "android" : /CrOS/.test(ua) ? "chromeos"
+  facts.os = IOS ? "ios" : /Android/.test(ua) ? "android" : /CrOS/.test(ua) ? "chromeos"
     : /Macintosh/.test(ua) ? "macos" : /Windows/.test(ua) ? "windows" : /Linux/.test(ua) ? "linux" : "other";
   // The OS's major version only where it is not frozen: Chromium's own, iOS Safari's and Firefox's Android number
   // (Chrome reports Android 10, macOS 10 and Windows NT 10 whatever runs). Chromium's only on Android and macOS: on
@@ -379,8 +382,11 @@ async function start() {
   // cut it off. The agent's audio therefore makes a round trip through a WebRTC connection to this page.
   const out = ctx.createMediaStreamDestination();
   const sender = new RTCPeerConnection(), receiver = new RTCPeerConnection();
-  let loopback = "set_up";
-  try {
+  // iOS (every browser there is WebKit): the loopback plays silence (VOI-222), and the system's voice processing
+  // cancels the phone's own output while the microphone is open, so the agent plays straight through Web Audio.
+  let loopback = IOS ? "skipped" : "set_up";
+  if (IOS) out.connect(ctx.destination);
+  else try {
     sender.onicecandidate = (e) => e.candidate && receiver.addIceCandidate(e.candidate);
     receiver.onicecandidate = (e) => e.candidate && sender.addIceCandidate(e.candidate);
     // Still refused: play straight through Web Audio, as when the loopback fails, so the agent is heard.
