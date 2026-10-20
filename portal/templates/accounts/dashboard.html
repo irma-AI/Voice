@@ -2,7 +2,7 @@
 {% block title %}Dashboard · Voice Portal{% endblock %}
 {% block content %}
 <div class="max-w-2xl">
-<h1 class="text-3xl break-words sm:text-4xl">{{ business.name|default:"Your account" }}</h1>
+<h1 class="text-4xl break-words sm:text-5xl">{{ business.name|default:"Your account" }}</h1>
 
 {% if business %}
 <form method="post" action="{% url 'test_call' %}" class="mt-8">
@@ -16,7 +16,7 @@
   <li><a href="{% url 'business_settings' %}">Edit your agent's settings</a></li>
   <li><a href="{% url 'modules' %}">Your agent's Modules</a></li>
   <li><a href="{% url 'calls' %}">Your recent calls</a></li>
-  <li><a href="{% url 'access_tokens' %}">Access tokens for your own agent</a></li>
+  <li><a href="{% url 'access_tokens' %}">Access tokens for your AI assistant</a></li>
   {% if sees_totals %}<li><a href="{% url 'totals' %}">Totals for every Business</a></li>
   <li><a href="{% url 'call_logs' %}">Call logs for every Business</a></li>{% endif %}
 </ul>
@@ -32,7 +32,7 @@
     <button type="button" class="ghost" data-copy="call-button-code" hidden>Copy code</button>
     <p class="snippet-copied" role="status"></p>
   </div>
-  <p class="max-w-prose text-sm text-foam-muted">The code names the script by a hash of its contents (<code>integrity</code>), so a browser runs only that exact file; when the script changes, new code to paste shows here. Your accent colour is written into the code: after changing it in your settings, paste the code again.</p>
+  <p class="max-w-prose text-sm text-foam-muted">The code lets a browser run only the button Voice made for you. When Voice updates the button, new code shows here: paste it again. Do the same after you change your accent colour.</p>
   <p class="max-w-prose text-sm text-foam-muted">Only if your website sets a security policy (a <code>Content-Security-Policy</code> or <code>Permissions-Policy</code> header), the button can fail to show, with no message. The policy must allow:</p>
   <ul class="max-w-prose list-disc space-y-1 pl-6 text-sm text-foam-muted">
     <li>scripts from <code>{{ portal_origin }}</code> (<code>script-src</code>)</li>

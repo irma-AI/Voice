@@ -351,6 +351,8 @@ EVENT_NAMES = {
     "end": "Call ends",
 }
 LOGS_SHOWN = 100
+# The events that frame a call: the timeline shows them quieter, so the barge-ins between them stand out.
+FRAME_EVENTS = {"config", "resumed", "end"}
 
 
 def log_summary(events: list[dict[str, Any]]) -> tuple[str, int, int]:
@@ -367,6 +369,19 @@ def log_summary(events: list[dict[str, Any]]) -> tuple[str, int, int]:
     barge_ins = sum(e.get("e") == "barge_in" for e in events)
     words = sum(e.get("e") == "caller_words" for e in events)
     return length, barge_ins, max(barge_ins - words, 0)
+
+
+def event_tone(events: list[dict[str, Any]], i: int) -> str:
+    """How the timeline draws event i: "no_words" for a barge-in with no Caller's words before the next one (log_summary's count, per event), "barge_in", "frame" for start, resume and end, else ""."""
+    kind = events[i].get("e")
+    if kind == "barge_in":
+        for later in events[i + 1 :]:
+            if later.get("e") == "caller_words":
+                return "barge_in"
+            if later.get("e") == "barge_in":
+                break
+        return "no_words"
+    return "frame" if kind in FRAME_EVENTS else ""
 
 
 def in_recorder_order(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -400,13 +415,20 @@ def call_logs(request: HttpRequest) -> HttpResponse:
 def call_log(request: HttpRequest, call_id: str) -> HttpResponse:
     """One Call log's events as a timeline: seconds since the call began, the event, and its logged fields."""
     log = get_object_or_404(CallLog.objects.select_related("business"), call_id=call_id)
+    ordered = in_recorder_order(log.events)
     events = [
         (
             e.get("t"),
             EVENT_NAMES.get(str(e.get("e")), e.get("e", "–")),
-            [(k, json.dumps(v)) for k, v in e.items() if k not in ("t", "call", "e")],
+            # A string without its JSON quotes and no empty object: the text file keeps the exact JSON.
+            [
+                (k, v if isinstance(v, str) else json.dumps(v))
+                for k, v in e.items()
+                if k not in ("t", "call", "e") and v not in ({}, [])
+            ],
+            event_tone(ordered, i),
         )
-        for e in in_recorder_order(log.events)
+        for i, e in enumerate(ordered)
     ]
     length, barge_ins, no_words = log_summary(log.events)
     return render(
@@ -489,7 +511,7 @@ class SettingsForm(forms.ModelForm):
         required=False,
         max_length=PRIVACY_URL_MAX,
         assume_scheme="https",
-        help_text="The address of your privacy notice for callers, for example https://www.example.se/privacy. Your Callers see a link to it on the call page. Leave it empty for none.",
+        help_text="The address of your privacy notice for your Callers, for example https://www.example.se/privacy. Your Callers see a link to it on the call page. Leave it empty for none.",
         widget=forms.URLInput(
             attrs={
                 "autocomplete": "url",

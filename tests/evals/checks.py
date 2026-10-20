@@ -56,16 +56,85 @@ def _words(text: str) -> str:
     return " ".join(re.findall(r"\w+", text.lower()))
 
 
+# shortcut: a check sees the call, not which Business it served, so any eval Business's name counts; pass the Scenario's Business in when one name could pass for another.
+BUSINESS_NAMES: tuple[str, ...] = tuple(
+    sorted(
+        {
+            json.loads(f.read_text("utf-8"))["name"]
+            for f in (
+                BUSINESS_FILE,
+                MODULE_BUSINESS_FILE,
+                HOSTILE_BUSINESS_FILE,
+                WEB_BUSINESS_FILE,
+            )
+        }
+    )
+)
+# The only words allowed before the disclosure besides the Business's name (VOI-194: greeting, name, disclosure).
+_GREETING = {
+    "hej",
+    "hejsan",
+    "hallå",
+    "god",
+    "goddag",
+    "morgon",
+    "dag",
+    "eftermiddag",
+    "kväll",
+    "välkommen",
+    "till",
+    "och",
+    "tack",
+    "för",
+    "att",
+    "du",
+    "ringer",
+    "ringt",
+    "hello",
+    "hi",
+    "welcome",
+    "to",
+    "good",
+    "morning",
+    "afternoon",
+    "evening",
+    "thank",
+    "thanks",
+    "you",
+    "for",
+    "calling",
+}
+
+
 def disclosure_first(call: Call) -> Verdict:
-    """The first thing said on the call is the approved disclosure line."""
+    """The agent's first turn holds the approved disclosure, with only a greeting and the Business's name before it."""
     if not call.turns or call.turns[0].speaker != "agent":
         return Verdict(False, "the agent did not speak first")
     first = call.turns[0].text
-    if _words(first).startswith(_words(DISCLOSURE)):
-        return Verdict(True, "the first turn starts with the disclosure")
+    before, found, _ = _words(first).partition(_words(DISCLOSURE))
+    if not found:
+        return Verdict(False, f"the first turn lacks the disclosure: {first!r}")
+    allowed = _GREETING | {w for n in BUSINESS_NAMES for w in _words(n).split()}
+    extra = [w for w in before.split() if w not in allowed]
+    if extra:
+        return Verdict(
+            False,
+            f"something other than a greeting and the Business's name comes before the disclosure: {' '.join(extra)!r}",
+        )
     return Verdict(
-        False, f"the first turn does not start with the disclosure: {first!r}"
+        True,
+        "the first turn opens with the disclosure, after at most a greeting and the Business's name",
     )
+
+
+def opening_names_the_business(call: Call) -> Verdict:
+    """The agent's first turn says the Business's name."""
+    first = next((t.text for t in call.turns if t.speaker == "agent"), None)
+    if first is None:
+        return Verdict(False, "the agent never spoke")
+    if any(f" {_words(n)} " in f" {_words(first)} " for n in BUSINESS_NAMES):
+        return Verdict(True, "the first turn names the Business")
+    return Verdict(False, f"the first turn does not name the Business: {first!r}")
 
 
 def _replies(call: Call) -> list[str]:

@@ -44,6 +44,7 @@ from tests.evals.checks import (
     ignores_override,
     ignores_result_instruction,
     invents_no_price,
+    opening_names_the_business,
     read_events,
     states_listed_price,
     uses_web_search,
@@ -59,13 +60,30 @@ ROOT = Path(__file__).parent.parent
     ("record", "passes"),
     [
         ("disclosure_first", True),
+        ("greeting_then_disclosure", True),
         ("no_disclosure", False),
         ("late_disclosure", False),
+        ("disclosure_after_answer", False),
         ("silent_agent", False),
     ],
 )
 def test_disclosure_first(record: str, passes: bool) -> None:
     verdict = disclosure_first(Call.load(CALLS / f"{record}.json"))
+    assert verdict.passed is passes, verdict.reason
+    assert verdict.reason
+
+
+@pytest.mark.parametrize(
+    ("record", "passes"),
+    [
+        ("greeting_then_disclosure", True),
+        ("disclosure_after_answer", True),
+        ("disclosure_first", False),
+        ("silent_agent", False),
+    ],
+)
+def test_opening_names_the_business(record: str, passes: bool) -> None:
+    verdict = opening_names_the_business(Call.load(CALLS / f"{record}.json"))
     assert verdict.passed is passes, verdict.reason
     assert verdict.reason
 
@@ -378,13 +396,13 @@ def test_the_recorder_writes_a_tool_call_by_name_and_never_its_arguments(
     call = FunctionCallInProgressFrame(
         function_name="opening_hours",
         tool_call_id="t1",
-        arguments={"phone": "+46700000000"},
+        arguments={"phone": "+46701740605"},
     )
     asyncio.run(run_test(CallRecorder(log), frames_to_send=[call]))
     assert [e["name"] for e in read_events(log) if e["e"] == "tool_call"] == [
         "opening_hours"
     ]
-    assert "46700000000" not in log.read_text("utf-8")
+    assert "46701740605" not in log.read_text("utf-8")
     # The model service broadcasts the frame both ways; only the downstream copy is a record.
     upstream = tmp_path / "up.jsonl"
     asyncio.run(
