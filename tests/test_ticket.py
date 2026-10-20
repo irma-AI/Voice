@@ -76,6 +76,11 @@ def test_a_call_link_ticket_needs_a_plain_hostname_and_a_test_call_has_none() ->
             read_ticket(good(kind="call_link", domain=domain), SECRET, NOW) is None
         ), domain
     assert read_ticket(good(kind="test", domain="example.se"), SECRET, NOW) is None
+    # A demo call is framed by the landing page, so it carries a domain like a call link.
+    assert read_ticket(good(kind="demo", domain=""), SECRET, NOW) is None
+    assert read_ticket(good(kind="demo", domain="example.se"), SECRET, NOW) == Ticket(
+        7, "demo", "example.se"
+    )
 
 
 def test_a_hostname_may_be_253_characters_and_no_longer() -> None:

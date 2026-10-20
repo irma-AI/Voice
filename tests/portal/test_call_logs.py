@@ -69,9 +69,18 @@ def test_a_valid_log_is_stored_and_a_repeat_stores_nothing_more() -> None:
     assert stored.started_at.isoformat() == "2026-10-19T05:00:00+00:00"
 
 
+def test_a_log_of_every_kind_the_contract_names_is_stored() -> None:
+    """A demo call's log (VOI-243) is stored like the others; the parity test below holds the set to the contract."""
+    business = a_business()
+    for n, kind in enumerate(CALL_KINDS):
+        log = a_log(business, call_id=f"c0ffee-{n:012d}", kind=kind)
+        assert send(log).status_code == 201, kind
+    assert sorted(CallLog.objects.values_list("kind", flat=True)) == sorted(CALL_KINDS)
+
+
 # Each bad log is also checked against the schema by the parity test below.
 BAD: dict[str, dict[str, Any]] = {
-    "unknown kind": {"kind": "demo"},
+    "unknown kind": {"kind": "phone"},
     "call id with words": {"call_id": "hello, I would like to book"},
     "time in another zone": {"started_at": "2026-10-19T07:00:00+02:00"},
     "events that are not a list": {"events": {"t": 1}},
@@ -191,7 +200,7 @@ def test_the_database_itself_refuses_a_log_that_breaks_a_rule() -> None:
         "events": EVENTS,
     }
     for changes, rule in (
-        ({"kind": "demo"}, "call_log_kind"),
+        ({"kind": "phone"}, "call_log_kind"),
         ({"call_id": "words, not a code"}, "call_log_id"),
         (
             {"started_at": datetime.now(UTC) + timedelta(hours=2)},

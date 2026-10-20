@@ -49,8 +49,11 @@ from voice.ticket import frame_ancestors, from_query, read_ticket
 # What Gemini Live takes in and gives out; the page is served with these two numbers.
 IN_RATE = 16000
 OUT_RATE = 24000
-# ponytail: a hard cap so a forgotten tab can't spend Gemini credit all night; make it a setting if calls legitimately run longer.
-MAX_CALL_SECS = 600
+# ponytail: a hard cap per kind so a forgotten tab can't spend Gemini credit all night; make it a setting if calls legitimately run longer.
+# A demo call from the landing page gets 3 minutes (Petter, 2026-10-20, VOI-243). tests/test_serve.py fails for a kind with no cap.
+CALL_SECS = {"test": 600, "call_link": 600, "demo": 180}
+# The longest call of any kind: the Portal's worst-case rate (tests/portal/test_call_link.py) and the drain wait are sized to it.
+MAX_CALL_SECS = max(CALL_SECS.values())
 # A stop waits this long at most for open calls: every call ends within MAX_CALL_SECS, and Dokploy kills at 660 s.
 DRAIN_CEILING_S = MAX_CALL_SECS + 30
 
@@ -159,8 +162,8 @@ async def receive_page_facts(websocket: WebSocket) -> dict[str, object] | None:
     return page_facts(message.get("text"))
 
 
-def render_page(settings: Settings | None) -> str:
-    """The call page for one Business, in its Theme; None (no settings to be had) is Voice's own look.
+def render_page(settings: Settings | None, call_secs: int) -> str:
+    """The call page for one Business, in its Theme, with its ring sized to this call's cap; None (no settings to be had) is Voice's own look.
 
     Text from the settings is escaped; the colours were checked as `#` and six hex digits by the settings port.
     """
@@ -190,7 +193,7 @@ def render_page(settings: Settings | None) -> str:
     return (
         PAGE.replace("__IN_RATE__", str(IN_RATE))
         .replace("__OUT_RATE__", str(OUT_RATE))
-        .replace("__MAX_CALL_SECS__", str(MAX_CALL_SECS))
+        .replace("__MAX_CALL_SECS__", str(call_secs))
         .replace(
             "__SERVED_AT__", str(int(time.time()))
         )  # the page tells an expired ticket by the core's clock
@@ -428,7 +431,8 @@ def create_app(ticket_secret: str) -> FastAPI:
             logger.warning("call page in Voice's own look: {}", e)
             settings = None
         return HTMLResponse(
-            render_page(settings), headers={"Content-Security-Policy": csp}
+            render_page(settings, CALL_SECS[ticket.kind]),
+            headers={"Content-Security-Policy": csp},
         )
 
     @app.get(FONTS_PATH + "{name}")
@@ -473,7 +477,7 @@ def create_app(ticket_secret: str) -> FastAPI:
                     audio_in_sample_rate=IN_RATE,
                     audio_out_sample_rate=OUT_RATE,
                     serializer=RawPcmSerializer(),
-                    session_timeout=MAX_CALL_SECS,
+                    session_timeout=CALL_SECS[ticket.kind],
                 ),
             )
 

@@ -96,6 +96,17 @@ def test_a_valid_record_is_stored_and_a_repeat_stores_nothing_more() -> None:
     assert stored.started_at.isoformat() == "2026-10-17T05:00:00+00:00"
 
 
+def test_a_record_of_every_kind_the_contract_names_is_stored() -> None:
+    """A demo call (VOI-243) is stored like the others; the parity test below holds the set to the contract."""
+    owner = a_business()
+    for n, kind in enumerate(CALL_KINDS):
+        record = a_record(owner, call_id=f"c0ffee-{n:012d}", kind=kind)
+        assert send(record).status_code == 201, kind
+    assert sorted(CallRecord.objects.values_list("kind", flat=True)) == sorted(
+        CALL_KINDS
+    )
+
+
 def test_a_record_with_no_cost_keeps_its_length_and_tokens_and_says_why() -> None:
     record = a_record(
         a_business(),
@@ -152,7 +163,7 @@ def test_each_core_report_address_refuses_a_wrong_secret_before_any_lookup_and_a
 
 # Each bad record is also checked against the schema by the parity test below.
 BAD: dict[str, dict[str, Any]] = {
-    "unknown kind": {"kind": "demo"},
+    "unknown kind": {"kind": "phone"},
     "negative length": {"length_seconds": -1},
     "negative tokens": {"thinking_tokens": -5},
     "fractional tokens": {"prompt_tokens": 1.5},
@@ -252,7 +263,9 @@ def test_the_database_itself_refuses_a_record_that_breaks_a_rule() -> None:
     ):
         CallRecord.objects.create(**good)  # no cost and no reason
     with pytest.raises(IntegrityError, match="call_record_kind"), transaction.atomic():
-        CallRecord.objects.create(**{**good, "kind": "demo", "cost_reason": "none_yet"})
+        CallRecord.objects.create(
+            **{**good, "kind": "phone", "cost_reason": "none_yet"}
+        )
     with pytest.raises(IntegrityError, match="call_record_id"), transaction.atomic():
         CallRecord.objects.create(
             **{**good, "call_id": "words, not a code", "cost_reason": "none_yet"}
