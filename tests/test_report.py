@@ -302,8 +302,9 @@ def test_no_portal_to_send_to_is_logged_not_ignored() -> None:
 def test_the_security_rule_lists_every_field_a_production_log_line_may_hold() -> None:
     """A new field in the record or in Pipecat's usage report fails here until `.claude/rules/security.md` lists it."""
     rule = (ROOT / ".claude/rules/security.md").read_text()
+    line = next(l for l in rule.splitlines() if l.startswith("- The Call record log"))
     for field in [*SCHEMA["properties"], "call", *LLMTokenUsage.model_fields]:
-        assert f"`{field}`" in rule, (
+        assert f"`{field}`" in line, (
             f"add `{field}` to the Call record line in .claude/rules/security.md"
         )
 
