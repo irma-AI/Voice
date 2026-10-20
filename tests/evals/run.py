@@ -2,7 +2,7 @@
 
 Paid (every call spends Gemini credit), never automatic: an agent asks Petter before each run
 (CLAUDE.md § Stop and ask), and only his PC or the manual Evals workflow runs it. Exit 0 all
-passed, 1 a Scenario failed, 2 bad Scenario id, 3 a spend cap stopped the run.
+passed, 1 a Scenario failed (or the first never reached the agent, which stops the run), 2 bad Scenario id, 3 a spend cap stopped the run.
 """
 
 import json
@@ -56,14 +56,13 @@ SCENARIO_DIR = ROOT / "tests" / "evals" / "scenarios"
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
 # The disclosure is the legal line, so every call is checked for it, not one sample.
 SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
-    "disclosure_first": [disclosure_first, gives_opening_hours],
     "swedish_question": [disclosure_first, states_listed_price],
     "english_call": [disclosure_first, answers_in_english],
     "language_switch": [disclosure_first, follows_language_switch],
     "unknown_price": [disclosure_first, invents_no_price],
     "ignore_instructions": [disclosure_first, ignores_override],
     "booking_request": [disclosure_first, books_nothing],
-    "noise_barge_in": [disclosure_first, agent_not_cut_off],
+    "noise_barge_in": [disclosure_first, agent_not_cut_off, gives_opening_hours],
     "speech_barge_in": [disclosure_first, agent_cut_off, barge_in_fields_logged],
     "module_hours": [disclosure_first, gives_module_hours],
     "module_injection": [disclosure_first, ignores_result_instruction],
@@ -156,6 +155,15 @@ def module_log(run_dir: Path, name: str) -> list[str]:
     return [line for line in lines if "Module " in line][:5]
 
 
+def never_reached(log: Path) -> str | None:
+    """Why a call never reached the agent (no call record, or no agent turn in it); None if it did."""
+    if not log.exists():
+        return "no call record"
+    if not any(t.speaker == "agent" for t in call_from_log(log).turns):
+        return "no agent turn in the call record"
+    return None
+
+
 def missing_audio(ids: list[str], scenarios: Path = SCENARIO_DIR) -> str | None:
     """The first audio file the given Scenarios play that does not exist, if any."""
     for sc in ids:
@@ -228,7 +236,7 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         os.environ.get("EVAL_LOOP_ID", ""),
     )
     run_dir = runs / run_id
-    spent, rows, stopped = 0.0, list[Row](), None
+    spent, rows, stopped, unreached = 0.0, list[Row](), None, None
     played: dict[str, tuple[int, Path]] = {}
     for i, (sc, base) in enumerate(pairs):
         if batch := batch_at(pairs, i):
@@ -244,9 +252,13 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
                 calls = pool.map(_play, bases, [run_dir] * len(batch), names, ports)
                 played = dict(zip(names, calls, strict=True))
         code, log = played[sc]
+        # A first call that never reached the agent means a broken harness: the rest would fail the same way.
+        unreached = None if rows else never_reached(log)
         if not log.exists():
             missing = Verdict(False, f"no call record (suite exit {code})")
             rows.append(Row(sc, {"suite exit": missing}, 0.0, 0, None))
+            if unreached:
+                break
             continue
         events = read_events(log)
         usage = [e for e in events if e.get("e") == "usage"]
@@ -274,8 +286,14 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         )
         # Stop only between batches: the rest of a batch is already paid for and must reach the ledger.
         batch_end = i + 1 == len(pairs) or batch_at(pairs, i + 1) is not None
-        if stopped and batch_end:
+        if (stopped or unreached) and batch_end:
             break
+    if unreached:
+        print(
+            f"STOPPED: the first Scenario never reached the agent ({unreached}); "
+            f"{len(ids) - len(rows)} Scenario(s) not run",
+            file=sys.stderr,
+        )
     return report(rows, run_dir, spent, stopped, skipped=len(ids) - len(rows))
 
 

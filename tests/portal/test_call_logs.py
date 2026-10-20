@@ -23,100 +23,15 @@ from portal.accounts.models import (
     Business,
     CallLog,
 )
+from tests.portal.helpers import CALL, EVENTS, SECRET, a_log
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
 ROOT = Path(__file__).parents[2]
-SECRET = "a-secret-for-tests"
 SCHEMA: dict[str, Any] = json.loads(
     (ROOT / "contract/call-log.schema.json").read_text()
 )
 EVENT: dict[str, Any] = SCHEMA["$defs"]["event"]
-CALL = "c0ffee-0123456789"
-# The core's own lines (voice/bargein.py), one of each event.
-EVENTS: list[dict[str, Any]] = [
-    {
-        "t": 0.0,
-        "call": CALL,
-        "e": "config",
-        "vad": {"start_sensitivity": "START_SENSITIVITY_LOW", "prefix_padding_ms": 300},
-        "page_facts": "sent",
-        "echo_cancellation": True,
-        "noise_suppression": "remote-only",
-        "auto_gain_control": False,
-        "loopback": "set_up",
-        "sample_rate": 48000,
-        "base_latency_ms": 5.3,
-        "output_latency_ms": 21.0,
-        "browser": "safari",
-        "os": "ios",
-        "os_version": 18,
-    },
-    {"t": 1.2, "call": CALL, "e": "bot_speech", "phase": "start"},
-    {
-        "t": 2.5,
-        "call": CALL,
-        "e": "barge_in",
-        "bot_speaking": True,
-        "bot_ms": 1300,
-        "peak_dbfs": -12.5,
-        "rms_dbfs": -30.1,
-        "src": "gemini",
-        "echo_corr": 0.12,
-        "echo_lag_ms": 180,
-    },
-    {"t": 2.6, "call": CALL, "e": "bot_speech", "phase": "stop", "played_ms": 1400},
-    {
-        "t": 3.0,
-        "call": CALL,
-        "e": "levels",
-        "after_barge_in_ms": 500,
-        "caller_dbfs": [
-            -60.2,
-            -58.0,
-            -31.5,
-            -25.0,
-            -24.1,
-            -26.3,
-            -28.0,
-            -30.2,
-            -45.0,
-            -60.0,
-        ],
-        "bot_dbfs": [
-            -20.1,
-            -19.5,
-            -21.0,
-            -20.4,
-            -22.0,
-            -100.0,
-            -100.0,
-            -100.0,
-            -100.0,
-            -100.0,
-        ],
-    },
-    {
-        "t": 3.1,
-        "call": CALL,
-        "e": "caller_words",
-        "words": 4,
-        "after_barge_in_ms": 600,
-        "similarity": 0.0,
-    },
-    {"t": 4.0, "call": CALL, "e": "resumed", "after_barge_in_ms": 1500},
-    {
-        "t": 9.9,
-        "call": CALL,
-        "e": "end",
-        "reason": "cancel",
-        "secs": 9.9,
-        "barge_ins": 1,
-        "no_words": 0,
-        "cut_share": 1.0,
-        "playback_gaps": 2,
-    },
-]
 LEVELS = EVENTS[4]
 
 
@@ -126,19 +41,8 @@ def core_secret(settings: Any) -> None:
 
 
 def a_business() -> Business:
-    account = Account.objects.create_user("anna.testsson@example.com", "x" * 20)
-    return Business.objects.create(account=account, name="Anna's Salon")
-
-
-def a_log(owner: Business, **changes: Any) -> dict[str, Any]:
-    return {
-        "call_id": CALL,
-        "business": owner.pk,
-        "kind": "test",
-        "started_at": "2026-10-19T05:00:00.000000Z",
-        "events": EVENTS,
-        **changes,
-    }
+    account = Account.objects.create_user("user-a@example.com", "x" * 20)
+    return Business.objects.create(account=account, name="Owner A's Salon")
 
 
 def run_sql(*statements: str, params: list[Any] | None = None) -> Any:
@@ -163,46 +67,6 @@ def test_a_valid_log_is_stored_and_a_repeat_stores_nothing_more() -> None:
     stored = CallLog.objects.get()
     assert (stored.business, stored.kind, stored.events) == (business, "test", EVENTS)
     assert stored.started_at.isoformat() == "2026-10-19T05:00:00+00:00"
-
-
-def test_without_the_secret_or_with_a_wrong_one_it_answers_401_before_any_lookup(
-    django_assert_num_queries: Any, settings: Any
-) -> None:
-    log = a_log(a_business())
-    with django_assert_num_queries(0):
-        assert send(log, secret=None).status_code == 401
-        assert send(log, secret="wrong").status_code == 401
-        assert send({}, secret="wrong").status_code == 401  # not even read
-    settings.CORE_SECRET = ""
-    assert send(log, secret="").status_code == 401  # an unset secret refuses all
-    assert CallLog.objects.count() == 0
-
-
-def test_only_a_post_is_answered() -> None:
-    assert (
-        Client()
-        .get("/api/call-logs/", headers={"Authorization": f"Bearer {SECRET}"})
-        .status_code
-        == 405
-    )
-
-
-def test_a_log_for_an_unknown_business_is_refused() -> None:
-    business = a_business()
-    response = send(a_log(business, business=business.pk + 1))
-    assert response.status_code == 400 and response.json()["fields"] == ["business"]
-    assert CallLog.objects.count() == 0
-
-
-def test_only_the_listed_fields_are_accepted_and_all_are_required() -> None:
-    business = a_business()
-    assert send(a_log(business, transcript="hello")).status_code == 400
-    log = a_log(business)
-    del log["events"]
-    assert send(log).status_code == 400
-    assert send(None, raw=b"not json").status_code == 400
-    assert send([1, 2]).status_code == 400
-    assert CallLog.objects.count() == 0
 
 
 # Each bad log is also checked against the schema by the parity test below.

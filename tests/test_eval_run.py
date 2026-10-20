@@ -24,6 +24,7 @@ from tests.evals.run import (
     main,
     missing_audio,
     module_log,
+    never_reached,
     plan,
     report,
 )
@@ -40,7 +41,7 @@ def test_a_reached_day_cap_stops_with_exit_3_before_any_spend(tmp_path: Path) ->
     (tmp_path / "ledger.jsonl").write_text(json.dumps(entry) + "\n", "utf-8")
     caps = Caps(per_run_sek=10, per_loop_sek=30, per_day_sek=0.5)
 
-    assert main("disclosure_first", runs=tmp_path, caps=caps) == 3
+    assert main("swedish_question", runs=tmp_path, caps=caps) == 3
     assert (
         not (tmp_path / "ledger.jsonl").read_text("utf-8").count("\n") > 1
     )  # nothing new was spent
@@ -138,3 +139,15 @@ def test_a_batch_starts_only_if_its_worst_case_fits_under_the_caps(
     # 0.5 spent, the dearest call in the ledger cost 0.2: three more could reach 1.1
     assert batch_stop(caps, tmp_path, 0.5, 3, "", "2026-10-20") == "run cap 1 SEK"
     assert batch_stop(caps, tmp_path, 0.5, 2, "", "2026-10-20") is None
+
+
+def test_a_call_that_never_reached_the_agent_is_named(tmp_path: Path) -> None:
+    # main() stops the run on this after the first Scenario, so a broken harness spends nothing more
+    log = tmp_path / "call.jsonl"
+    assert never_reached(log) == "no call record"
+    log.write_text('{"e": "usage", "prompt_tokens": 0}\n', "utf-8")
+    assert never_reached(log) == "no agent turn in the call record"
+    log.write_text(
+        '{"e": "caller", "text": "hej"}\n{"e": "agent_llm", "text": "Hej!"}\n', "utf-8"
+    )
+    assert never_reached(log) is None

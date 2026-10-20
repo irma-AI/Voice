@@ -121,7 +121,7 @@ def test_a_second_action_with_a_taken_name_is_dropped() -> None:
 
 
 def test_the_prompt_promises_tools_only_when_actions_reached_the_model() -> None:
-    business = Settings("Anna's Salon", "Öppet.", ("sv",), (EXAMPLE,))
+    business = Settings("Owner A's Salon", "Öppet.", ("sv",), (EXAMPLE,))
     assert "You also have tools" not in system_instruction(business)
     with_tools = system_instruction(business, has_actions=True)
     assert "You also have tools" in with_tools
