@@ -131,7 +131,10 @@ async def follows_the_token(
     if ctx.method == "tools/call":
         params = ctx.params or {}
         name = params.get("name")
-        need = COMMANDS.get(name) if isinstance(name, str) else None
+        arguments = params.get("arguments")
+        # Arguments that are not an object go on untouched: the SDK refuses them alike for every name.
+        readable = arguments is None or isinstance(arguments, dict)
+        need = COMMANDS.get(name) if isinstance(name, str) and readable else None
         if (
             need is not None
         ):  # a name with no entry goes on, to the SDK's "Unknown tool" or the Command's own refusal
@@ -143,7 +146,7 @@ async def follows_the_token(
                 return await sdk_answer(ctx, call_next, f"Unknown tool: {name}")
             tool = server._tool_manager.get_tool(name)  # pyright: ignore[reportPrivateUsage]
             named = set(tool.parameters.get("properties", {})) if tool else set()
-            extra = sorted(set(params.get("arguments") or {}) - named)
+            extra = sorted(set(arguments or {}) - named)
             if extra:  # the SDK would drop it and run; the schema says additionalProperties: false
                 await sync_to_async(refuse)(token, name)
                 return await sdk_answer(
@@ -209,12 +212,10 @@ def command(
                 return refused(name)
             try:
                 with timed():
-                    # Revoked since the endpoint read it? The lock holds a revoke back until the Command ends.
-                    live = (
-                        AccessToken.objects.select_for_update(no_key=True)
-                        .filter(pk=token.pk, revoked_at__isnull=True)
-                        .first()
-                    )
+                    # Revoked since the endpoint read it? No lock: one would hold up the token's other requests (DECISIONS.md).
+                    live = AccessToken.objects.filter(
+                        pk=token.pk, revoked_at__isnull=True
+                    ).first()
                     if live is not None:
                         result = fn(ctx, **arguments)
                         # In the Command's transaction: a Command whose record cannot be written does not happen.

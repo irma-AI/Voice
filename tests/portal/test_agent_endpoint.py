@@ -8,6 +8,8 @@ The Commands run on the SDK's worker threads with their own database connection,
 
 import json
 import re
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -482,3 +484,73 @@ def test_a_command_record_takes_the_databases_clock_only() -> None:
             CommandRecord.objects.create(
                 token=token, command="list_recent_calls", result="done", sent_at=forged
             )
+
+
+def test_a_running_command_does_not_hold_up_another_request_with_the_same_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An assistant lists tools while a Command of its runs (skeptic pass round 2, VOI-112)."""
+
+    @agent.command("Slow read", ToolAnnotations(read_only_hint=True))
+    def slow_read(ctx: Context[Any, Any]) -> str:
+        with (
+            connection.cursor() as cursor
+        ):  # each statement under the timeout, the Command as a whole past it
+            for _ in range(3):
+                cursor.execute("SELECT pg_sleep(0.4)")
+        return "ran"
+
+    monkeypatch.setitem(agent.COMMANDS, "slow_read", "read")
+    monkeypatch.setattr(agent, "COMMAND_TIMEOUT_MS", 600)
+    try:
+        secret = a_token(a_business())
+        with ThreadPoolExecutor(1) as pool:
+
+            def slow_call() -> Any:
+                try:
+                    return call("slow_read", secret)
+                finally:
+                    connection.close()  # the test client leaves its thread's connection open
+
+            running = pool.submit(slow_call)
+            time.sleep(0.5)  # the Command holds its token
+            listed = ask("tools/list", secret=secret)
+            running.result()
+        assert listed.status_code == 200, listed.content
+    finally:
+        agent.server.remove_tool("slow_read")
+
+
+@pytest.mark.parametrize("era", ERAS)
+def test_arguments_that_are_not_an_object_get_the_sdks_refusal_for_every_name(
+    era: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A hidden Command answers like an unknown one, and the middleware does not crash (skeptic pass round 2, VOI-112)."""
+
+    @agent.command("Hidden", ToolAnnotations(read_only_hint=True))
+    def hidden(ctx: Context[Any, Any]) -> str:
+        return "ran"
+
+    monkeypatch.setitem(agent.COMMANDS, "hidden", "operator_write")
+    try:
+        secret = a_token(a_business())
+        for arguments in (5, "ab", [{}], True):
+            answers = [
+                ask("tools/call", {"name": name, "arguments": arguments}, secret, era)
+                for name in ("hidden", "no_such_command", "list_recent_calls")
+            ]
+            bodies = {
+                json.dumps(a.json()).replace(n, "X")
+                for a, n in zip(
+                    answers,
+                    ("hidden", "no_such_command", "list_recent_calls"),
+                    strict=True,
+                )
+            }
+            assert len(bodies) == 1 and "error" in answers[0].json(), (
+                arguments,
+                bodies,
+            )
+        assert not CommandRecord.objects.exists()
+    finally:
+        agent.server.remove_tool("hidden")
