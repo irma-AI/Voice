@@ -110,6 +110,26 @@ How to render without touching eval-required paths (`scripts/eval-required.json`
 
 Where the clips go: they are synthetic agent speech, not a person, so no rule forbids keeping them, but they are not product either. Write them to the git-ignored `eval-runs/voice-samples/` (or the ticket's shared folder) and share them for listening, not commit them.
 
+### Render results
+
+Rendered by the Evals workflow with `target=voice-samples` after Petter's Approve ([run 39379261046](https://github.com/irma-AI/Voice/actions/runs/39379261046), 2026-10-20); the clips are that run's artifact, not committed. Figures from the run's log, one call per setup:
+
+| # | Call length | Tokens | Cost |
+|---|---|---|---|
+| A | 22.9 s | 4,179 | 0.16 SEK |
+| B | 18.9 s | 3,554 | 0.13 SEK |
+| C | 20.1 s | 3,764 | 0.14 SEK |
+| D1 | 18.7 s | 3,628 | 0.12 SEK |
+| D2 | 17.9 s | 3,757 | 0.13 SEK |
+| D3 | 20.2 s | 3,707 | 0.14 SEK |
+| D4 | 19.1 s | 3,755 | 0.13 SEK |
+| E | 16.7 s | 3,787 | 0.12 SEK |
+| Total | | | 1.06 SEK |
+
+Petter listened on 2026-10-20 and picked **E**: "clearly best" and "feels much snappier than the others". C, the same default voice without the 500 ms silence and the tone lines, did not stand out. So the gain comes from the silence duration and the tone lines more than from the voice; E is also the shortest call. Each clip is one sample; no second take was rendered.
+
+What it implies: the next changes are timing and prompt, not the voice. VOI-178 carries the 500 ms silence and VOI-196 the prompt with the persona and tone lines; each is an eval-required change, so each needs a full paid `make eval` and Petter's go.
+
 ## 6. Google's guidance for best results, against `voice/agent.py`
 
 | Topic | What Google says | Core today | Worth testing |
