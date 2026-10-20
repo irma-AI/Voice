@@ -5,7 +5,7 @@ voice/settings.py reads that only to choose its source), and holds the rules eve
 Portal request keeps: the secret goes as a Bearer token, a redirect is never followed (it would carry the secret
 along), and a log line or error names the Portal's host and the kind of failure only (the address could hold a
 password, an error message the secret). `get` tries once and fails closed (the settings fetch); `post` tries again
-for up to a minute (the Call record and Call log sends). The Portal never imports this, and this never imports it.
+for up to a minute (the Call record and Call log sends), except after a 4xx other than 408 or 429. The Portal never imports this, and this never imports it.
 """
 
 import json
@@ -84,7 +84,7 @@ def post(
     window_s: float = RETRY_WINDOW_S,
     pause_s: float = RETRY_PAUSE_S,
 ) -> bool:
-    """Posts one call's `body` (it holds `call_id`) to `path`, trying again for up to `window_s` seconds. Blocks, so it runs in a thread."""
+    """Posts one call's `body` (it holds `call_id`) to `path`, trying again for up to `window_s` seconds unless the Portal answers a 4xx other than 408 or 429. Blocks, so it runs in a thread."""
     call = body["call_id"]
     url, key = _portal(env)
     if not (url and key):
@@ -102,9 +102,11 @@ def post(
                 return True
         except urllib.error.HTTPError as e:
             why = f"answered {e.code}"
+            # A refusal no retry can change (bad body, wrong secret, wrong path) would hold a sender thread for the whole window.
+            hopeless = 400 <= e.code < 500 and e.code not in (408, 429)
         except Exception as e:  # noqa: BLE001  the kind only: a message could hold the secret
-            why = type(e).__name__
-        if time.monotonic() + pause_s > deadline:
+            why, hopeless = type(e).__name__, False
+        if hopeless or time.monotonic() + pause_s > deadline:
             logger.error(
                 "call {}: gave up sending the {} to the Portal at {} ({}); the log lines above are the only copy",
                 call,

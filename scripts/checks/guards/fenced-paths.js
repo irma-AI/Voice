@@ -1,21 +1,22 @@
 #!/usr/bin/env node
 // Guard: a pull request that changes a fenced path (the "fenced" key in scripts/low-risk-paths.json,
-// today tests/evals/**) needs the label named there, which only Petter adds. CI sets GUARD_BASE on pull
+// today tests/evals/**, voice/prices.json and eval-receipt.json) needs the label named there, which only Petter adds. CI sets GUARD_BASE on pull
 // requests and GUARD_PR_LABELS to the PR's label names as JSON; with GUARD_BASE but no labels it refuses. The fence
 // is read from the base branch (scripts/base-config.js).
 // Outside a pull-request run (a local make guards) nothing is compared, and a note says so.
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { readBaseJson, changedFiles, inFixture } = require(path.join(__dirname, '..', '..', 'base-config.js'));
+const { readBaseJson, changedFiles, inFixture, mergeGroup } = require(path.join(__dirname, '..', '..', 'base-config.js'));
 const ROOT = process.env.GUARD_ROOT || process.cwd();
 
 // A fixture has `.guard-changed-files` (and `.guard-labels`) in place of a git diff and the CI env.
 const listed = path.join(ROOT, '.guard-changed-files');
 const fixture = inFixture(ROOT) && fs.existsSync(listed);
-if (!fixture && !process.env.GUARD_BASE) {
+if (!fixture && (!process.env.GUARD_BASE || mergeGroup)) {
   console.log('#scanned 1');
-  console.error('not a pull-request run (GUARD_BASE unset): the fence is checked in CI only');
+  console.error(mergeGroup ? 'merge queue run: a merge group has no labels; the fence was checked on the PR\'s own run'
+    : 'not a pull-request run (GUARD_BASE unset): the fence is checked in CI only');
   process.exit(0);
 }
 

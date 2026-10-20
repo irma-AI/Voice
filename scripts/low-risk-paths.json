@@ -1,5 +1,5 @@
 {
-  "fenced": {"label": "evals-approved", "paths": ["tests/evals/**", "voice/prices.json"]},
+  "fenced": {"label": "evals-approved", "paths": ["tests/evals/**", "voice/prices.json", "eval-receipt.json"]},
   "no_ticket": ["docs/**", "DECISIONS.md", "GLOSSARY.md"],
   "frozen": ["portal/static/portal/call-button.v1.js", "portal/call-button.v1.integrity"],
   "skeptic_pass": ["voice/ticket.py", "voice/auth.py", "voice/serve.py", "voice/cost.py", "voice/prices.json", "voice/report.py", "voice/portal_client.py", "portal/accounts/views.py", "portal/accounts/models.py", "portal/accounts/ticket.py", "portal/accounts/tokens.py", "portal/accounts/prod_script.py", "portal/accounts/management/commands/offboard_business.py", "portal/accounts/migrations/**", "portal/settings.py", "portal/urls.py"]
