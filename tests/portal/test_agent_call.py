@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 
 from portal.accounts.models import Business, CommandRecord
+from portal.accounts.views import BUDGET_SPENT_REFUSAL
 from tests.portal.helpers import business_with_login
 from tests.portal.test_agent_endpoint import a_token, ask
 from tests.portal.test_test_call import SECRET, core, ticket_in  # noqa: F401  (core: the autouse fixture)
@@ -43,22 +44,22 @@ def test_the_script_is_the_dashboards_tag_once_a_website_is_saved() -> None:
     assert tag in html.unescape(client.get("/dashboard/").content.decode())
 
 
-def test_the_test_call_link_carries_the_buttons_own_ticket_for_the_tokens_business() -> (
-    None
-):
+def test_the_test_call_link_is_a_test_call_counted_toward_the_budget() -> None:
     business, client = business_with_login("user-a@example.com", "Owner A's Salon")
-    other, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
-    link = run(a_token(business, "full"), "get_test_call_link")["structuredContent"][
-        "link"
-    ]
+    secret = a_token(business, "full")
+    link = run(secret, "get_test_call_link")["structuredContent"]["link"]
     button = client.post("/test-call/")["Location"]
-    assert read_ticket(ticket_in(link), SECRET) == read_ticket(
-        ticket_in(button), SECRET
-    )
-    assert read_ticket(ticket_in(link), SECRET) == Ticket(business.pk, "test", "")
-    assert other.pk != business.pk
+    # The button's own call page and limits; only the kind differs, so the core and the budget can tell them apart.
+    assert link.split("?")[0] == button.split("?")[0]
+    assert read_ticket(ticket_in(link), SECRET) == Ticket(business.pk, "agent_test", "")
     assert CommandRecord.objects.get().result == "done"
     assert "ticket" not in str(list(CommandRecord.objects.values()))
+    Business.objects.filter(pk=business.pk).update(daily_budget_usd=0)
+    refused = run(secret, "get_test_call_link")
+    assert refused.get("isError") and text(refused) == BUDGET_SPENT_REFUSAL
+    assert (
+        client.post("/test-call/").status_code == 302
+    )  # the button's own test call stays exempt
 
 
 def test_a_read_only_token_gets_no_test_call_link() -> None:

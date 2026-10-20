@@ -17,7 +17,10 @@ from urllib.parse import parse_qs
 
 # Where the call came from; contract/call-record.schema.json lists the same three (tests/test_ticket.py fails when they differ).
 # A demo call is a visitor's call from the landing page, capped shorter (voice/serve.py CALL_SECS); nothing mints one yet (VOI-243).
-KINDS = ("test", "call_link", "demo")
+# An agent test call is a test call from a link a Business's AI assistant asked for: it counts toward the daily budget (VOI-115).
+KINDS = ("test", "call_link", "demo", "agent_test")
+# The kinds framed by nobody, so their tickets carry no domain.
+UNFRAMED = ("test", "agent_test")
 # The label keeps a ticket's signature from being reused as anything else the secret signs.
 LABEL = b"call-ticket:"
 # A plain lower-case hostname of two labels or more, as the Portal stores it (portal/accounts/domain.py DOMAIN_PATTERN;
@@ -76,7 +79,9 @@ def read_ticket(
     if not dot or kind not in KINDS:
         return None
     # A test call is framed by nobody, so it carries no domain; a call link or demo call carries the one site that may frame it.
-    if (kind == "test" and domain) or (kind != "test" and not is_clean_domain(domain)):
+    if (kind in UNFRAMED and domain) or (
+        kind not in UNFRAMED and not is_clean_domain(domain)
+    ):
         return None
     for part in (business, expires):
         # Short ASCII digits written the one way sign() writes them; int() raises on thousands of digits, so length first.

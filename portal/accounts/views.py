@@ -697,7 +697,8 @@ def spent_today(business: Business) -> Decimal:
 def to_core(
     request: HttpRequest, business: Business, kind: str, domain: str = ""
 ) -> HttpResponse:
-    """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call. Once the Business's daily budget is spent (VOI-123), a kind BUDGET_COUNTED counts gets no ticket until the next day, whichever view mints it (VOI-172); a kind missing from it raises, so no ticket."""
+    """Sends a browser to the core's call page (core_address) with a ticket for this one Business, the kind of call and the website
+    allowed to frame the page, or the refusal page once the daily budget is spent."""
     try:
         return redirect(core_address(business, kind, domain))
     except BudgetSpent:

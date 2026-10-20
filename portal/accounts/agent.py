@@ -438,11 +438,11 @@ def get_call_button(ctx: Context[Any, Any]) -> CallToolResult:
     "Test call link", ToolAnnotations(read_only_hint=False, destructive_hint=False)
 )
 def get_test_call_link(ctx: Context[Any, Any]) -> CallToolResult:
-    """A link a person opens to make a test call to your agent, the same as the dashboard's Test call button. It works for a few minutes and the call has the test call's limits."""
+    """A link a person opens to make a test call to your agent, like the dashboard's Test call button. It works for a few minutes, and the call counts toward your daily budget."""
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
     try:
-        return as_answer({"link": views.core_address(token.business, "test")})
+        return as_answer({"link": views.core_address(token.business, "agent_test")})
     except views.BudgetSpent:
         return failed(views.BUDGET_SPENT_REFUSAL)
     except views.CallsNotSetUp:

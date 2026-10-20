@@ -48,12 +48,16 @@ _Avoid_: transcript log, captions
 A call a Business starts from its own Portal to try its agent. Every other call comes through its Call link.
 _Avoid_: trial call
 
+**Assistant's test call**:
+A Test call opened from a link the Business's AI assistant asked for (a Command). Unlike a Test call from the Portal, it counts toward the Business's daily budget.
+_Avoid_: agent call (the agent is Voice's voice agent)
+
 **Demo call**:
 A visitor's call from Voice's own landing page, through the Call button of the Business the Portal's `DEMO_BUSINESS_ID` names, cut at 3 minutes where every other call gets 10. Capped at 2 a day per visitor's address and 20 a day in all, then that Business's daily budget.
 _Avoid_: trial call, public call
 
 **Call record**:
-What one call that reached the model used: when it started, how long it ran, what the model used and what that cost, and whether it was a Test call, a Demo call or came through the Call link. Never the words or the audio, and never changed once kept.
+What one call that reached the model used: when it started, how long it ran, what the model used and what that cost, and whether it was a Test call, an Assistant's test call, a Demo call or came through the Call link. Never the words or the audio, and never changed once kept.
 _Avoid_: usage log, CDR
 
 **Call log**:
