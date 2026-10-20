@@ -43,7 +43,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
-from portal.accounts import changes, probe, tokens
+from portal.accounts import changes, oauth, probe, tokens
 from portal.accounts import modules as module_rules
 from portal.accounts.domain import shown_domain
 from portal.accounts.models import (
@@ -614,7 +614,12 @@ def access_tokens(request: HttpRequest) -> HttpResponse:
             form.cleaned_data["scope"],
             sees_totals(request.user),
         )
-        made = {"label": form.cleaned_data["label"], "secret": secret}
+        made = {
+            "label": form.cleaned_data["label"],
+            "secret": secret,
+            # The line that connects Claude Code (VOI-118), holding the secret, so on this answer only.
+            "claude": f'claude mcp add --transport http voice {agent_address()} --header "Authorization: Bearer {secret}"',
+        }
         form = AccessTokenForm()
     return render(
         request,
@@ -630,8 +635,14 @@ def access_tokens(request: HttpRequest) -> HttpResponse:
             .select_related("client")
             .order_by("-created_at", "-id"),
             "time_zone": settings.TIME_ZONE,
+            "endpoint": agent_address(),
         },
     )
+
+
+def agent_address() -> str:
+    """Where an assistant connects: the resource a sign-in's tokens are for (oauth.resource), one fact in one place."""
+    return oauth.resource()
 
 
 @login_required
