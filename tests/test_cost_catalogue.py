@@ -208,6 +208,28 @@ def test_a_failed_lookup_prices_the_tokens_at_the_stored_official_rates(
     )
 
 
+@pytest.mark.parametrize(
+    "reply",
+    [
+        {"body": b"[]"},
+        {"skus": [[{k: v for k, v in s.items() if k != "skuId"} for s in SKUS]]},
+        {"skus": [[{**s, "displayName": None} for s in SKUS]]},
+    ],
+    ids=["a list", "no skuId", "a null name"],
+)
+def test_a_catalogue_reply_of_the_wrong_shape_prices_from_the_stored_rates(
+    reply: dict[str, Any],
+) -> None:
+    """VOI-228: a reply our parsing trips on must not lose the Call record."""
+    with google(**reply) as (base, _):
+        assert price(TOTALS, MODEL, KEY, base, stored=STORED) == {
+            "cost_usd": STORED_COST,
+            "price_date": "2026-01-01",
+            "cost_reason": None,
+        }
+        assert the_cost(base)["cost_reason"] == "catalogue_unreadable"
+
+
 def test_a_stored_copy_for_another_model_prices_nothing() -> None:
     assert price(TOTALS, "models/another-live", "", stored=STORED) == {
         "cost_usd": None,

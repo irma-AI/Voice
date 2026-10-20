@@ -236,14 +236,19 @@ def price(
         if not key:
             raise Unpriced(CostReason.NO_KEY)
         date, per_token = rates(key, model, base)
-    except Unpriced as e:
+    except Exception as e:  # noqa: BLE001  a reply our parsing trips on must not lose the Call record
+        if isinstance(e, Unpriced):
+            reason = e.reason
+        else:
+            reason = CostReason.UNREADABLE
+            logger.warning("price catalogue unreadable ({})", type(e).__name__)
         fallback = stored_rates(model, stored) if stored else None
         if not fallback:
-            return {"cost_usd": None, "price_date": None, "cost_reason": e.reason.value}
+            return {"cost_usd": None, "price_date": None, "cost_reason": reason.value}
         date, per_token = fallback
         logger.warning(
             "price catalogue failed ({}): priced from the stored rates of {}",
-            e.reason.value,
+            reason.value,
             date,
         )
     total = sum(
