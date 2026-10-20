@@ -13,15 +13,11 @@ the log, so the stored copy is exactly what the server log holds; it is sent bes
 import asyncio
 import json
 import os
-import time
-import urllib.error
-import urllib.request
 from collections import defaultdict
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urlsplit
 
 from loguru import logger
 from pipecat.frames.frames import Frame, MetricsFrame
@@ -29,12 +25,9 @@ from pipecat.metrics.metrics import LLMUsageMetricsData
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
 from voice.cost import MODEL, price
-from voice.settings import PORTAL_TIMEOUT_S, NoRedirect
+from voice.portal_client import post
 from voice.ticket import Ticket
 
-# ponytail: a fixed pause between tries; back off if the Portal is ever seen struggling under them.
-RETRY_WINDOW_S = 60
-RETRY_PAUSE_S = 5
 # Records retrying against a down Portal wait here, never on asyncio's default threads that call starts read settings on.
 # shortcut: a fifth record waits for a free thread, raise max_workers if the give-up line is ever seen for a queued record.
 SENDER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="call-record")
@@ -130,60 +123,6 @@ def build_log(
     }
 
 
-def deliver(
-    record: Mapping[str, Any],
-    portal_url: str,
-    secret: str,
-    window_s: float = RETRY_WINDOW_S,
-    pause_s: float = RETRY_PAUSE_S,
-    path: str = "/api/calls/",
-    what: str = "record",
-) -> bool:
-    """Posts the record (or the Call log, at its `path`) to the Portal, trying again for up to `window_s` seconds. Blocks, so it runs in a thread."""
-    host = urlsplit(
-        portal_url
-    ).hostname  # the address could hold a password: the log names the host only
-    call = record["call_id"]
-    body = json.dumps(record).encode()
-    deadline = time.monotonic() + window_s
-    while True:
-        try:
-            request = urllib.request.Request(
-                f"{portal_url.rstrip('/')}{path}",
-                body,
-                {
-                    "Authorization": f"Bearer {secret}",
-                    "Content-Type": "application/json",
-                },
-            )
-            with urllib.request.build_opener(NoRedirect).open(
-                request, timeout=PORTAL_TIMEOUT_S
-            ):
-                logger.info("call {}: {} delivered to the Portal", call, what)
-                return True
-        except urllib.error.HTTPError as e:
-            why = f"answered {e.code}"
-        except Exception as e:  # noqa: BLE001  the kind only: a message could hold the secret
-            why = type(e).__name__
-        if time.monotonic() + pause_s > deadline:
-            logger.error(
-                "call {}: gave up sending the {} to the Portal at {} ({}); the log lines above are the only copy",
-                call,
-                what,
-                host,
-                why,
-            )
-            return False
-        logger.warning(
-            "call {}: {} not delivered to the Portal at {} ({}), trying again",
-            call,
-            what,
-            host,
-            why,
-        )
-        time.sleep(pause_s)
-
-
 def finish(
     call_id: str,
     ticket: Ticket,
@@ -196,25 +135,12 @@ def finish(
     cost = price(totals, MODEL, env.get("BILLING_API_KEY", "").strip())
     record = build_record(call_id, ticket, started_at, length_seconds, totals, cost)
     logger.info("call record {}", json.dumps(record))
-    portal, secret = env.get("SETTINGS_URL", "").strip(), env.get("CORE_SECRET", "")
-    if not (portal and secret):
-        logger.error(
-            "call {}: record not sent, SETTINGS_URL or CORE_SECRET is not set", call_id
-        )
-        return False
-    return deliver(record, portal, secret)
+    return post("/api/calls/", record, "record", env)
 
 
 def send_log(log: Mapping[str, Any], env: Mapping[str, str]) -> bool:
     """Sends the Call log, whose lines the server log already holds. Blocks, so it runs in a thread."""
-    portal, secret = env.get("SETTINGS_URL", "").strip(), env.get("CORE_SECRET", "")
-    if not (portal and secret):
-        logger.error(
-            "call {}: Call log not sent, SETTINGS_URL or CORE_SECRET is not set",
-            log["call_id"],
-        )
-        return False
-    return deliver(log, portal, secret, path="/api/call-logs/", what="Call log")
+    return post("/api/call-logs/", log, "Call log", env)
 
 
 def report_call(
