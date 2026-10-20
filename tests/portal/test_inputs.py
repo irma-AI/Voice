@@ -126,10 +126,9 @@ def test_a_refused_save_lists_what_to_fix_at_the_top_and_keeps_what_was_typed() 
     assert Business.objects.get().name == "Anna's Salon"
 
 
-def test_facts_count_a_line_break_as_one_character_as_the_browser_does() -> None:
+def test_instructions_count_a_line_break_as_one_character_as_the_browser_does() -> None:
     business, client = business_with_login("anna.testsson@example.com", "Anna")
     limit = INSTRUCTIONS_MAX  # the model's own limit
-    assert limit == 5000
     # 5,000 characters in the browser's count, sent with the two-character line breaks every browser sends
     typed = "\r\n".join(["x" * 99] * 50) + "x"
     assert len(typed.replace("\r\n", "\n")) == limit

@@ -38,9 +38,12 @@ from pipecat.services.google.gemini_live.llm import GeminiVADParams
 # Lower start sensitivity, and 300 ms of speech before a start counts (Gemini's default is more eager):
 # a short noise should no longer cut the agent off. First guess: the noise Scenario passed on the old
 # settings, so no run has shown these values to be better; VOI-19 compares real calls.
+# 500 ms of silence ends the Caller's turn (server default about 800 ms): the snappier VOI-156 setup E (VOI-178).
 # Edit here: it is an eval-required path (scripts/eval-required.json).
 VAD = GeminiVADParams(
-    start_sensitivity=StartSensitivity.START_SENSITIVITY_LOW, prefix_padding_ms=300
+    start_sensitivity=StartSensitivity.START_SENSITIVITY_LOW,
+    prefix_padding_ms=300,
+    silence_duration_ms=500,
 )
 
 LOUDNESS_WINDOW_S = 0.5

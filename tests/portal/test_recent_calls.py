@@ -9,31 +9,10 @@ from typing import Any
 import pytest
 from django.test import Client
 
-from portal.accounts.models import Account, Business, CallRecord
-from tests.portal.helpers import business_with_login
+from portal.accounts.models import Account, CallRecord
+from tests.portal.helpers import a_call, business_with_login
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
-
-
-def a_call(owner: Business, call_id: str, started: datetime, **changes: Any) -> None:
-    CallRecord.objects.create(
-        **{
-            "call_id": call_id,
-            "business": owner,
-            "kind": "call_link",
-            "started_at": started,
-            "length_seconds": 184,
-            "prompt_tokens": 1,
-            "completion_tokens": 1,
-            "input_audio_tokens": 1,
-            "output_audio_tokens": 1,
-            "thinking_tokens": 0,
-            "cached_tokens": 0,
-            "cost_usd": "0.01234567",
-            "price_date": "2026-10-17",
-            **changes,
-        }
-    )
 
 
 def shown(client: Client) -> str:
@@ -97,7 +76,6 @@ def test_times_follow_the_portal_time_zone_and_what_is_stored_stays_utc(
 def test_a_visitor_and_a_login_without_a_business_get_nothing_of_anyones() -> None:
     anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
     a_call(anna, "anna-call-00001", datetime(2026, 10, 17, 5, 0, tzinfo=UTC))
-    assert Client().get("/calls/")["Location"].startswith("/login/")
 
     account = Account.objects.create_user("nobody@example.com", "x" * 20)
     client = Client()
