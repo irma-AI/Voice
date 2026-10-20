@@ -57,4 +57,8 @@ function changedFiles(root, { diff = ['--no-renames'] } = {}) {
   return [...new Set([...committed, ...working])].filter(Boolean);
 }
 
-module.exports = { readBaseJson, changedFiles, inFixture };
+// A merge-queue run (CI sets GUARD_EVENT=merge_group and GUARD_BASE to the queue's base) has no PR title, body or
+// labels. The guards that read those skip it with a note: the queue takes only a PR whose own ci-summary passed (VOI-236).
+const mergeGroup = process.env.GUARD_EVENT === 'merge_group';
+
+module.exports = { readBaseJson, changedFiles, inFixture, mergeGroup };

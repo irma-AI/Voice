@@ -305,6 +305,19 @@ def test_the_call_page_wears_the_business_theme_and_says_it_is_an_ai(
     assert DISCLOSURE in page
 
 
+def test_the_call_page_tells_an_expired_ticket_by_the_cores_clock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    before = int(time.time())
+    page = call_page(monkeypatch, {})
+    served = re.search(r"SERVED_AT = (\d+);", page)
+    assert served and before <= int(served[1]) <= time.time()
+    # The wording waits for Petter's approval (VOI-231, caller wording).
+    assert (
+        "This call link has expired. Close this page and open the call again." in page
+    )
+
+
 def test_the_call_page_links_the_business_privacy_notice_only_when_it_has_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
