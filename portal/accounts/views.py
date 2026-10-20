@@ -35,6 +35,7 @@ from django.http import (
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.urls import reverse
+from django.utils.csp import CSP
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
@@ -87,15 +88,15 @@ def tries_key(kind: str, typed_email: str, request: HttpRequest | None) -> str:
     return f"{kind}:" + hashlib.sha256(who.encode()).hexdigest()
 
 
-def count_try(key: str) -> int:
+def count_try(key: str, window: int = TRIES_WINDOW) -> int:
     """Adds one to the key's count in the current window and returns it."""
-    # shortcut: login and reset counts live in this process's memory (the image runs one worker), so a restart clears them; move to the database before a second worker.
-    cache.add(key, 0, TRIES_WINDOW)
+    # shortcut: login, reset and demo counts live in this process's memory (the image runs one worker), so a restart clears them; move to the database before a second worker.
+    cache.add(key, 0, window)
     try:
         return cache.incr(key)
     # The key expired between add and incr: this try starts a new window.
     except ValueError:
-        cache.set(key, 1, TRIES_WINDOW)
+        cache.set(key, 1, window)
         return 1
 
 
@@ -185,12 +186,33 @@ class Login(auth.LoginView):
 
 
 def home(request: HttpRequest) -> HttpResponse:
-    """The landing page, open to everyone; a logged-in Business sees a link to its dashboard where a visitor sees Log in."""
-    return render(
-        request,
-        "accounts/home.html",
-        {"contact_email": settings.CONTACT_EMAIL, **showcase()},
-    )
+    """The landing page, open to everyone; a logged-in Business sees a link to its dashboard where a visitor sees Log in.
+
+    With `DEMO_BUSINESS_ID` set (VOI-244) it carries that Business's Call button, the tag a Business pastes and nothing more (Petter, 2026-10-20), once that Business has saved its website like any other.
+    """
+    demo = demo_business()
+    context = {
+        "contact_email": settings.CONTACT_EMAIL,
+        "button_html": demo and demo.website_domain and call_button_tag(demo),
+        **showcase(),
+    }
+    if not context["button_html"]:
+        return render(request, "accounts/home.html", context)
+    # The button's panel frames the call link here, which sends the browser on to the core: a frame-src naming one origin only blocks it.
+    # The script is named by PORTAL_URL, which a request's own host may spell differently: name it rather than rely on 'self'.
+    with_panel = {
+        **settings.SECURE_CSP,
+        "script-src": [CSP.SELF, origin(settings.PORTAL_URL)],
+        "frame-src": [CSP.SELF, origin(settings.PORTAL_URL), origin(settings.CORE_URL)],
+    }
+    return csp_override(with_panel)(render)(request, "accounts/home.html", context)
+
+
+def demo_business() -> Business | None:
+    """The Business whose Call button the landing page carries; None (the default, or an id that names no Business) means no button and no demo calls."""
+    if settings.DEMO_BUSINESS_ID is None:
+        return None
+    return Business.objects.filter(pk=settings.DEMO_BUSINESS_ID).first()
 
 
 def showcase() -> dict[str, Any]:
@@ -652,10 +674,15 @@ def call_link_refused(
 WORST_CASE_USD_PER_SECOND = Decimal("0.001875")
 
 
+def start_of_today() -> datetime:
+    """Midnight today on TIME_ZONE: the day the budget, the totals page and the demo caps count by."""
+    zone = ZoneInfo(settings.TIME_ZONE)
+    return datetime.combine(datetime.now(zone).date(), time.min, tzinfo=zone)
+
+
 def spent_today(business: Business) -> Decimal:
     """Today's spend in dollars on the kinds BUDGET_COUNTED counts, the day on TIME_ZONE like the totals page. A priced record counts as priced; one with no cost, or priced at nothing (its usage reports never came, so no tokens to price), counts its seconds at the rate Google charged this Business's priced calls so far, but never below WORST_CASE_USD_PER_SECOND (VOI-216, Petter 2026-10-20: fail closed, so no first priced call, nor one priced near $0, makes unpriced calls free), with a log line. An exempt kind does not count, and neither does a call still open (Petter: a call may run over, the next one is refused). A budget of 0 refuses every call."""
-    zone = ZoneInfo(settings.TIME_ZONE)
-    today = datetime.combine(datetime.now(zone).date(), time.min, tzinfo=zone)
+    today = start_of_today()
     counted = [kind for kind, counts in BUDGET_COUNTED.items() if counts]
     records = CallRecord.objects.filter(business=business, kind__in=counted)
     priced = Q(cost_usd__gt=0)
@@ -729,7 +756,44 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     if not business.website_domain:
         log.warning("call link refused: Business %s has no website domain", business.pk)
         return call_link_refused(request)
+    if business.pk == settings.DEMO_BUSINESS_ID:
+        return demo_call(request, business)
     return to_core(request, business, "call_link", business.website_domain)
+
+
+# The landing page's demo (VOI-244; Petter, 2026-10-20): one visitor's address may start this many demo calls a day, and all visitors together this many.
+DEMO_CALLS_PER_ADDRESS = 2
+DEMO_CALLS_PER_DAY = 20
+DAY_S = 24 * 60 * 60
+
+
+def demo_address_key(request: HttpRequest) -> str:
+    """One count per visitor's address and day. The address is hashed at once with the day and kept only as the hash, in memory, for a day (Petter, 2026-10-20: acceptable for the MVP); it never reaches a log or the database."""
+    who = f"{client_address(request)}\n{start_of_today().date()}"
+    return "demo:" + hashlib.sha256(who.encode()).hexdigest()
+
+
+def demo_call(request: HttpRequest, business: Business) -> HttpResponse:
+    """A `demo` ticket for the landing page's Business, under caps the daily budget alone cannot hold (an unpriced call counts at the floor only): this address's calls today, every visitor's demo calls today (from Call records, so pricing failures do not open it), then the budget in `to_core`. A refusal shows the spent-budget sentence, which Petter reuses for every demo refusal (2026-10-20), and logs the Business and the reason, never the address."""
+    key = demo_address_key(request)
+    if cache.get(key, 0) >= DEMO_CALLS_PER_ADDRESS:
+        log.warning("call refused: Business %s demo cap per_address", business.pk)
+        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
+    demo_calls_today = CallRecord.objects.filter(
+        business=business, kind="demo", started_at__gte=start_of_today()
+    ).count()
+    if demo_calls_today >= DEMO_CALLS_PER_DAY:
+        log.warning("call refused: Business %s demo cap per_day", business.pk)
+        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
+    response = to_core(request, business, "demo", business.website_domain)
+    if response.status_code == 302:  # minted; a budget refusal counts no call
+        count_try(key, DAY_S)
+        log.info("demo call minted: Business %s", business.pk)
+    elif (
+        response.status_code == 403
+    ):  # to_core's budget refusal, under the demo's reason names
+        log.warning("call refused: Business %s demo cap budget", business.pk)
+    return response
 
 
 # The Call button script a Business's website loads, and the hash of its bytes that the pasted tag names (VOI-135):

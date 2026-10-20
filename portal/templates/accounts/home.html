@@ -179,4 +179,6 @@
     {% if user.is_authenticated %}<a href="{% url 'dashboard' %}" class="land-navlink">Your dashboard</a>{% else %}<a href="{% url 'login' %}" class="land-navlink">Log in</a>{% endif %}
   </nav>
 </footer>
+{# The demo Business's Call button, the tag a Business pastes (its own file, hash and attributes from the Portal; home() builds it, nothing from a request). #}
+{% if button_html %}{{ button_html|safe }}{% endif %}
 {% endblock %}
