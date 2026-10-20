@@ -143,10 +143,11 @@ def test_the_demo_business_call_button_is_the_pasted_tag_and_the_panel_may_reach
     page = response.content.decode()
     slug = str(demo.call_slug)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  (django-stubs types fields for mypy only)
     assert (
-        f'<script async src="https://portal.example.se/static/portal/call-button.v1.js?business={slug}"'
+        f'<script async src="https://portal.example.se/static/portal/call-button.v2.js?business={slug}"'
         in page
     )
     assert 'integrity="sha384-' in page and page.count("<script async") == 1
+    assert ' data-lang="en"' in page  # the English site's label (VOI-244)
     policy = response["Content-Security-Policy"]
     # The tag names PORTAL_URL, not the host this page was served from, so the policy names it too.
     assert "script-src 'self' https://portal.example.se" in policy

@@ -77,17 +77,18 @@ workflow-lint: ## Lint the GitHub workflows, actions and Dependabot config for s
 tailwind := npx --no-install @tailwindcss/cli -i portal/static/portal/tailwind.css --minify
 
 # The hash the Call button tag names its script by (subresource integrity, VOI-135); an edit to the file breaks every pasted tag, so a changed script is a new version.
-call_button_sri = sha384-$$(openssl dgst -sha384 -binary portal/static/portal/call-button.v1.js | openssl base64 -A)
+call_button_sri = sha384-$$(openssl dgst -sha384 -binary portal/static/portal/call-button.v$(1).js | openssl base64 -A)
 
 generate: ## Regenerate every generated file (the Portal's migrations, stylesheet and Call button hash)
 	ENVIRONMENT=local DEBUG=1 DJANGO_SETTINGS_MODULE=portal.settings uv run python -m django makemigrations
 	$(tailwind) -o portal/static/portal/portal.css
-	echo "$(call_button_sri)" > portal/call-button.v1.integrity
+	echo "$(call call_button_sri,1)" > portal/call-button.v1.integrity
+	echo "$(call call_button_sri,2)" > portal/call-button.v2.integrity
 
 generate-check: ## Fail when a generated file is stale, printing the command that fixes it
 	ENVIRONMENT=local DEBUG=1 DJANGO_SETTINGS_MODULE=portal.settings uv run python -m django makemigrations --check --dry-run || { echo "models changed without a migration: run make generate" >&2; exit 1; }
 	css=$$(mktemp) && $(tailwind) -o "$$css" && cmp -s "$$css" portal/static/portal/portal.css || { echo "portal.css is stale: run make generate" >&2; exit 1; }
-	[ "$$(cat portal/call-button.v1.integrity)" = "$(call_button_sri)" ] || { echo "call-button.v1.integrity is stale: run make generate (pasted tags name the old hash, so a changed script belongs in call-button.v2.js)" >&2; exit 1; }
+	for v in 1 2; do [ "$$(cat portal/call-button.v$$v.integrity)" = "sha384-$$(openssl dgst -sha384 -binary portal/static/portal/call-button.v$$v.js | openssl base64 -A)" ] || { echo "call-button.v$$v.integrity is stale: run make generate (pasted tags name the old hash, so a changed script belongs in a new version)" >&2; exit 1; }; done
 
 build: ## Build every configuration this repo ships
 	docker build -t voice .
