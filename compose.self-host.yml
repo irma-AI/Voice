@@ -33,6 +33,7 @@ services:
       CORE_SECRET: ${CORE_SECRET:?set CORE_SECRET in .env (copy .env.example)}
       ALLOW_LOCAL_MODULES: ${ALLOW_LOCAL_MODULES:-}
       BILLING_API_KEY: ${BILLING_API_KEY:-}
+      TIME_ZONE: ${TIME_ZONE:-UTC}
       PORT: "7860"
     ports: ["127.0.0.1:7860:7860"]
 volumes:

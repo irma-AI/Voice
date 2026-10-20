@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{# The demo call's privacy notice (VOI-245), in English like the rest of the site. Wording approved by Petter, 2026-10-20 (CLAUDE.md § Stop and ask): a change here waits for his answer. #}
+{% block title %}Privacy notice · Voice{% endblock %}
+{% block body %}
+<header class="land-nav">
+  <a href="{% url 'home' %}" class="land-wordmark">Voice</a>
+</header>
+
+<main class="mx-auto max-w-[68ch] px-gutter pb-16 leading-relaxed [&_a]:underline [&_a]:underline-offset-[0.2em] [&_h2]:mt-10 [&_h2]:font-serif [&_h2]:text-2xl [&_li]:mt-2 [&_p]:mt-4 [&_ul]:mt-4 [&_ul]:list-disc [&_ul]:pl-5">
+  <article aria-labelledby="title">
+    <h1 id="title" class="land-title hyphens-auto [overflow-wrap:anywhere]">Privacy notice for the Voice demo call</h1>
+    <p class="text-foam-muted">Last updated: 20 October 2026</p>
+
+    <p><strong>In short:</strong> When you press the call button on this website, you talk with an AI voice agent in your browser for up to three minutes. Your audio goes straight to Google, which runs the AI model, and back. We do not record the call and never keep what is said. We keep numbers and technical details about the call, such as when it started, how long it lasted, what it cost and how the audio worked. Our server logs may hold your internet address. To limit abuse we count how many demo calls come from the same internet address each day; the counter does not store the address, only a code that cannot be turned back into it and that disappears at midnight. We use no tracking cookies and no visitor analytics.</p>
+
+    <h2>1. Controller</h2>
+    <p>Irma AI AB, reg. no. 559534-1586, Ymergatan 15b, 753 25 Uppsala, Sweden, is the controller for the processing described here. Contact: <a href="mailto:privacy@getirma.ai">privacy@getirma.ai</a>.</p>
+    <p>This notice covers the demo call on this website. It does not cover calls to other businesses that use Voice on their own websites: there, the business is responsible.</p>
+
+    <h2>2. What we process and why</h2>
+    <ul>
+      <li><strong>Your audio during the call:</strong> what you say, streamed live, so the AI agent can hear and answer you.</li>
+      <li><strong>Text of the call:</strong> what you and the agent say, shown as text on your screen during the call, so you can read along. It is shown only to you and not kept.</li>
+      <li><strong>Call record:</strong> a call id, when the call started, how long it lasted, how much the AI model was used and what it cost. Nothing about who you are, no words, no audio. It is used to track cost and see that the service works.</li>
+      <li><strong>Call log:</strong> timings, sound levels and word counts during the call (for example when you interrupted the agent), the browser's audio settings and delay, and the browser's and operating system's name and major version. No words and no internet address. It is used to find and fix faults in how the agent listens and answers.</li>
+      <li><strong>Per-address counter:</strong> a code made from your internet address and today's date with a secret key (HMAC-SHA-256), so it cannot be turned back into the address. The key changes when the server restarts, and the address itself is not stored. It limits each visitor to two demo calls a day.</li>
+      <li><strong>Server logs:</strong> technical logs from our servers, which may hold your internet address. They are used to run the service securely and fix faults.</li>
+    </ul>
+    <p>The agent answers from instructions about Voice and cannot book, call back or send anything. Don't share anything sensitive about yourself or others during the call: what you say goes to Google while the call runs (section 4).</p>
+    <p>Your browser asks before the page may use the microphone. Audio is sent only while the call runs.</p>
+
+    <h2>3. Legal basis</h2>
+    <ul>
+      <li><strong>The call itself</strong> (live audio and text, and the transfer to Google): legitimate interest (GDPR Article 6(1)(f)) in showing how Voice works to someone who chooses to call. You start the call and can end it at any time.</li>
+      <li><strong>Call record and call log:</strong> legitimate interest in keeping cost under control and finding faults in the service.</li>
+      <li><strong>The per-address counter:</strong> legitimate interest in preventing abuse of a free service.</li>
+      <li><strong>Server logs:</strong> legitimate interest in running the service securely.</li>
+    </ul>
+    <p>You have the right to object to processing based on legitimate interest (section 6). The simplest way to object to the call is not to start it, or to end it.</p>
+
+    <h2>4. Who we share data with</h2>
+    <p>We never sell data. These providers process data on our behalf:</p>
+    <ul>
+      <li><strong>Google (Gemini API, paid tier)</strong> is the AI model that hears and answers. Google gets your audio and the agent's replies during the call. Google commits to no particular location; transfers outside the EU/EEA rely on the European Commission's standard contractual clauses in Google's data processing terms. Under Google's terms for the paid tier, the call is not used to train Google's models. Google keeps what is sent to and from the model for 55 days to detect abuse, and authorised Google staff can read it. We cannot turn this off.</li>
+      <li><strong>Hostup AB (hostup.se)</strong> runs our servers and database and gets call records, call logs and server logs. The servers are in Hostup's own data hall in Älvsjö, Stockholm, Sweden.</li>
+      <li><strong>Anthropic</strong> makes the AI tools (Claude) we use to build and fix the service. They may read server logs, and so any internet addresses in them, but never audio or what is said in calls, because that is not kept.</li>
+    </ul>
+
+    <h2>5. How long we keep data</h2>
+    <ul>
+      <li><strong>Audio and text during the call:</strong> not kept by us. At Google for 55 days (section 4).</li>
+      <li><strong>Call record:</strong> kept for cost accounting and not deleted. It says nothing about who you are.</li>
+      <li><strong>Call log:</strong> at least 30 days. We are building automatic deletion after 30 days; until it is in place, a log may be kept longer.</li>
+      <li><strong>Per-address counter:</strong> until midnight the same day, in the server's working memory only. It also disappears if the server restarts.</li>
+      <li><strong>Server logs:</strong> a short time. They are cleared as the service is updated, which happens several times a week, but logs from the last few updates may remain. We have no fixed limit yet.</li>
+      <li><strong>Backups:</strong> we take no database backups yet.</li>
+    </ul>
+
+    <h2>6. Your rights</h2>
+    <p>You have the right to request access to, correction and deletion of your personal data, to restrict processing and to object to it. Write to <a href="mailto:privacy@getirma.ai">privacy@getirma.ai</a>.</p>
+    <p>Because we don't keep what you say, don't keep your internet address in the counter and don't know who you are, we usually cannot link a call record or call log to you. If you want us to look, tell us roughly when you called and we will. We cannot retrieve or delete data held by Google during its 55 days.</p>
+    <p>You can complain to the Swedish Authority for Privacy Protection (IMY), <a href="https://www.imy.se/en/">imy.se</a>.</p>
+
+    <h2>7. Cookies and local storage</h2>
+    <p>The website and the call page use no tracking cookies, no advertising and no visitor analytics. The call button and the call page store nothing in your browser. If you log in to the Portal (only for businesses with an account), necessary cookies are set for the login.</p>
+
+    <h2>8. Changes</h2>
+    <p>We update this page when something changes and update the date at the top.</p>
+  </article>
+</main>
+
+<footer class="land-foot">
+  <span class="land-wordmark">Voice</span>
+  <nav aria-label="Footer">
+    <a href="{% url 'home' %}" class="land-navlink">Voice</a>
+  </nav>
+</footer>
+{% endblock %}

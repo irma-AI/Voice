@@ -7,10 +7,10 @@ import logging
 import re
 import unicodedata
 from collections.abc import Callable
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 from decimal import Decimal
 from functools import wraps
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
@@ -90,15 +90,15 @@ def tries_key(kind: str, typed_email: str, request: HttpRequest | None) -> str:
     return f"{kind}:" + hashlib.sha256(who.encode()).hexdigest()
 
 
-def count_try(key: str, window: int = TRIES_WINDOW) -> int:
+def count_try(key: str) -> int:
     """Adds one to the key's count in the current window and returns it."""
-    # shortcut: login, reset and demo counts live in this process's memory (the image runs one worker), so a restart clears them; move to the database before a second worker.
-    cache.add(key, 0, window)
+    # shortcut: login and reset counts live in this process's memory (the image runs one worker), so a restart clears them; move to the database before a second worker.
+    cache.add(key, 0, TRIES_WINDOW)
     try:
         return cache.incr(key)
     # The key expired between add and incr: this try starts a new window.
     except ValueError:
-        cache.set(key, 1, window)
+        cache.set(key, 1, TRIES_WINDOW)
         return 1
 
 
@@ -204,7 +204,7 @@ def home(request: HttpRequest) -> HttpResponse:
     demo = demo_business()
     context = {
         "contact_email": settings.CONTACT_EMAIL,
-        "button_html": demo and demo.website_domain and call_button_tag(demo),
+        "button_html": demo and demo.website_domain and call_button_tag(demo, "en"),
         **showcase(),
     }
     if not context["button_html"]:
@@ -217,6 +217,11 @@ def home(request: HttpRequest) -> HttpResponse:
         "frame-src": [CSP.SELF, origin(settings.PORTAL_URL), origin(settings.CORE_URL)],
     }
     return csp_override(with_panel)(render)(request, "accounts/home.html", context)
+
+
+def privacy(request: HttpRequest) -> HttpResponse:
+    """The demo call's privacy notice, open to everyone (VOI-245): Swedish, then English. Its words are in the template and are Petter's (caller wording)."""
+    return render(request, "accounts/privacy.html")
 
 
 def demo_business() -> Business | None:
@@ -793,73 +798,39 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     return to_core(request, business, "call_link", business.website_domain)
 
 
-# The landing page's demo (VOI-244; Petter, 2026-10-20): one visitor's address may start this many demo calls a day, and all visitors together this many.
-DEMO_CALLS_PER_ADDRESS = 2
+# The landing page's demo (VOI-244; Petter, 2026-10-20): all visitors together may start this many demo calls a day. The cap per
+# visitor's address counts calls as they start, in the core (voice/serve.py DemoCalls): opening the panel mints a ticket here, and
+# counting tickets used up a visitor's day without a call (Petter, 2026-10-20).
 DEMO_CALLS_PER_DAY = 20
 
 
-def demo_address_key(request: HttpRequest, now: datetime) -> str:
-    """One count per visitor's address and day. The address is hashed at once with the day and kept only as the hash, in memory, until midnight (Petter, 2026-10-20: acceptable for the MVP); it never reaches a log or the database."""
-    who = f"{client_address(request)}\n{now.date()}"
-    return "demo:" + hashlib.sha256(who.encode()).hexdigest()
-
-
 def demo_call(request: HttpRequest, business: Business) -> HttpResponse:
-    """A `demo` ticket for the landing page's Business, under caps the daily budget alone cannot hold (an unpriced call counts at the floor only): this address's calls today, every visitor's demo calls today (from Call records, so pricing failures do not open it), then the budget in `to_core`. A refusal shows the spent-budget sentence, which Petter reuses for every demo refusal (2026-10-20), and logs the Business and the reason, never the address."""
-    now = datetime.now(
-        ZoneInfo(settings.TIME_ZONE)
-    )  # read once, so the key's day and its expiry agree at midnight
-    key = demo_address_key(request, now)
-    # Counted first, with the cache's atomic increment, so parallel requests from one address cannot all pass; a refusal gives it back.
-    if count_try(key, seconds_to_midnight(now)) > DEMO_CALLS_PER_ADDRESS:
-        give_back(key)
-        log.warning("call refused: Business %s demo cap per_address", business.pk)
-        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
+    """A `demo` ticket for the landing page's Business, under the caps the daily budget alone cannot hold (an unpriced call counts at the floor only): every visitor's demo calls today (from Call records, so pricing failures do not open it), then the budget in `to_core`. A refusal shows the spent-budget sentence, which Petter reuses for every demo refusal (2026-10-20), and logs the Business and the reason."""
     demo_calls_today = CallRecord.objects.filter(
         business=business, kind="demo", started_at__gte=start_of_today()
     ).count()
     if demo_calls_today >= DEMO_CALLS_PER_DAY:
-        give_back(key)
         log.warning("call refused: Business %s demo cap per_day", business.pk)
         return call_link_refused(request, BUDGET_SPENT_REFUSAL)
     response = to_core(request, business, "demo", business.website_domain)
     if response.status_code == 302:
         log.info("demo call minted: Business %s", business.pk)
-        return response
-    give_back(key)  # no ticket, no call counted
-    if (
+    elif (
         response.status_code == 403
     ):  # to_core's budget refusal, under the demo's reason names
         log.warning("call refused: Business %s demo cap budget", business.pk)
     return response
 
 
-def give_back(key: str) -> None:
-    """Undoes one count_try for a request that got no ticket; a key already gone has nothing to give back."""
-    try:
-        cache.decr(key)
-    except ValueError:
-        pass
-
-
-def seconds_to_midnight(now: datetime | None = None) -> int:
-    """How long today's demo counts live: until the next midnight on TIME_ZONE, so a 23- or 25-hour day ends its count when its date does."""
-    zone = ZoneInfo(settings.TIME_ZONE)
-    now = (now or datetime.now(zone)).astimezone(zone)
-    midnight = datetime.combine(now.date() + timedelta(days=1), time.min, tzinfo=zone)
-    # Same-zone subtraction is wall-clock time in Python, which would hide the hour a clock change adds or takes away.
-    return max(1, int(midnight.timestamp() - now.timestamp()))
-
-
 # The Call button script a Business's website loads, and the hash of its bytes that the pasted tag names (VOI-135):
 # `make generate` writes the hash, and `make generate-check` fails when the file changed without it.
-CALL_BUTTON_FILE = settings.BASE_DIR / "static" / "portal" / "call-button.v1.js"
+CALL_BUTTON_FILE = settings.BASE_DIR / "static" / "portal" / "call-button.v2.js"
 CALL_BUTTON_INTEGRITY = (
-    (settings.BASE_DIR / "call-button.v1.integrity").read_text().strip()
+    (settings.BASE_DIR / "call-button.v2.integrity").read_text().strip()
 )
 # A tag with a malformed hash (a `make generate` with no openssl writes a bare "sha384-") would be run unchecked by browsers, so the Portal refuses to start on one.
 assert re.fullmatch(r"sha384-[A-Za-z0-9+/]{64}", CALL_BUTTON_INTEGRITY), (
-    "portal/call-button.v1.integrity is not a sha384 hash: run make generate (it needs openssl)"
+    "portal/call-button.v2.integrity is not a sha384 hash: run make generate (it needs openssl)"
 )
 
 
@@ -873,11 +844,14 @@ def tag_attributes(business: Business | None) -> dict[str, str]:
     }
 
 
-def call_button_tag(business: Business) -> str:
-    """The script tag the Business pastes: the versioned file with its hash, so a browser runs only that exact file (and asks for it with CORS, which WhiteNoise's `Access-Control-Allow-Origin: *` answers), and the attributes the file reads."""
+def call_button_tag(business: Business, lang: Literal["sv", "en"] = "sv") -> str:
+    """The script tag the Business pastes: the versioned file with its hash, so a browser runs only that exact file (and asks for it with CORS, which WhiteNoise's `Access-Control-Allow-Origin: *` answers), and the attributes the file reads.
+    A Business's tag says nothing of the language, so its label stays Swedish; the English landing page asks for English (VOI-244)."""
     data = " ".join(f'data-{k}="{v}"' for k, v in tag_attributes(business).items())
+    if lang == "en":
+        data += ' data-lang="en"'
     return (
-        f'<script async src="{settings.PORTAL_URL.rstrip("/")}{static("portal/call-button.v1.js")}?business={business.call_slug}"'
+        f'<script async src="{settings.PORTAL_URL.rstrip("/")}{static("portal/call-button.v2.js")}?business={business.call_slug}"'
         f' {data} integrity="{CALL_BUTTON_INTEGRITY}" crossorigin="anonymous"></script>'
     )
 
