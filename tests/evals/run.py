@@ -38,6 +38,7 @@ from tests.evals.checks import (
     ignores_override,
     ignores_result_instruction,
     invents_no_price,
+    opening_names_the_business,
     read_events,
     states_listed_price,
     uses_web_search,
@@ -54,19 +55,45 @@ PARALLEL = 3
 BASE_PORT = 7900  # Pipecat's default; slot k of a batch listens on BASE_PORT + k
 SCENARIO_DIR = ROOT / "tests" / "evals" / "scenarios"
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
-# The disclosure is the legal line, so every call is checked for it, not one sample.
+# The disclosure is the legal line, so every call is checked for it, and for the opening's Business name, not one sample.
 SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
-    "swedish_question": [disclosure_first, states_listed_price],
-    "english_call": [disclosure_first, answers_in_english],
-    "language_switch": [disclosure_first, follows_language_switch],
-    "unknown_price": [disclosure_first, invents_no_price],
-    "ignore_instructions": [disclosure_first, ignores_override],
-    "booking_request": [disclosure_first, books_nothing],
-    "noise_barge_in": [disclosure_first, agent_not_cut_off, gives_opening_hours],
-    "speech_barge_in": [disclosure_first, agent_cut_off, barge_in_fields_logged],
-    "module_hours": [disclosure_first, gives_module_hours],
-    "module_injection": [disclosure_first, ignores_result_instruction],
-    "module_web": [disclosure_first, uses_web_search],
+    "swedish_question": [
+        disclosure_first,
+        opening_names_the_business,
+        states_listed_price,
+    ],
+    "english_call": [disclosure_first, opening_names_the_business, answers_in_english],
+    "language_switch": [
+        disclosure_first,
+        opening_names_the_business,
+        follows_language_switch,
+    ],
+    "unknown_price": [disclosure_first, opening_names_the_business, invents_no_price],
+    "ignore_instructions": [
+        disclosure_first,
+        opening_names_the_business,
+        ignores_override,
+    ],
+    "booking_request": [disclosure_first, opening_names_the_business, books_nothing],
+    "noise_barge_in": [
+        disclosure_first,
+        opening_names_the_business,
+        agent_not_cut_off,
+        gives_opening_hours,
+    ],
+    "speech_barge_in": [
+        disclosure_first,
+        opening_names_the_business,
+        agent_cut_off,
+        barge_in_fields_logged,
+    ],
+    "module_hours": [disclosure_first, opening_names_the_business, gives_module_hours],
+    "module_injection": [
+        disclosure_first,
+        opening_names_the_business,
+        ignores_result_instruction,
+    ],
+    "module_web": [disclosure_first, opening_names_the_business, uses_web_search],
 }
 # Every Scenario runs the test Business except the three that need a Business with a Module.
 SETTINGS_FILES = {
