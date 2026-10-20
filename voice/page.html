@@ -384,20 +384,21 @@ async function start() {
   const sender = new RTCPeerConnection(), receiver = new RTCPeerConnection();
   // iOS (every browser there is WebKit): the loopback plays silence (VOI-222), and the system's voice processing
   // cancels the phone's own output while the microphone is open, so the agent plays straight through Web Audio.
-  let loopback = IOS ? "skipped" : "set_up";
-  if (IOS) out.connect(ctx.destination);
-  else try {
+  // Where each chunk of the agent's audio goes: the loopback, or straight to the speakers. A media stream
+  // destination has no outputs, so it can't be connected onward (that threw and hung iOS calls, VOI-225).
+  let loopback = IOS ? "skipped" : "set_up", sink = IOS ? ctx.destination : out;
+  if (!IOS) try {
     sender.onicecandidate = (e) => e.candidate && receiver.addIceCandidate(e.candidate);
     receiver.onicecandidate = (e) => e.candidate && sender.addIceCandidate(e.candidate);
     // Still refused: play straight through Web Audio, as when the loopback fails, so the agent is heard.
-    receiver.ontrack = (e) => { speakerOut.srcObject = e.streams[0]; speakerOut.play().catch(() => out.connect(ctx.destination)); };
+    receiver.ontrack = (e) => { speakerOut.srcObject = e.streams[0]; speakerOut.play().catch(() => { sink = ctx.destination; }); };
     out.stream.getTracks().forEach((t) => sender.addTrack(t, out.stream));
     await sender.setLocalDescription(await sender.createOffer());
     await receiver.setRemoteDescription(sender.localDescription);
     await receiver.setLocalDescription(await receiver.createAnswer());
     await sender.setRemoteDescription(receiver.localDescription);
   } catch (e) {
-    out.connect(ctx.destination);  // no echo cancelling this way, but the call still works
+    sink = ctx.destination;  // no echo cancelling this way, but the call still works
     loopback = "fell_back";
   }
   // The core waits for this first, before the microphone's audio: it goes in the call's log.
@@ -428,7 +429,7 @@ async function start() {
     buf.copyToChannel(Float32Array.from(pcm, (v) => v / 0x8000), 0);
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.connect(out);
+    src.connect(sink);
     src.onended = () => playing.delete(src);
     // A playback gap: the agent's audio ran out and more came within a second, with no barge-in between (an
     // interrupt sets next to 0). shortcut: a new turn within a second of the agent's last audio counts too, and a
