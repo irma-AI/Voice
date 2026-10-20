@@ -634,7 +634,9 @@ class OAuthClient(models.Model):
     sends the person back, and nothing here grants anything until a Business approves."""
 
     client_id = models.CharField(max_length=64, unique=True)
-    secret_hash = models.CharField(max_length=64, blank=True, default="")  # SHA-256; empty for a public client
+    secret_hash = models.CharField(
+        max_length=64, blank=True, default=""
+    )  # SHA-256; empty for a public client
     client_name = models.CharField(max_length=100)
     redirect_uris = ArrayField(models.CharField(max_length=2000), size=5)
     auth_method = models.CharField(
@@ -650,7 +652,10 @@ class OAuthClient(models.Model):
             ),
             models.CheckConstraint(
                 condition=models.Q(auth_method="none", secret_hash="")
-                | (~models.Q(auth_method="none") & models.Q(secret_hash__regex=tokens.HASH_PATTERN)),
+                | (
+                    ~models.Q(auth_method="none")
+                    & models.Q(secret_hash__regex=tokens.HASH_PATTERN)
+                ),
                 name="oauth_client_has_a_hashed_secret_unless_public",
             ),
             models.CheckConstraint(
@@ -664,8 +669,12 @@ class OAuthCode(models.Model):
     """One approval on the consent page, exchanged once for tokens within CODE_SECONDS (oauth.py); the code itself is never stored."""
 
     code_hash = models.CharField(max_length=64, unique=True)
-    client = models.ForeignKey(OAuthClient, on_delete=models.CASCADE, related_name="codes")
-    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name="oauth_codes")
+    client = models.ForeignKey(
+        OAuthClient, on_delete=models.CASCADE, related_name="codes"
+    )
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="oauth_codes"
+    )
     scope = models.CharField(max_length=10, choices=list(tokens.SCOPES.items()))
     redirect_uri = models.CharField(max_length=2000)
     code_challenge = models.CharField(max_length=128)
@@ -677,8 +686,12 @@ class OAuthConnection(models.Model):
     """A Business's sign-in from one AI assistant: it lasts until revoked on the Access tokens page, and renews its short-lived
     Access tokens with a refresh token that changes at every use (only its hash is kept)."""
 
-    business = models.ForeignKey(Business, on_delete=models.PROTECT, related_name="oauth_connections")
-    client = models.ForeignKey(OAuthClient, on_delete=models.PROTECT, related_name="connections")
+    business = models.ForeignKey(
+        Business, on_delete=models.PROTECT, related_name="oauth_connections"
+    )
+    client = models.ForeignKey(
+        OAuthClient, on_delete=models.PROTECT, related_name="connections"
+    )
     scope = models.CharField(max_length=10, choices=list(tokens.SCOPES.items()))
     refresh_hash = models.CharField(max_length=64, unique=True)
     created_at = models.DateTimeField(db_default=Now())
@@ -687,7 +700,8 @@ class OAuthConnection(models.Model):
     def revoke(self) -> None:
         """The one way a connection ends (the Access tokens page, offboarding): it and every token it gave stop working."""
         with transaction.atomic():
-            type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(revoked_at=Now())
+            type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(
+                revoked_at=Now()
+            )
             for token in self.access_tokens.filter(revoked_at__isnull=True):  # pyright: ignore[reportAttributeAccessIssue]
                 token.revoke()
-

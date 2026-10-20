@@ -88,6 +88,10 @@ _Avoid_: tool (in everyday talk), Action, API call
 The Portal's note of one Command an assistant sent: which Command, with which Access token, when, and whether it was done, refused, failed or timed out. Never what it was asked or answered. Never changed or deleted.
 _Avoid_: audit log, history
 
+**Signed-in assistant**:
+An AI assistant a Business connected by signing in to the Portal from the assistant (claude.ai, ChatGPT), instead of pasting an Access token. Read-only or full, picked on the consent page; it renews its own access until revoked on the Access tokens page.
+_Avoid_: OAuth app, integration
+
 **Pending change**:
 A change a destructive Command asked for, waiting for the Business to approve or reject it in the Portal. Nothing changes before the approval; it expires after 7 days, and revoking the Access token that asked for it cancels it. Removing a Module is one, and so is changing the Business's name, instructions or languages.
 _Avoid_: staged operation, draft

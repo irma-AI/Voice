@@ -23,6 +23,14 @@ OPEN = {
     "call_button_js",
     "logo",
     "agent_endpoint",
+    # Sign-in with a click (VOI-119): an assistant reads, registers and exchanges here before anyone is logged in;
+    # the consent page (oauth_authorize) is behind the login.
+    "oauth_protected_resource",
+    "oauth_protected_resource_mcp",
+    "oauth_authorization_server",
+    "oauth_register",
+    "oauth_token",
+    "oauth_revoke",
 }
 
 

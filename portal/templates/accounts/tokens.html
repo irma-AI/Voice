@@ -38,6 +38,30 @@
   <li class="border-b border-granite py-5 text-foam-muted">No Access tokens yet.</li>
   {% endfor %}
 </ul>
+
+{% if connections %}
+<h2 class="mt-12 text-2xl">Signed-in assistants</h2>
+<p class="mt-2 max-w-prose text-sm text-foam-muted">Assistants you connected by signing in, such as Claude or ChatGPT. Each renews its own access until you revoke it.</p>
+<ul class="mt-6 border-t border-granite">
+  {% for connection in connections %}
+  <li class="flex flex-wrap items-start justify-between gap-4 border-b border-granite py-5">
+    <div class="min-w-0 flex-1 basis-0">
+      <p class="text-lg font-medium break-words{% if connection.revoked_at %} text-foam-muted{% endif %}">{{ connection.client.client_name }}</p>
+      <p class="mt-1 text-sm text-foam-muted tabular-nums">{{ connection.get_scope_display }} · Connected {{ connection.created_at|date:"Y-m-d H:i" }}{% if connection.revoked_at %} · Revoked {{ connection.revoked_at|date:"Y-m-d H:i" }}{% endif %}</p>
+    </div>
+    {% if not connection.revoked_at %}
+    <details class="revoke">
+      <summary>Revoke<span class="sr-only"> {{ connection.client.client_name }}</span></summary>
+      <form method="post" action="{% url 'revoke_connection' connection.pk %}">{% csrf_token %}
+        <p>It stops at once, and the changes it asked for that still wait are cancelled. To use it again, connect it again.</p>
+        <button class="ghost">Revoke for good<span class="sr-only"> {{ connection.client.client_name }}</span></button>
+      </form>
+    </details>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
 <p class="mt-3 text-sm text-foam-muted">Times are in {{ time_zone }}.</p>
 
 <form method="post" class="mt-12 max-w-md space-y-5">

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Connect an AI assistant · Voice Portal{% endblock %}
+{% block content %}
+<h1 class="text-4xl sm:text-5xl">Connect “{{ client.client_name }}”?</h1>
+<p class="mt-4 max-w-prose text-foam-muted">An AI assistant that calls itself “{{ client.client_name }}” asks to work on {{ business.name }}'s Voice for you. Once you connect, you go back to <strong class="font-medium text-foam break-all">{{ back_to }}</strong>. Connect only if you started this there.</p>
+
+<form method="post" class="mt-10 max-w-prose space-y-6">
+  {% csrf_token %}
+  <fieldset class="space-y-3">
+    <legend class="text-lg font-medium">What may it do?</legend>
+    <label class="check"><input type="radio" name="access" value="read" checked> Read-only: it can look at your settings, Modules and calls, and change nothing.</label>
+    <label class="check"><input type="radio" name="access" value="full"> Full: it can do what you can do in the Portal. Some changes, such as removing a Module, still wait for your approval under Pending changes.</label>
+  </fieldset>
+  <p class="text-sm text-foam-muted">It works for {{ business.name }} only. You can revoke it at any time under Access tokens, and it stops at once.</p>
+  <div class="flex flex-wrap gap-3">
+    <button class="pill" name="decision" value="approve">Connect</button>
+    <button class="ghost" name="decision" value="deny">Don't connect</button>
+  </div>
+</form>
+{% endblock %}
