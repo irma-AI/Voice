@@ -227,6 +227,8 @@
 <script>
 // ponytail: plain page and a hand-written audio path; swap for Pipecat's browser client if barge-in or reconnects need more than this.
 const IN_RATE = __IN_RATE__, OUT_RATE = __OUT_RATE__, MAX_CALL_SECS = __MAX_CALL_SECS__;
+// The core closes with this when a visitor has used up today's demo calls (voice/serve.py DEMO_CAPPED).
+const DEMO_CAPPED = __DEMO_CAPPED__;
 const go = document.getElementById("go"), panel = document.getElementById("panel");
 let call = null;
 
@@ -241,6 +243,9 @@ const STATES = {
   // The ticket in this page's address has run out: the core would refuse the call, and a reload brings the same ticket
   // (and the core's refusal page), so there is no button; the status line is read out instead.
   expired: ["Link expired", "This call link has expired. Close this page and open the call again.", ""],
+  // Today's demo calls from this visitor are used up (VOI-244). The sentence is the one Petter approved for every demo refusal
+  // (2026-10-20); no button, since another try today is refused the same way.
+  capped: ["Call ended", "Something went wrong. We can't take calls right now.", ""],
 };
 function show(state) {
   const [chip, message, button] = STATES[state];
@@ -368,7 +373,7 @@ async function start() {
   tick(0);
   lines = [];
   turn.replaceChildren();
-  let stream, ctx, ws;
+  let stream, ctx, ws, closedWith = null;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
     ctx = new AudioContext();
@@ -377,6 +382,8 @@ async function start() {
     ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws${location.search}`);
     ws.binaryType = "arraybuffer";
     await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = () => fail(new Error("ws")); });
+    // The core may close before the call is set up below (a slow page, or today's demo calls used up): keep its code.
+    ws.onclose = (e) => { closedWith = e.code; };
   } catch (e) {
     stream?.getTracks().forEach((t) => t.stop());
     ctx?.close();
@@ -452,7 +459,7 @@ async function start() {
     tick((performance.now() - began) / 1000);
     speaking(playing.size ? "agent" : performance.now() - callerHeardAt < 400 ? "caller" : "");
   }, 100);
-  function end() {
+  function end(code) {
     call = null;
     clearInterval(timer);
     speaking("");
@@ -462,10 +469,11 @@ async function start() {
     receiver.close();
     ws.close();
     ctx.close();
-    show("ended");
+    show(code === DEMO_CAPPED ? "capped" : "ended");
   }
-  ws.onclose = () => call && end();
+  ws.onclose = (e) => call && end(e.code);
   call = end;
+  if (closedWith !== null) return end(closedWith);
   show("live");
 }
 go.onclick = () => panel.dataset.state !== "connecting" && (call ? call() : start());

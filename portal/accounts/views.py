@@ -5,10 +5,9 @@ import hmac
 import json
 import logging
 import re
-import secrets
 import unicodedata
 from collections.abc import Callable
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 from decimal import Decimal
 from functools import wraps
 from typing import Any
@@ -91,15 +90,15 @@ def tries_key(kind: str, typed_email: str, request: HttpRequest | None) -> str:
     return f"{kind}:" + hashlib.sha256(who.encode()).hexdigest()
 
 
-def count_try(key: str, window: int = TRIES_WINDOW) -> int:
+def count_try(key: str) -> int:
     """Adds one to the key's count in the current window and returns it."""
-    # shortcut: login, reset and demo counts live in this process's memory (the image runs one worker), so a restart clears them; move to the database before a second worker.
-    cache.add(key, 0, window)
+    # shortcut: login and reset counts live in this process's memory (the image runs one worker), so a restart clears them; move to the database before a second worker.
+    cache.add(key, 0, TRIES_WINDOW)
     try:
         return cache.incr(key)
     # The key expired between add and incr: this try starts a new window.
     except ValueError:
-        cache.set(key, 1, window)
+        cache.set(key, 1, TRIES_WINDOW)
         return 1
 
 
@@ -788,69 +787,28 @@ def call_link(request: HttpRequest, slug: str) -> HttpResponse:
     return to_core(request, business, "call_link", business.website_domain)
 
 
-# The landing page's demo (VOI-244; Petter, 2026-10-20): one visitor's address may start this many demo calls a day, and all visitors together this many.
-DEMO_CALLS_PER_ADDRESS = 2
+# The landing page's demo (VOI-244; Petter, 2026-10-20): all visitors together may start this many demo calls a day. The cap per
+# visitor's address counts calls as they start, in the core (voice/serve.py DemoCalls): opening the panel mints a ticket here, and
+# counting tickets used up a visitor's day without a call (Petter, 2026-10-20).
 DEMO_CALLS_PER_DAY = 20
 
 
-# A key no one outside this process knows: a plain hash of an address could be reversed by trying every IPv4 address (VOI-245).
-# A restart makes a new one, which only clears the counts a restart clears anyway.
-DEMO_ADDRESS_KEY = secrets.token_bytes(32)
-
-
-def demo_address_key(request: HttpRequest, now: datetime) -> str:
-    """One count per visitor's address and day. The address is keyed at once with the day (HMAC-SHA-256 under DEMO_ADDRESS_KEY) and kept only as that code, in memory, until midnight (Petter, 2026-10-20: acceptable for the MVP); it never reaches a log or the database."""
-    who = f"{client_address(request)}\n{now.date()}"
-    return (
-        "demo:" + hmac.new(DEMO_ADDRESS_KEY, who.encode(), hashlib.sha256).hexdigest()
-    )
-
-
 def demo_call(request: HttpRequest, business: Business) -> HttpResponse:
-    """A `demo` ticket for the landing page's Business, under caps the daily budget alone cannot hold (an unpriced call counts at the floor only): this address's calls today, every visitor's demo calls today (from Call records, so pricing failures do not open it), then the budget in `to_core`. A refusal shows the spent-budget sentence, which Petter reuses for every demo refusal (2026-10-20), and logs the Business and the reason, never the address."""
-    now = datetime.now(
-        ZoneInfo(settings.TIME_ZONE)
-    )  # read once, so the key's day and its expiry agree at midnight
-    key = demo_address_key(request, now)
-    # Counted first, with the cache's atomic increment, so parallel requests from one address cannot all pass; a refusal gives it back.
-    if count_try(key, seconds_to_midnight(now)) > DEMO_CALLS_PER_ADDRESS:
-        give_back(key)
-        log.warning("call refused: Business %s demo cap per_address", business.pk)
-        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
+    """A `demo` ticket for the landing page's Business, under the caps the daily budget alone cannot hold (an unpriced call counts at the floor only): every visitor's demo calls today (from Call records, so pricing failures do not open it), then the budget in `to_core`. A refusal shows the spent-budget sentence, which Petter reuses for every demo refusal (2026-10-20), and logs the Business and the reason."""
     demo_calls_today = CallRecord.objects.filter(
         business=business, kind="demo", started_at__gte=start_of_today()
     ).count()
     if demo_calls_today >= DEMO_CALLS_PER_DAY:
-        give_back(key)
         log.warning("call refused: Business %s demo cap per_day", business.pk)
         return call_link_refused(request, BUDGET_SPENT_REFUSAL)
     response = to_core(request, business, "demo", business.website_domain)
     if response.status_code == 302:
         log.info("demo call minted: Business %s", business.pk)
-        return response
-    give_back(key)  # no ticket, no call counted
-    if (
+    elif (
         response.status_code == 403
     ):  # to_core's budget refusal, under the demo's reason names
         log.warning("call refused: Business %s demo cap budget", business.pk)
     return response
-
-
-def give_back(key: str) -> None:
-    """Undoes one count_try for a request that got no ticket; a key already gone has nothing to give back."""
-    try:
-        cache.decr(key)
-    except ValueError:
-        pass
-
-
-def seconds_to_midnight(now: datetime | None = None) -> int:
-    """How long today's demo counts live: until the next midnight on TIME_ZONE, so a 23- or 25-hour day ends its count when its date does."""
-    zone = ZoneInfo(settings.TIME_ZONE)
-    now = (now or datetime.now(zone)).astimezone(zone)
-    midnight = datetime.combine(now.date() + timedelta(days=1), time.min, tzinfo=zone)
-    # Same-zone subtraction is wall-clock time in Python, which would hide the hour a clock change adds or takes away.
-    return max(1, int(midnight.timestamp() - now.timestamp()))
 
 
 # The Call button script a Business's website loads, and the hash of its bytes that the pasted tag names (VOI-135):
