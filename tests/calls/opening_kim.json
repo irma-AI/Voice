@@ -1,0 +1,13 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: the agent's exact opening from voice/agent.py (greeting, the Business's name, the disclosure word for word, an offer of help).",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Hej och välkommen till Tandkliniken Exempel! Jag heter Kim och är en AI-assistent. Vad kan jag hjälpa dig med?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  }
+ ]
+}

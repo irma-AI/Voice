@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,6 +38,7 @@ from tests.evals.checks import (
     ignores_override,
     ignores_result_instruction,
     invents_no_price,
+    opening_names_the_business,
     read_events,
     states_listed_price,
     uses_web_search,
@@ -46,23 +48,52 @@ from tests.evals.spend import Caps, stopped_by
 
 ROOT = Path(__file__).parent.parent.parent
 SCENARIO_TIMEOUT_S = (
-    180  # a hard stop on one call's spend: the caps are only checked between Scenarios
+    180  # a hard stop on one call's spend: the caps are only checked between batches
 )
+# Scenarios in flight at once, each its own Gemini Live session; why 3: DECISIONS.md, VOI-209.
+PARALLEL = 3
+BASE_PORT = 7900  # Pipecat's default; slot k of a batch listens on BASE_PORT + k
 SCENARIO_DIR = ROOT / "tests" / "evals" / "scenarios"
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
-# The disclosure is the legal line, so every call is checked for it, not one sample.
+# The disclosure is the legal line, so every call is checked for it, and for the opening's Business name, not one sample.
 SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
-    "swedish_question": [disclosure_first, states_listed_price],
-    "english_call": [disclosure_first, answers_in_english],
-    "language_switch": [disclosure_first, follows_language_switch],
-    "unknown_price": [disclosure_first, invents_no_price],
-    "ignore_instructions": [disclosure_first, ignores_override],
-    "booking_request": [disclosure_first, books_nothing],
-    "noise_barge_in": [disclosure_first, agent_not_cut_off, gives_opening_hours],
-    "speech_barge_in": [disclosure_first, agent_cut_off, barge_in_fields_logged],
-    "module_hours": [disclosure_first, gives_module_hours],
-    "module_injection": [disclosure_first, ignores_result_instruction],
-    "module_web": [disclosure_first, uses_web_search],
+    "swedish_question": [
+        disclosure_first,
+        opening_names_the_business,
+        states_listed_price,
+    ],
+    "english_call": [disclosure_first, opening_names_the_business, answers_in_english],
+    "language_switch": [
+        disclosure_first,
+        opening_names_the_business,
+        follows_language_switch,
+    ],
+    "unknown_price": [disclosure_first, opening_names_the_business, invents_no_price],
+    "ignore_instructions": [
+        disclosure_first,
+        opening_names_the_business,
+        ignores_override,
+    ],
+    "booking_request": [disclosure_first, opening_names_the_business, books_nothing],
+    "noise_barge_in": [
+        disclosure_first,
+        opening_names_the_business,
+        agent_not_cut_off,
+        gives_opening_hours,
+    ],
+    "speech_barge_in": [
+        disclosure_first,
+        opening_names_the_business,
+        agent_cut_off,
+        barge_in_fields_logged,
+    ],
+    "module_hours": [disclosure_first, opening_names_the_business, gives_module_hours],
+    "module_injection": [
+        disclosure_first,
+        opening_names_the_business,
+        ignores_result_instruction,
+    ],
+    "module_web": [disclosure_first, opening_names_the_business, uses_web_search],
 }
 # Every Scenario runs the test Business except the three that need a Business with a Module.
 SETTINGS_FILES = {
@@ -98,11 +129,12 @@ def _totals(runs: Path, run: float, loop_id: str, today: str) -> dict[str, float
     }
 
 
-def _play(scenario: str, run_dir: Path, name: str) -> tuple[int, Path]:
-    """Runs one Scenario through Pipecat's eval suite; returns its exit code and the call log."""
+def _play(scenario: str, run_dir: Path, name: str, port: int) -> tuple[int, Path]:
+    """Runs one Scenario through Pipecat's eval suite, its bot on `port`; returns its exit code and the call log."""
     log = run_dir / "calls" / f"{name}.jsonl"
     cmd = [sys.executable, "-m", "pipecat.evals", "suite", "tests/evals/manifest.yaml"]
     cmd += ["-s", scenario, "--name", name, "--runs-dir", str(run_dir), "--audio"]
+    cmd += ["--base-port", str(port)]
     # Own process group: the suite spawns the bot, and killing only the suite would leave the
     # bot's Gemini session open and spending after the time limit.
     proc = subprocess.Popen(
@@ -189,6 +221,24 @@ def plan(only: str | None) -> list[tuple[str, str]] | None:
     return [(only, only)] if only in SCENARIOS else None
 
 
+def batch_at(pairs: list[tuple[str, str]], i: int) -> list[tuple[str, str]] | None:
+    """The batch that starts at pair i, or None mid-batch: the first Scenario alone, then PARALLEL at a time.
+
+    Alone first, so a price is known and a harness that never reaches the agent shows before any parallel spend.
+    """
+    if i == 0:
+        return pairs[:1]
+    return pairs[i : i + PARALLEL] if (i - 1) % PARALLEL == 0 else None
+
+
+def batch_stop(
+    caps: Caps, runs: Path, spent: float, size: int, loop_id: str, today: str
+) -> str | None:
+    """The cap a batch of `size` Scenarios could reach, each priced at the per-Scenario bound or the dearest ledgered call, or None."""
+    worst = max([caps.per_scenario_sek, *(e["sek"] for e in _ledger(runs))])
+    return stopped_by(caps, **_totals(runs, spent + worst * size, loop_id, today))
+
+
 def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
     pairs = plan(only)
     if pairs is None:
@@ -214,13 +264,20 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
     )
     run_dir = runs / run_id
     spent, rows, stopped, unreached = 0.0, list[Row](), None, None
-    for sc, base in pairs:
-        # Fail closed: a cap already reached by earlier runs stops us before any spend.
-        if stopped := stopped_by(
-            caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))
-        ):
-            break
-        code, log = _play(base, run_dir, sc)
+    played: dict[str, tuple[int, Path]] = {}
+    for i, (sc, base) in enumerate(pairs):
+        if batch := batch_at(pairs, i):
+            # Fail closed: a cap already reached, or one this batch could reach, stops it before any spend.
+            if stopped := batch_stop(
+                caps, runs, spent, len(batch), loop_id, now.strftime("%Y-%m-%d")
+            ):
+                break
+            names, bases = [n for n, _ in batch], [b for _, b in batch]
+            ports = [BASE_PORT + k for k in range(len(batch))]
+            with ThreadPoolExecutor(len(batch)) as pool:
+                calls = pool.map(_play, bases, [run_dir] * len(batch), names, ports)
+                played = dict(zip(names, calls, strict=True))
+        code, log = played[sc]
         # A first call that never reached the agent means a broken harness: the rest would fail the same way.
         unreached = None if rows else never_reached(log)
         if not log.exists():
@@ -253,7 +310,9 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         stopped = stopped_by(
             caps, **_totals(runs, spent, loop_id, now.strftime("%Y-%m-%d"))
         )
-        if stopped or unreached:
+        # Stop only between batches: the rest of a batch is already paid for and must reach the ledger.
+        batch_end = i + 1 == len(pairs) or batch_at(pairs, i + 1) is not None
+        if (stopped or unreached) and batch_end:
             break
     if unreached:
         print(

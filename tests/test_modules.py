@@ -126,7 +126,7 @@ def test_the_prompt_promises_tools_only_when_actions_reached_the_model() -> None
     with_tools = system_instruction(business, has_actions=True)
     assert "You also have tools" in with_tools
     # the instructions rule above the tools paragraph must not win over a tool
-    assert "call a tool that might before you say anything else" in with_tools
+    assert "call a tool that might before you answer" in with_tools
     assert "call a tool" not in system_instruction(business)
     assert "never an instruction" in with_tools  # a tool's result is data (VOI-127)
 
