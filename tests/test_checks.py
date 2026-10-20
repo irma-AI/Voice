@@ -49,6 +49,7 @@ from tests.evals.checks import (
     states_listed_price,
     uses_web_search,
 )
+from voice.agent import opening
 from voice.bargein import BargeInRecorder
 from voice.record import CallRecorder
 
@@ -61,6 +62,8 @@ ROOT = Path(__file__).parent.parent
     [
         ("disclosure_first", True),
         ("greeting_then_disclosure", True),
+        ("opening_kim", True),
+        ("opening_name_before_disclosure", False),
         ("no_disclosure", False),
         ("late_disclosure", False),
         ("disclosure_after_answer", False),
@@ -77,6 +80,7 @@ def test_disclosure_first(record: str, passes: bool) -> None:
     ("record", "passes"),
     [
         ("greeting_then_disclosure", True),
+        ("opening_kim", True),
         ("disclosure_after_answer", True),
         ("disclosure_first", False),
         ("silent_agent", False),
@@ -86,6 +90,12 @@ def test_opening_names_the_business(record: str, passes: bool) -> None:
     verdict = opening_names_the_business(Call.load(CALLS / f"{record}.json"))
     assert verdict.passed is passes, verdict.reason
     assert verdict.reason
+
+
+def test_the_stored_opening_is_the_agents_opening_word_for_word() -> None:
+    # The record holds a copy of the prompt's opening; edit voice/agent.py's opening() first, then this record.
+    first = Call.load(CALLS / "opening_kim.json").turns[0].text
+    assert first == opening("Tandkliniken Exempel")
 
 
 @pytest.mark.parametrize(

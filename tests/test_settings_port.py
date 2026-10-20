@@ -16,7 +16,13 @@ from dotenv import dotenv_values
 
 from tests.evals.checks import BUSINESS_FILE, MODULE_BUSINESS_FILE
 from tests.portal.contract import SCHEMA, schema_errors
-from voice.agent import DISCLOSURE, REFUSAL, refusal_instruction, system_instruction
+from voice.agent import (
+    DISCLOSURE,
+    REFUSAL,
+    opening,
+    refusal_instruction,
+    system_instruction,
+)
 from voice.settings import (
     COLOUR_PATTERN,
     INSTRUCTIONS_MAX,
@@ -415,17 +421,19 @@ def test_the_secret_never_reaches_the_refusal_text() -> None:
 
 def test_the_prompt_is_built_from_the_business_and_keeps_the_disclosure() -> None:
     prompt = system_instruction(parse(GOOD))
-    assert f'Start every call by saying exactly: "{DISCLOSURE}"' in prompt
+    assert f'Start every call by saying exactly: "{opening("Anna's Salon")}"' in prompt
+    assert DISCLOSURE.removesuffix(".") in opening("Anna's Salon")
     assert (
-        "Speak Swedish. Answer in the language the caller last spoke: Swedish or English."
-        in prompt
+        "RESPOND IN SWEDISH OR ENGLISH. YOU MUST RESPOND UNMISTAKABLY IN SWEDISH OR ENGLISH."
+        " Answer in the language the caller last spoke." in prompt
     )
     assert prompt.endswith("Business instructions:\nname: Anna's Salon\nÖppet 8-17.")
 
 
 def test_a_single_language_business_is_not_told_to_switch() -> None:
     prompt = system_instruction(parse({**GOOD, "languages": ["en"]}))
-    assert "Speak English." in prompt and "last spoke" not in prompt
+    assert "YOU MUST RESPOND UNMISTAKABLY IN ENGLISH." in prompt
+    assert "last spoke" not in prompt
 
 
 def test_a_refused_call_says_the_disclosure_then_the_reason_and_holds_no_facts() -> (
