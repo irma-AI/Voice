@@ -185,7 +185,8 @@ def test_every_command_against_every_kind_of_token(era: str) -> None:
     business = a_business()
     Module.objects.create(business=business, name="Bookings", url="https://8.8.8.8/mcp")
     for kind, (scope, operator) in LIVE_KINDS.items():
-        Module.remove(Module.objects.filter(name="Hours"))  # what the last kind's add_module added
+        # What the last kind's add_module added.
+        Module.remove(Module.objects.filter(name="Hours"))
         secret = a_token(business, scope, operator)
         listed = tool_names(ask("tools/list", secret=secret, era=era))
         assert listed == [
