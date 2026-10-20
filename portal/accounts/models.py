@@ -420,6 +420,13 @@ class CallLog(models.Model):
         ]
 
 
+def operator_account(account: Account) -> bool:
+    """Whether `SUPER_ADMIN_EMAIL` names this Account: the totals page, the operator's Commands and their staged invites. None while unset."""
+    return (
+        bool(settings.SUPER_ADMIN_EMAIL) and account.email == settings.SUPER_ADMIN_EMAIL
+    )
+
+
 class AccessToken(models.Model):
     """What lets a Business's own agent act for it (ADR 0003). The secret is shown once and never stored, only its SHA-256. Once made, only `last_used_at`, a first `revoked_at` and offboarding's blanking of a revoked label can change, and it is never deleted: triggers (migrations 0014, 0021, 0022) refuse the rest, for every role."""
 
@@ -428,7 +435,7 @@ class AccessToken(models.Model):
     )
     label = models.CharField(max_length=tokens.LABEL_MAX)
     scope = models.CharField(max_length=10, choices=list(tokens.SCOPES.items()))
-    # Set at creation from the Account that made it (`SUPER_ADMIN_EMAIL`), so the operator's tools follow the token, not a later change of the setting.
+    # Set at creation from the Account that made it; an operator Command also needs `SUPER_ADMIN_EMAIL` to name that Account at each use (operator_account).
     is_operator = models.BooleanField(default=False)
     token_hash = models.CharField(max_length=64, unique=True)
     created_at = models.DateTimeField(
@@ -537,6 +544,7 @@ class CommandRecord(models.Model):
 CHANGE_KINDS = {
     "remove_module": "Remove a Module",
     "change_details": "Change the name, instructions or languages",
+    "invite_business": "Invite a Business",
 }
 CHANGE_DECISIONS = {
     "approved": "Approved",

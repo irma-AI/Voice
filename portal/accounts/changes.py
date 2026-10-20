@@ -13,6 +13,7 @@ from django.db.models import QuerySet
 from django.db.models.functions import Now
 from django.urls import reverse
 
+from portal.accounts import invite
 from portal.accounts.models import (
     LANGUAGES,
     AccessToken,
@@ -21,6 +22,7 @@ from portal.accounts.models import (
     Module,
     PendingChange,
     StagedValues,
+    operator_account,
 )
 from portal.accounts.settings_form import changed
 
@@ -29,10 +31,11 @@ audit = logging.getLogger("portal.audit")
 # How long a change waits for approval; migration 0026's trigger holds the same 7 days.
 WAITS = timedelta(days=7)
 
-Kind = Literal["remove_module", "change_details"]
+Kind = Literal["remove_module", "change_details", "invite_business"]
 RISK: dict[Kind, Literal["low", "medium", "high"]] = {
     "remove_module": "medium",  # the agent stops using it in calls; adding it again undoes it
     "change_details": "high",  # the instructions are what the agent tells every Caller
+    "invite_business": "medium",  # an email to someone outside, and an Account that only offboarding closes
 }
 
 
@@ -70,6 +73,11 @@ def preview(change: PendingChange) -> str:
             if "instructions" in values:
                 lines.append(f"Change the instructions to:\n{values['instructions']}")
             return "\n".join(lines) or "Change details that were already decided"
+        case "invite_business":
+            values = _values(change)
+            if not values:
+                return "Invite a Business that was already decided"
+            return f"Invite “{values['name']}” at {values['email']}"
         case _:
             assert_never(kind)
 
@@ -139,15 +147,32 @@ def _apply(change: PendingChange) -> bool:
             if (
                 not form.is_valid()
             ):  # a saved setting no longer passes (a rule changed): write none of it
-                raise NoLongerFits
+                raise NotApplied("no_longer_fits")
             form.save()
+            return True
+        case "invite_business":  # the management command's own invite
+            values = _values(change)
+            if not values:
+                return False
+            if not operator_account(
+                change.token.business.account
+            ):  # as agent.is_operator, at approval too
+                raise NotApplied("not_operator")
+            try:
+                invite.invite(values["name"], values["email"])
+            except ValueError:  # taken since, or the mail failed: nothing was created, and the change waits
+                raise NotApplied("invite_refused") from None
             return True
         case _:
             assert_never(kind)
 
 
-class NoLongerFits(Exception):
-    """The Business's saved settings no longer pass the settings page's rules, so an approval writes nothing and the change waits."""
+class NotApplied(Exception):
+    """An approval that cannot be made now writes nothing and the change keeps waiting; `outcome` says why on the page."""
+
+    def __init__(self, outcome: "Decided") -> None:
+        super().__init__(outcome)
+        self.outcome: Decided = outcome
 
 
 Decided = Literal[
@@ -158,6 +183,8 @@ Decided = Literal[
     "cancelled",
     "expired",
     "no_longer_fits",
+    "invite_refused",
+    "not_operator",
 ]
 
 
@@ -193,8 +220,8 @@ def decide(
         if "pending_change_" not in str(error):
             raise
         return refusal(change)
-    except NoLongerFits:
-        return "no_longer_fits"
+    except NotApplied as not_now:
+        return not_now.outcome
     audit.info(
         "%s pending change %s (%s) for business %s by account %s%s",
         decision,
