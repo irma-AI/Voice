@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: an English refusal written with a curly apostrophe.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Jag heter Kim och är en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Can I book a time on Tuesday?"
+  },
+  {
+   "speaker": "agent",
+   "text": "I’m sorry, I can’t book appointments."
+  }
+ ]
+}

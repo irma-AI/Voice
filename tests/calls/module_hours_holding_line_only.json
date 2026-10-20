@@ -1,0 +1,24 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad: the call ended on the holding line, before the answer.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Jag heter Kim och är en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Ett ögonblick, jag kollar."
+  }
+ ],
+ "events": [
+  {
+   "t": 3.0,
+   "e": "tool_call",
+   "name": "opening_hours"
+  }
+ ]
+}

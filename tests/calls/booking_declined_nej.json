@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: a short refusal with no inte.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Jag heter Kim och är en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Kan jag boka en tid på tisdag?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Nej, tyvärr."
+  }
+ ]
+}

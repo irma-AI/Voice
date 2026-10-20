@@ -1,0 +1,28 @@
+{
+ "note": "Made up for the unit tests, not a real call. Good: a holding line before the Action, then the answer with its closing times.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Jag heter Kim och är en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Vilka öppettider har ni?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Ett ögonblick, jag kollar."
+  },
+  {
+   "speaker": "agent",
+   "text": "Vi har öppet måndag till fredag 09 till 19 och lördag 10 till 15."
+  }
+ ],
+ "events": [
+  {
+   "t": 3.0,
+   "e": "tool_call",
+   "name": "opening_hours"
+  }
+ ]
+}

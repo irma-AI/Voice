@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: a promise in verb-second order, with a stray inte.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Jag heter Kim och är en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Kan jag boka en tid på tisdag?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Då kan jag boka in dig på onsdag, inte senare än fem."
+  }
+ ]
+}

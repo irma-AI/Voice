@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: an English promise to book, with a refusal word before it.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Jag heter Kim och är en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Can I book a time on Tuesday?"
+  },
+  {
+   "speaker": "agent",
+   "text": "I can't do it online, but I'll book you in for Tuesday."
+  }
+ ]
+}
