@@ -35,7 +35,7 @@ const stockholm = (s) => new Date(s * 1000).toLocaleString('sv-SE', { timeZone: 
 
 // A Bash command passes when every `&&` part is a `cd` or matches; any other shell operator fails it.
 function bashOk(cmd, re) {
-  if (typeof cmd !== 'string' || /[;|`<>\n]|\$\(/.test(cmd.replace(/&&/g, ''))) return false;
+  if (typeof cmd !== 'string' || /[;|&`<>\n]|\$\(/.test(cmd.replace(/&&/g, ''))) return false;
   return cmd.split('&&').every((part) => /^cd \S+$/.test(part.trim()) || re.test(part.trim()));
 }
 
