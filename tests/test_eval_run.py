@@ -2,11 +2,16 @@
 
 import io
 import json
+import os
 import re
+import subprocess
+import sys
+import time
 import wave
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 from pipecat.evals.scenario import EvalScenarioFile
 from pipecat.evals.script import EvalScriptScenario
 
@@ -16,16 +21,19 @@ from tests.evals.checks import (
     WEB_BUSINESS_FILE,
     Verdict,
 )
+from tests.evals.cost import cost_sek
 from tests.evals.render_audio import LINES, frames
 from tests.evals.run import (
     MAX_REPEATS,
     PARALLEL,
     ROOT,
+    RUNNING,
     SCENARIOS,
     SETTINGS_FILES,
     Row,
     batch_at,
     batch_stop,
+    interrupted,
     main,
     missing_audio,
     module_log,
@@ -184,3 +192,57 @@ def test_a_call_that_never_reached_the_agent_is_named(tmp_path: Path) -> None:
         '{"e": "caller", "text": "hej"}\n{"e": "agent_llm", "text": "Hej!"}\n', "utf-8"
     )
     assert never_reached(log) is None
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="process groups are POSIX")
+def test_an_interrupted_batch_kills_its_calls_and_records_their_spend(
+    tmp_path: Path,
+) -> None:
+    # A stand-in suite in its own group that starts a stand-in bot, as pipecat.evals does; neither spends.
+    started = tmp_path / "bot_started"
+    bot = (
+        f"import pathlib, time; pathlib.Path({str(started)!r}).touch(); time.sleep(60)"
+    )
+    sleeper = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', {bot!r}]); time.sleep(60)"
+    suite = subprocess.Popen([sys.executable, "-c", sleeper], start_new_session=True)
+    RUNNING.add(suite)
+    deadline = time.monotonic() + 10
+    while (
+        not started.exists()
+    ):  # kill only once the bot runs, so the test needs the group kill
+        assert time.monotonic() < deadline, "the stand-in bot never started"
+        time.sleep(0.02)
+    usage = {"e": "usage", "prompt_tokens": 1000, "output_audio_tokens": 2000}
+    calls = tmp_path / "calls"
+    calls.mkdir()
+    (calls / "ran.jsonl").write_text(json.dumps(usage) + "\n", "utf-8")
+    try:
+        interrupted(
+            [calls / "ran.jsonl", calls / "never_started.jsonl"],
+            tmp_path,
+            datetime.now(UTC),
+            "run",
+            "loop",
+        )
+    finally:
+        RUNNING.discard(suite)
+    assert suite.poll() is not None
+    deadline = time.monotonic() + 5
+    while (
+        time.monotonic() < deadline
+    ):  # the bot, reparented once the suite died, goes with its group
+        try:
+            os.killpg(suite.pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.05)
+    else:
+        raise AssertionError("the bot in the suite's process group is still running")
+    ledger = [
+        json.loads(line)
+        for line in (tmp_path / "ledger.jsonl").read_text("utf-8").splitlines()
+    ]
+    assert [(e["run"], e["loop"], e["sek"]) for e in ledger] == [
+        ("run", "loop", cost_sek([usage]))
+    ]
+    assert ledger[0]["sek"] > 0
