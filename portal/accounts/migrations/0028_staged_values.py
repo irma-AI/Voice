@@ -38,7 +38,7 @@ DROP FUNCTION accounts_staged_values_are_kept_as_staged();
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0026_pending_changes'),
+        ('accounts', '0027_demo_call_kind'),
     ]
 
     operations = [
