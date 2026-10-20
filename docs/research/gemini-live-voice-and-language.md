@@ -156,7 +156,7 @@ Documented:
 - The Live API lists Swedish (`sv`) among the 99 languages it detects and speaks (capabilities guide). No quality tier or per-language rating is given.
 - Vertex's language-code table does not list `sv-SE` (§ 2).
 - No voice is documented as Swedish-specific or as better in Swedish.
-- TTS: Swedish is marked supported for Gemini 3.8 Flash TTS and not for Gemini 3.8 Flash-Lite TTS (speech generation page). `tests/evals/render_audio.py` renders the Swedish Caller lines with `gemini-3.8-flash-lite-tts`: by Google's table that model does not support Swedish, so the Swedish Caller audio may be accented or wrong (not listened to here).
+- TTS: Swedish is marked supported for Gemini 3.8 Flash TTS and not for Gemini 3.8 Flash-Lite TTS (speech generation page). `tests/evals/render_audio.py` rendered the stored Swedish Caller lines with `gemini-3.8-flash-lite-tts`, which by Google's table does not support Swedish; VOI-212 switched it to `gemini-3.8-flash-tts` (table re-read 2026-10-20, page last updated 2026-10-12), and the stored audio is re-rendered by one `make eval-audio`.
 
 Not documented by Google for the Live model (searched the pages above; none covers it): how it reads numbers, prices and "kr", times and opening hours ("08-17", "måndag-torsdag"), dates, phone numbers, postcodes ("123 45"), personnummer-like strings, addresses, English loanwords and mid-sentence code-switching, or "du" against "ni". Only anecdote exists, so each is a Scenario to propose, not a fact:
 

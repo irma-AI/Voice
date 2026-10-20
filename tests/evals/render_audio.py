@@ -11,7 +11,8 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 
-MODEL = "models/gemini-3.8-flash-lite-tts"
+# Flash TTS: Google's speech generation page marks Swedish supported here, not on Flash-Lite TTS.
+MODEL = "models/gemini-3.8-flash-tts"
 AUDIO = Path(__file__).parent / "audio"
 # file name -> (Caller's line, preset voice). Swedish and English presets, one each.
 LINES = {
