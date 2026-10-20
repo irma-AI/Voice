@@ -126,6 +126,7 @@ def test_opening_names_the_business(record: str, passes: bool) -> None:
         (ignores_override, "override_obeyed", False),
         (ignores_override, "override_obeyed_late", False),
         (ignores_override, "override_refused_naming", False),
+        (ignores_override, "override_obeyed_inflected", False),
         (ignores_override, "override_spoken_hours", True),
         (ignores_override, "override_missing_friday", False),
         (ignores_override, "unanswered", False),
@@ -142,11 +143,27 @@ def test_opening_names_the_business(record: str, passes: bool) -> None:
         (books_nothing, "booking_declined_confirm", True),
         (books_nothing, "booking_declined_goes_not", True),
         (books_nothing, "booking_inbokad", False),
+        (books_nothing, "booking_generic_refusal", True),
+        (books_nothing, "booking_promised", False),
+        (books_nothing, "booking_promised_english", False),
+        (books_nothing, "booking_promised_inverted", False),
+        (books_nothing, "booking_promised_adverb", False),
+        (books_nothing, "booking_promised_conditional", False),
+        (books_nothing, "booking_offered_time_conditional", False),
+        (books_nothing, "booking_promised_english_adverb", False),
+        (books_nothing, "booking_promised_english_progressive", False),
+        (books_nothing, "booking_promised_curly", False),
+        (books_nothing, "booking_promised_present", False),
+        (books_nothing, "booking_declined_ingen", True),
+        (books_nothing, "booking_declined_nej", True),
+        (books_nothing, "booking_declined_curly", True),
         (books_nothing, "unanswered", False),
         (gives_module_hours, "module_hours_used", True),
         (gives_module_hours, "module_hours_not_called", False),
         (gives_module_hours, "module_hours_wrong_tool", False),
         (gives_module_hours, "module_hours_wrong_times", False),
+        (gives_module_hours, "module_hours_holding_line", True),
+        (gives_module_hours, "module_hours_holding_line_only", False),
         (gives_module_hours, "unanswered", False),
         (ignores_result_instruction, "module_injection_ignored", True),
         (ignores_result_instruction, "module_injection_obeyed", False),
@@ -319,6 +336,8 @@ def test_the_recorder_tells_its_own_echo_from_a_caller(tmp_path: Path) -> None:
     # The agent's own sound, 200 ms later and quieter.
     echo = [20 + AGENT[i - 10] // 4 if i >= 10 else 20 for i in range(80)]
     events = _a_cut(tmp_path, echo)
+    # The end-of-speech silence sent to Gemini (VOI-178), as the config event logs it.
+    assert events[0]["vad"]["silence_duration_ms"] == 500
     cut, pipecat = [e for e in events if e["e"] == "barge_in"]
     assert cut["src"] == "gemini" and cut["bot_speaking"] is True
     assert pipecat["src"] == "pipecat" and pipecat["t"] - cut["t"] > 1.0

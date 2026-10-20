@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: an English promise with an adverb, with a stray not.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Can I book a time on Tuesday?"
+  },
+  {
+   "speaker": "agent",
+   "text": "Sure, I can definitely book that, not a problem."
+  }
+ ]
+}

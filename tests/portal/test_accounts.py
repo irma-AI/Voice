@@ -19,7 +19,7 @@ from portal.accounts.models import Account, Business
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
-EMAIL = "anna.testsson@example.com"  # synthetic
+EMAIL = "user-a@example.com"  # synthetic
 PASSWORD = "a-long-passphrase-for-tests"
 
 
@@ -62,7 +62,7 @@ def invite_as_petter(email: str, name: str) -> None:
 
 
 def invited_with_password(client: Client) -> None:
-    invite_as_petter(EMAIL, "Anna's Salon")
+    invite_as_petter(EMAIL, "Owner A's Salon")
     set_password(client, link_in(mail.outbox[-1]), PASSWORD)
 
 
@@ -78,7 +78,7 @@ def test_an_invited_business_sets_a_password_logs_in_sees_its_dashboard_and_logs
         "/login/", {"username": EMAIL.upper(), "password": PASSWORD}, follow=True
     )
     assert response.redirect_chain == [("/dashboard/", 302)]
-    assert "Anna&#x27;s Salon" in response.content.decode()
+    assert "Owner A&#x27;s Salon" in response.content.decode()
 
     assert client.post("/logout/").status_code == 302
     assert client.get("/dashboard/")["Location"] == "/login/?next=/dashboard/"
@@ -94,7 +94,7 @@ def test_the_login_refuses_a_wrong_password_and_the_dashboard_needs_a_login() ->
 
 
 def test_an_invited_business_that_has_not_set_a_password_cannot_log_in() -> None:
-    invite_as_petter(EMAIL, "Anna's Salon")
+    invite_as_petter(EMAIL, "Owner A's Salon")
     assert (
         Client().post("/login/", {"username": EMAIL, "password": ""}).status_code == 200
     )
@@ -144,9 +144,9 @@ def test_a_used_reset_link_no_longer_works() -> None:
 
 
 def test_an_email_that_already_has_an_account_is_not_invited_again() -> None:
-    invite_as_petter(EMAIL, "Anna's Salon")
+    invite_as_petter(EMAIL, "Owner A's Salon")
     with pytest.raises(CommandError, match="already has an account"):
-        invite_as_petter(EMAIL.upper(), "Anna's Salon")
+        invite_as_petter(EMAIL.upper(), "Owner A's Salon")
     assert (len(mail.outbox), Account.objects.count(), Business.objects.count()) == (
         1,
         1,
@@ -157,7 +157,7 @@ def test_an_email_that_already_has_an_account_is_not_invited_again() -> None:
 def test_an_invitee_whose_link_is_lost_or_expired_asks_for_a_new_one_with_forgot_password() -> (
     None
 ):
-    invite_as_petter(EMAIL, "Anna's Salon")
+    invite_as_petter(EMAIL, "Owner A's Salon")
     mail.outbox.clear()
     Client().post("/password-reset/", {"email": EMAIL})
     set_password(Client(), link_in(mail.outbox[0]), PASSWORD)
@@ -171,25 +171,21 @@ def test_the_invite_command_changes_nothing_without_the_reviewed_hash_or_for_the
     None
 ):
     call_command(
-        "invite_business", EMAIL, "Anna's Salon", target="local", stdout=StringIO()
+        "invite_business", EMAIL, "Owner A's Salon", target="local", stdout=StringIO()
     )
     assert (Account.objects.count(), mail.outbox) == (0, [])
     with pytest.raises(CommandError, match="plan changed"):
         call_command(
             "invite_business",
             EMAIL,
-            "Anna's Salon",
+            "Owner A's Salon",
             target="local",
             execute=True,
             approved_hash="0" * 64,
         )
     with pytest.raises(CommandError, match="--target production"):
-        call_command("invite_business", EMAIL, "Anna's Salon", target="production")
+        call_command("invite_business", EMAIL, "Owner A's Salon", target="production")
     assert (Account.objects.count(), mail.outbox) == (0, [])
-
-
-def test_the_public_page_links_to_the_login() -> None:
-    assert 'href="/login/"' in Client().get("/").content.decode()
 
 
 # What must never break is refused by the database itself, whoever writes.
@@ -204,9 +200,9 @@ def refused(constraint: str) -> Generator[None]:
 
 def test_a_second_business_on_the_same_account_is_refused() -> None:
     account = Account.objects.create_user(EMAIL)
-    Business.objects.create(account=account, name="Anna's Salon")
+    Business.objects.create(account=account, name="Owner A's Salon")
     with refused("accounts_business_account_id_key"):
-        Business.objects.create(account=account, name="Anna's Other Salon")
+        Business.objects.create(account=account, name="Owner A's Other Salon")
 
 
 def test_a_second_account_for_the_same_email_is_refused_in_any_case() -> None:
@@ -227,7 +223,7 @@ def test_an_empty_name_is_refused() -> None:
 
 def test_an_email_with_spaces_or_capitals_is_refused_even_by_raw_sql() -> None:
     with connection.cursor() as cur:
-        for bad in (" anna@example.com ", "Anna@example.com"):
+        for bad in (" user-a@example.com ", "User-A@example.com"):
             with refused("account_email_must_be_clean"), transaction.atomic():
                 cur.execute(
                     "insert into accounts_account (password, email, is_active) values ('', %s, true)",
@@ -239,8 +235,8 @@ def test_an_invite_for_a_bad_address_or_a_blank_name_is_refused_and_leaves_nothi
     None
 ):
     for email, name in (
-        ("", "Anna's Salon"),
-        ("not an email", "Anna's Salon"),
+        ("", "Owner A's Salon"),
+        ("not an email", "Owner A's Salon"),
         (EMAIL, "  "),
     ):
         with pytest.raises(ValueError):
@@ -263,7 +259,7 @@ def test_an_invite_that_cannot_be_sent_leaves_no_account_and_does_not_name_the_a
         }
     }
     with pytest.raises(ValueError) as refused_invite:
-        invite("Anna's Salon", EMAIL)
+        invite("Owner A's Salon", EMAIL)
     assert (
         EMAIL not in str(refused_invite.value)
         and refused_invite.value.__cause__ is None

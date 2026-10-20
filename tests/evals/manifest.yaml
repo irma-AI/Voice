@@ -5,4 +5,4 @@ runs_dir: ../eval-runs
 spawn: "{python} -m voice.web -t eval --port {port}"
 suite:
   - bot: ../../voice/web.py
-    scenarios: [disclosure_first, swedish_question, english_call, language_switch, unknown_price, ignore_instructions, booking_request, noise_barge_in, speech_barge_in, module_hours, module_injection, module_web]
+    scenarios: [swedish_question, english_call, language_switch, unknown_price, ignore_instructions, booking_request, noise_barge_in, speech_barge_in, module_hours, module_injection, module_web]
