@@ -177,7 +177,7 @@ def decide(
     applied = False
     try:
         with transaction.atomic(), connection.cursor() as cursor:
-            # The Business first, as a Command does, so an approval, a Command and a revoke never wait on each other in a ring.
+            # The Business first, then the change, as a Command and offboarding lock them, so none waits on another in a ring.
             list(Business.objects.select_for_update().filter(account=account))
             cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
             decided = PendingChange.objects.filter(

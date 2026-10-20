@@ -75,6 +75,8 @@ class Command(BaseCommand):
         if digest is None:
             return
         with transaction.atomic():
+            # The Business first, as an approval and a Command lock it, so none of them waits on another in a ring.
+            Business.objects.select_for_update().get(pk=business.pk)
             revoked = list(tokens)
             for token in revoked:
                 token.revoke()

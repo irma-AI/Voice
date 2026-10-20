@@ -243,6 +243,10 @@ def test_an_invite_for_a_bad_address_or_a_blank_name_is_refused_and_leaves_nothi
         ("", "Owner A's Salon"),
         ("not an email", "Owner A's Salon"),
         (EMAIL, "  "),
+        (
+            EMAIL,
+            "Owner A\nEvil",
+        ),  # the database refuses it too, with the row in its error
     ):
         with pytest.raises(ValueError):
             invite(name, email)

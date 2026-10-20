@@ -62,9 +62,20 @@ class Migration(migrations.Migration):
             model_name='pendingchange',
             constraint=models.CheckConstraint(condition=models.Q(('kind__in', ['remove_module', 'change_details'])), name='pending_change_kind_must_be_a_known_kind'),
         ),
-        migrations.AddConstraint(
-            model_name='business',
-            constraint=models.CheckConstraint(condition=models.Q(('name__regex', '[\\n\\r]'), _negated=True), name='business_name_must_be_one_line'),
+        # NOT VALID: new writes are checked, a name stored before is not, so one cannot fail the deploy.
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddConstraint(
+                    model_name='business',
+                    constraint=models.CheckConstraint(condition=models.Q(('name__regex', '[\\n\\r]'), _negated=True), name='business_name_must_be_one_line'),
+                ),
+            ],
+            database_operations=[
+                migrations.RunSQL(
+                    r"ALTER TABLE accounts_business ADD CONSTRAINT business_name_must_be_one_line CHECK (NOT (name ~ E'[\n\r]')) NOT VALID",
+                    "ALTER TABLE accounts_business DROP CONSTRAINT business_name_must_be_one_line",
+                ),
+            ],
         ),
         migrations.RunSQL(CREATE, DROP),
     ]

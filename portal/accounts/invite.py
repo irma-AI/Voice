@@ -28,6 +28,8 @@ def invite(name: str, email: str) -> Account:
         raise ValueError("that is not an email address") from None
     if not name.strip():
         raise ValueError("a Business needs a name")
+    if "\n" in name.strip() or "\r" in name.strip():
+        raise ValueError("a Business's name goes on one line")
     if Account.objects.filter(email=email).exists():
         raise ValueError(
             "that email already has an account: its owner can use Forgot your password"

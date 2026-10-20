@@ -341,3 +341,12 @@ def test_an_approval_whose_saved_settings_no_longer_pass_says_so_and_changes_not
     assert (
         PendingChange.objects.get().decision == ""
     )  # still waiting: the Business can fix its settings or reject it
+
+
+def test_the_one_line_name_check_spares_names_stored_before_it() -> None:
+    """NOT VALID: a name stored before migration 0027 cannot fail the deploy; every new write is checked."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT convalidated FROM pg_constraint WHERE conname = 'business_name_must_be_one_line'"
+        )
+        assert cursor.fetchone() == (False,)
