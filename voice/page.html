@@ -356,12 +356,13 @@ async function browserFacts(stream, ctx) {
   return facts;
 }
 
-// The ticket's expiry, unix seconds: its third field (voice/ticket.py sign), readable without the secret.
-const EXPIRES = Number(new URLSearchParams(location.search).get("ticket")?.split(".")[2]);
+// The ticket's expiry, unix seconds: its third field (voice/ticket.py sign), readable without the secret. It is read
+// against the core's clock when it served the page plus the time since, so a Caller's clock set wrong never blocks a call.
+const EXPIRES = Number(new URLSearchParams(location.search).get("ticket")?.split(".")[2]), SERVED_AT = __SERVED_AT__;
 
 async function start() {
   // Checked before the microphone and the socket. No ticket gives NaN, which compares false: the core refuses it as before.
-  if (EXPIRES * 1000 < Date.now()) return show("expired");
+  if (EXPIRES < SERVED_AT + performance.now() / 1000) return show("expired");
   show("connecting");
   speaking("");
   tick(0);
