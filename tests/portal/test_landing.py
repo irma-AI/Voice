@@ -122,6 +122,11 @@ def test_a_demo_count_lives_until_local_midnight_even_on_a_25_hour_day(
         seconds_to_midnight(datetime(2026, 10, 20, 23, 59, 59, 900000, tzinfo=zone))
         == 1
     )
+    # A time in another zone counts to Stockholm's midnight, not that zone's (21:30 UTC is 23:30 in Stockholm).
+    assert (
+        seconds_to_midnight(datetime(2026, 10, 20, 21, 30, tzinfo=ZoneInfo("UTC")))
+        == 1800
+    )
 
 
 def test_without_a_demo_business_the_page_carries_no_call_button(settings: Any) -> None:

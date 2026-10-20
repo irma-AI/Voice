@@ -775,17 +775,20 @@ DEMO_CALLS_PER_ADDRESS = 2
 DEMO_CALLS_PER_DAY = 20
 
 
-def demo_address_key(request: HttpRequest) -> str:
+def demo_address_key(request: HttpRequest, now: datetime) -> str:
     """One count per visitor's address and day. The address is hashed at once with the day and kept only as the hash, in memory, until midnight (Petter, 2026-10-20: acceptable for the MVP); it never reaches a log or the database."""
-    who = f"{client_address(request)}\n{start_of_today().date()}"
+    who = f"{client_address(request)}\n{now.date()}"
     return "demo:" + hashlib.sha256(who.encode()).hexdigest()
 
 
 def demo_call(request: HttpRequest, business: Business) -> HttpResponse:
     """A `demo` ticket for the landing page's Business, under caps the daily budget alone cannot hold (an unpriced call counts at the floor only): this address's calls today, every visitor's demo calls today (from Call records, so pricing failures do not open it), then the budget in `to_core`. A refusal shows the spent-budget sentence, which Petter reuses for every demo refusal (2026-10-20), and logs the Business and the reason, never the address."""
-    key = demo_address_key(request)
+    now = datetime.now(
+        ZoneInfo(settings.TIME_ZONE)
+    )  # read once, so the key's day and its expiry agree at midnight
+    key = demo_address_key(request, now)
     # Counted first, with the cache's atomic increment, so parallel requests from one address cannot all pass; a refusal gives it back.
-    if count_try(key, seconds_to_midnight()) > DEMO_CALLS_PER_ADDRESS:
+    if count_try(key, seconds_to_midnight(now)) > DEMO_CALLS_PER_ADDRESS:
         give_back(key)
         log.warning("call refused: Business %s demo cap per_address", business.pk)
         return call_link_refused(request, BUDGET_SPENT_REFUSAL)
@@ -819,7 +822,7 @@ def give_back(key: str) -> None:
 def seconds_to_midnight(now: datetime | None = None) -> int:
     """How long today's demo counts live: until the next midnight on TIME_ZONE, so a 23- or 25-hour day ends its count when its date does."""
     zone = ZoneInfo(settings.TIME_ZONE)
-    now = now or datetime.now(zone)
+    now = (now or datetime.now(zone)).astimezone(zone)
     midnight = datetime.combine(now.date() + timedelta(days=1), time.min, tzinfo=zone)
     # Same-zone subtraction is wall-clock time in Python, which would hide the hour a clock change adds or takes away.
     return max(1, int(midnight.timestamp() - now.timestamp()))
