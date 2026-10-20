@@ -195,6 +195,10 @@ class Business(models.Model):
                 name="business_call_slug_must_be_22_to_40_url_safe_chars",
             ),
             models.CheckConstraint(
+                condition=~models.Q(name__regex=r"[\n\r]"),
+                name="business_name_must_be_one_line",
+            ),
+            models.CheckConstraint(
                 condition=models.Q(name__regex=r"\S"),
                 name="business_name_must_not_be_blank",
             ),

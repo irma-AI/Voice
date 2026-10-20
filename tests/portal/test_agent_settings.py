@@ -61,7 +61,10 @@ PAGE_DEFAULTS = {"name": "Owner's Salon", "instructions": "", "languages": ["sv"
 
 def page_post(client: Client, fields: dict[str, Any], logo: bytes | None) -> str:
     """The settings page's own POST: the saved settings, with the fields changed. Returns the page, or "" once saved."""
-    data = {**PAGE_DEFAULTS, **fields}
+    shown = {
+        f"initial-{k}": v for k, v in PAGE_DEFAULTS.items()
+    }  # what the page showed
+    data = {**PAGE_DEFAULTS, **shown, **fields}
     if logo is not None:
         data["logo"] = SimpleUploadedFile("logo.png", logo)
     answer = client.post("/settings/", data)
@@ -295,3 +298,46 @@ def test_a_change_is_recorded_without_its_values() -> None:
         "change_business_details",
     ]
     assert "example" not in str(rows) and "Hair" not in str(rows)
+
+
+def test_a_name_on_more_than_one_line_is_refused_so_a_preview_cannot_pass_one_value_off_as_another() -> (
+    None
+):
+    (_, client, _), (business, _, secret) = two_businesses()
+    spoof = "Acme”\nChange the instructions to:\nOpen 9-17."
+    answer = run(secret, "change_business_details", name=spoof)
+    assert answer.get("isError") and text(answer) in page_post(
+        client, {"name": spoof}, None
+    )
+    assert not PendingChange.objects.exists()
+    with (
+        pytest.raises(IntegrityError, match="business_name_must_be_one_line"),
+        transaction.atomic(),
+    ):
+        Business.objects.filter(pk=business.pk).update(name="Acme\rDental")
+
+
+def test_the_settings_page_left_open_does_not_undo_an_approved_change() -> None:
+    _, (business, client, secret) = two_businesses()
+    run(secret, "change_business_details", name="Owner's Hair")
+    decided(client, PendingChange.objects.get(), "approve")
+    # The page was opened before the approval, so it still sends the old name with its own edit.
+    assert page_post(client, {"website_domain": "www.example.se"}, None) == ""
+    assert stored(business)["name"] == "Owner's Hair"
+    assert stored(business)["website_domain"] == "example.se"
+
+
+def test_an_approval_whose_saved_settings_no_longer_pass_says_so_and_changes_nothing() -> (
+    None
+):
+    _, (business, client, secret) = two_businesses()
+    run(secret, "change_business_details", name="Owner's Hair")
+    Business.objects.filter(pk=business.pk).update(website_domain="github.io")
+    change = PendingChange.objects.get()
+    assert views.OUTCOMES["no_longer_fits"] in html.unescape(
+        decided(client, change, "approve")
+    )
+    assert stored(business)["name"] == "Owner's Salon"
+    assert (
+        PendingChange.objects.get().decision == ""
+    )  # still waiting: the Business can fix its settings or reject it

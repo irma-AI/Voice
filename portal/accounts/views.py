@@ -586,6 +586,7 @@ OUTCOMES: dict[str, str] = {
     "already_decided": "That change was already approved or rejected, so nothing changed.",
     "cancelled": "That change was cancelled when the Access token that asked for it was revoked, so nothing changed.",
     "expired": "That change waited too long and expired, so nothing changed.",
+    "no_longer_fits": "Your saved settings no longer pass the settings page's checks, so nothing changed. Fix them on the settings page, then approve again, or reject the change.",
 }
 
 

@@ -36,6 +36,18 @@ class Text(forms.CharField):
 INSTRUCTIONS_MAX: int = Business._meta.get_field("instructions").max_length  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
 
 
+# The settings a page left open could hold stale: each is sent with the value the page showed.
+SHOWN = (
+    "name",
+    "instructions",
+    "languages",
+    "website_domain",
+    "privacy_url",
+    "use_accent",
+    "accent",
+)
+
+
 class SettingsForm(forms.ModelForm):
     # The editable settings, one for one with contract/business-settings.schema.json. The AI notice is not among them.
     languages = forms.MultipleChoiceField(
@@ -125,6 +137,9 @@ class SettingsForm(forms.ModelForm):
         self.initial["website_domain"] = shown_domain(self.instance.website_domain)
         self.initial["use_accent"] = bool(self.instance.accent)
         self.initial["accent"] = self.instance.accent or DEEP_SEA
+        # The page sends what it showed, so save() writes only what this person changed (VOI-113: Commands write too).
+        for name in SHOWN:
+            self.fields[name].show_hidden_initial = True
 
     def clean_logo(self) -> bytes | None:
         """The upload's bytes, or None when nothing was uploaded. Its type is read from the bytes, never the file name."""
@@ -149,15 +164,35 @@ class SettingsForm(forms.ModelForm):
         except ValueError as e:
             raise forms.ValidationError(str(e)) from None
 
+    def clean_name(self) -> str:
+        name: str = self.cleaned_data["name"]
+        if (
+            "\n" in name or "\r" in name
+        ):  # a preview line break could pass the rest off as another change
+            raise forms.ValidationError("Write your business's name on one line.")
+        return name
+
+    def edited(self, name: str) -> bool:
+        """Changed from what the page showed; with no record of that (a request built by hand), always."""
+        return (
+            name in self.changed_data or self.add_initial_prefix(name) not in self.data
+        )
+
     def save(self, commit: bool = True) -> Business:
+        """Writes only what this form changed from what it showed, so a page left open does not undo a change made since."""
         business: Business = super().save(commit=False)
+        fields = [f for f in self._meta.fields or () if self.edited(f)]
         if self.cleaned_data["logo"] is not None:
             business.set_logo(self.cleaned_data["logo"])
+            fields += ["logo", "logo_key"]
         elif self.cleaned_data["remove_logo"]:
             business.set_logo(None)
-        business.accent = self.cleaned_data["accent"]
-        if commit:
-            business.save()
+            fields += ["logo", "logo_key"]
+        if self.edited("use_accent") or self.edited("accent"):
+            business.accent = self.cleaned_data["accent"]
+            fields.append("accent")
+        if commit and fields:
+            business.save(update_fields=fields)
         return business
 
     class Meta:
@@ -170,7 +205,7 @@ def changed(
 ) -> SettingsForm:
     """The page's form filled as the page shows it, with `fields` (the page's own field names) and a logo upload on top:
     a Command's way through the page's rules, so the same input is stored and refused the same way."""
-    data = {
+    shown = {
         "name": business.name,
         "instructions": business.instructions,
         "languages": business.languages,
@@ -178,8 +213,8 @@ def changed(
         "privacy_url": business.privacy_url,
         "use_accent": "on" if business.accent else "",
         "accent": business.accent,
-        **fields,
     }
+    data = {**shown, **{f"initial-{k}": v for k, v in shown.items()}, **fields}
     files = None if logo is None else {"logo": SimpleUploadedFile("logo", logo)}
     return SettingsForm(data, files, instance=business)
 

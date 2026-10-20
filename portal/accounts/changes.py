@@ -136,16 +136,28 @@ def _apply(change: PendingChange) -> bool:
                 pk=change.token.business.pk
             )  # as stored now: the form writes every setting
             form = changed(business, **values)
-            if not form.is_valid():  # the values passed this form when staged; refuse rather than write part of them
-                raise ValueError(f"staged values of change {change.pk} no longer pass")
+            if (
+                not form.is_valid()
+            ):  # a saved setting no longer passes (a rule changed): write none of it
+                raise NoLongerFits
             form.save()
             return True
         case _:
             assert_never(kind)
 
 
+class NoLongerFits(Exception):
+    """The Business's saved settings no longer pass the settings page's rules, so an approval writes nothing and the change waits."""
+
+
 Decided = Literal[
-    "applied", "nothing_left", "rejected", "already_decided", "cancelled", "expired"
+    "applied",
+    "nothing_left",
+    "rejected",
+    "already_decided",
+    "cancelled",
+    "expired",
+    "no_longer_fits",
 ]
 
 
@@ -165,6 +177,8 @@ def decide(
     applied = False
     try:
         with transaction.atomic(), connection.cursor() as cursor:
+            # The Business first, as a Command does, so an approval, a Command and a revoke never wait on each other in a ring.
+            list(Business.objects.select_for_update().filter(account=account))
             cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
             decided = PendingChange.objects.filter(
                 pk=change.pk, token__business__account=account
@@ -179,6 +193,8 @@ def decide(
         if "pending_change_" not in str(error):
             raise
         return refusal(change)
+    except NoLongerFits:
+        return "no_longer_fits"
     audit.info(
         "%s pending change %s (%s) for business %s by account %s%s",
         decision,
