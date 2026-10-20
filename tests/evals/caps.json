@@ -1,1 +1,1 @@
-{"per_run_sek": 10, "per_loop_sek": 30, "per_day_sek": 50}
+{"per_run_sek": 10, "per_loop_sek": 30, "per_day_sek": 50, "per_scenario_sek": 0.5}
