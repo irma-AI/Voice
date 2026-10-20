@@ -287,7 +287,7 @@ def operator_only(view: Callable[..., HttpResponse]) -> Callable[..., HttpRespon
 
 @operator_only
 def totals(request: HttpRequest) -> HttpResponse:
-    """Every Business's calls, minutes and dollars per month, test calls apart from Call link calls."""
+    """Every Business's calls, minutes and dollars per month, one column per kind (test, Call link, demo)."""
     month = TruncMonth("started_at", tzinfo=ZoneInfo(settings.TIME_ZONE))
     sums = (
         CallRecord.objects.annotate(month=month)

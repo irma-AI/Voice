@@ -46,10 +46,14 @@ _Avoid_: transcript log, captions
 
 **Test call**:
 A call a Business starts from its own Portal to try its agent. Every other call comes through its Call link.
-_Avoid_: demo call, trial call
+_Avoid_: trial call
+
+**Demo call**:
+A visitor's call from Voice's own landing page, through the demo Business's Call link, cut at 3 minutes where every other call gets 10. Counts toward that Business's daily budget. Nothing starts one yet (VOI-244).
+_Avoid_: trial call, public call
 
 **Call record**:
-What one call that reached the model used: when it started, how long it ran, what the model used and what that cost, and whether it was a Test call or came through the Call link. Never the words or the audio, and never changed once kept.
+What one call that reached the model used: when it started, how long it ran, what the model used and what that cost, and whether it was a Test call, a Demo call or came through the Call link. Never the words or the audio, and never changed once kept.
 _Avoid_: usage log, CDR
 
 **Call log**:

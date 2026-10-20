@@ -281,7 +281,7 @@ def command(
 
 @command("Recent calls", ToolAnnotations(read_only_hint=True))
 def list_recent_calls(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
-    """Your Business's 20 most recent calls, newest first: when each started (UTC), how long it lasted in seconds, and whether it was a test call or came through the Call link."""
+    """Your Business's 20 most recent calls, newest first: when each started (UTC), how long it lasted in seconds, and whether it was a test call, a demo call or came through the Call link."""
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
     return [

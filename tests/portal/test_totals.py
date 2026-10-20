@@ -84,8 +84,8 @@ def test_calls_without_a_cost_are_counted_and_add_no_dollars(settings: Any) -> N
     )
     row = petter.get("/totals/").context["rows"][0]
     assert row[:2] == ("2026-10", "Owner A's Salon")
-    test_cells, link_cells = row[2]
-    assert test_cells == (0, "0.0", "0.0000", 0)
+    test_cells, link_cells, demo_cells = row[2]
+    assert test_cells == demo_cells == (0, "0.0", "0.0000", 0)
     assert link_cells == (2, "6.1", "0.2500", 1)  # two 184 s calls, one with no cost
     assert Decimal(link_cells[2]) == Decimal("0.25")
 
