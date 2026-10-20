@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/irma-AI/Voice/actions/workflows/ci.yml"><img src="https://github.com/irma-AI/Voice/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg" alt="License: AGPL-3.0-or-later"></a>
 </p>
 
 <p align="center">
@@ -127,4 +127,4 @@ Work here is mostly done by coding agents under the rules in [CLAUDE.md](CLAUDE.
 
 ## License
 
-[AGPL-3.0](LICENSE): GNU Affero General Public License, version 3.
+[AGPL-3.0-or-later](LICENSE): GNU Affero General Public License, version 3 or any later version.
