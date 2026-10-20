@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const ROOT = process.env.GUARD_ROOT || process.cwd();
-const { changedFiles, inFixture } = require(path.join(__dirname, '..', '..', 'base-config.js'));
+const { changedFiles, inFixture, mergeGroup } = require(path.join(__dirname, '..', '..', 'base-config.js'));
 const { ticketIds, fetchIssue, problem, needsTicket, FIX, TEAM } = require(path.join(__dirname, '..', '..', 'ticket-check.js'));
 
 // A fixture has `.guard-changed-files`, `.guard-pr-text` and `.guard-tickets.json` (id to Linear issue) in place of
@@ -20,10 +20,11 @@ const fixture = inFixture(ROOT) && fs.existsSync(path.join(ROOT, '.guard-changed
 // The team key lives in ticket-check.js and in docs/agents/issue-tracker.md: name the side to edit when they differ.
 const tracker = fs.existsSync(path.join(ROOT, 'docs/agents/issue-tracker.md')) ? read('docs/agents/issue-tracker.md') : '';
 const teamDrift = tracker.includes(`team \`${TEAM}\``) ? null : `docs/agents/issue-tracker.md does not name team \`${TEAM}\`, the TEAM in scripts/ticket-check.js: edit the one that is wrong`;
-if (!fixture && !process.env.GUARD_BASE) {
+if (!fixture && (!process.env.GUARD_BASE || mergeGroup)) {
   console.log('#scanned 1');
   if (teamDrift) { console.log(`team\t${teamDrift}`); process.exitCode = 1; }
-  console.error('not a pull-request run (GUARD_BASE unset): the ticket is checked in CI only');
+  console.error(mergeGroup ? 'merge queue run: a merge group has no PR text; the ticket was checked on the PR\'s own run'
+    : 'not a pull-request run (GUARD_BASE unset): the ticket is checked in CI only');
   process.exit(process.exitCode || 0);
 }
 

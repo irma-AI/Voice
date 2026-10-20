@@ -138,11 +138,6 @@ def finish(
     return post("/api/calls/", record, "record", env)
 
 
-def send_log(log: Mapping[str, Any], env: Mapping[str, str]) -> bool:
-    """Sends the Call log, whose lines the server log already holds. Blocks, so it runs in a thread."""
-    return post("/api/call-logs/", log, "Call log", env)
-
-
 def report_call(
     call_id: str,
     ticket: Ticket,
@@ -158,7 +153,7 @@ def report_call(
         loop.run_in_executor(
             SENDER, finish, call_id, ticket, started_at, length_seconds, totals, env
         ),
-        loop.run_in_executor(LOG_SENDER, send_log, log, env),
+        loop.run_in_executor(LOG_SENDER, post, "/api/call-logs/", log, "Call log", env),
     ):
         sending.add(task)
         task.add_done_callback(sending.discard)
