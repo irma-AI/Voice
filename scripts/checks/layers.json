@@ -6,11 +6,12 @@
     {"name": "ticket", "paths": ["voice/ticket.py"], "modules": ["^voice\\.ticket$"], "may_import": []},
     {"name": "call-record", "paths": ["voice/record.py"], "modules": ["^voice\\.record$"], "may_import": []},
     {"name": "barge-in", "paths": ["voice/bargein.py"], "modules": ["^voice\\.bargein$"], "may_import": []},
-    {"name": "settings-port", "paths": ["voice/settings.py"], "modules": ["^voice\\.settings$"], "may_import": []},
+    {"name": "portal-client", "paths": ["voice/portal_client.py"], "modules": ["^voice\\.portal_client$"], "may_import": []},
+    {"name": "settings-port", "paths": ["voice/settings.py"], "modules": ["^voice\\.settings$"], "may_import": ["portal-client"]},
     {"name": "actions-port", "paths": ["voice/modules.py"], "modules": ["^voice\\.modules$"], "may_import": ["settings-port"]},
-    {"name": "call-reports-port", "paths": ["voice/report.py", "voice/cost.py"], "modules": ["^voice\\.report$", "^voice\\.cost$"], "may_import": ["settings-port", "ticket"]},
+    {"name": "call-reports-port", "paths": ["voice/report.py", "voice/cost.py"], "modules": ["^voice\\.report$", "^voice\\.cost$"], "may_import": ["portal-client", "ticket"]},
     {"name": "agent", "paths": ["voice/agent.py"], "modules": ["^voice\\.agent$"], "may_import": ["ticket", "call-record", "barge-in", "settings-port", "actions-port", "call-reports-port"]},
-    {"name": "channel", "paths": ["voice/serve.py", "voice/web.py", "voice/auth.py"], "modules": ["^voice\\.serve$", "^voice\\.web$", "^voice\\.auth$"], "may_import": ["ticket", "settings-port", "agent"]},
+    {"name": "channel", "paths": ["voice/serve.py", "voice/web.py", "voice/auth.py"], "modules": ["^voice\\.serve$", "^voice\\.web$", "^voice\\.auth$"], "may_import": ["ticket", "portal-client", "settings-port", "agent"]},
     {"name": "portal", "paths": ["portal/**"], "modules": ["^portal(\\.|$)"], "may_import": []}
   ]
 }

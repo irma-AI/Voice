@@ -20,7 +20,7 @@ from typing import Any
 
 from loguru import logger
 
-from voice.settings import NoRedirect
+from voice.portal_client import NoRedirect
 
 # The model the core's calls run on and the one the price lookup prices; voice/agent.py imports it, so there is one name.
 MODEL = "models/gemini-3.8-live"
