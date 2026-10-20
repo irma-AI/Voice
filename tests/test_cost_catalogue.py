@@ -208,6 +208,51 @@ def test_a_failed_lookup_prices_the_tokens_at_the_stored_official_rates(
     )
 
 
+@pytest.mark.parametrize(
+    "reply",
+    [
+        {"body": b"[]"},
+        {"skus": [[{k: v for k, v in s.items() if k != "skuId"} for s in SKUS]]},
+        {"skus": [[{**s, "displayName": None} for s in SKUS]]},
+    ],
+    ids=["a list", "no skuId", "a null name"],
+)
+def test_a_catalogue_reply_of_the_wrong_shape_prices_from_the_stored_rates(
+    reply: dict[str, Any],
+) -> None:
+    """VOI-228: a reply our parsing trips on must not lose the Call record."""
+    with google(**reply) as (base, _):
+        assert price(TOTALS, MODEL, KEY, base, stored=STORED) == {
+            "cost_usd": STORED_COST,
+            "price_date": "2026-01-01",
+            "cost_reason": None,
+        }
+        assert the_cost(base)["cost_reason"] == "catalogue_unreadable"
+
+
+def priced_at(field: str, value: str) -> dict[str, Any]:
+    odd = json.loads(json.dumps(PRICES))
+    rate = odd["AAAA-0002"]["rate"]
+    if field == "unitQuantity":
+        rate["unitInfo"]["unitQuantity"]["value"] = value
+    else:
+        rate["tiers"][0]["listPrice"]["units"] = value
+    return odd
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("unitQuantity", "NaN"), ("unitQuantity", "1e-25"), ("units", "-3")],
+    ids=["not a number", "too dear to sum", "negative"],
+)
+def test_a_price_no_real_token_costs_is_not_used(field: str, value: str) -> None:
+    """VOI-228 skeptic pass: a NaN or negative rate would price every call that day; a huge one crashed the sum."""
+    with google(prices=priced_at(field, value)) as (base, _):
+        assert price(TOTALS, MODEL, KEY, base, stored=STORED)["cost_usd"] == STORED_COST
+        assert the_cost(base)["cost_reason"] == "price_shape_unknown"
+    assert cost._kept is None  # pyright: ignore[reportPrivateUsage]
+
+
 def test_a_stored_copy_for_another_model_prices_nothing() -> None:
     assert price(TOTALS, "models/another-live", "", stored=STORED) == {
         "cost_usd": None,
