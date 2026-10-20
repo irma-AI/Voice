@@ -10,6 +10,6 @@
     "tests/evals/business_hostile.json": "045f965c3d8642d7c6ad3aa211aaec49d9eeab2759e26dc45f603a309f66a7b9",
     "tests/evals/business_web.json": "04f26d0804bd34dbf536e5d445106c78deef38c7b6d8139dd553074c044c4caf",
     "pyproject.toml": "a5a65f4704a85e1d63aecd363d6f6721893aad117e352ae180f3646b2d7c885e",
-    "model-input": "7d9238f96aa380d71d4586895cc85fb9af3252722f573793ba4552f45a007dff"
+    "model-input": "2717e345e3a8cdc0e6af5b32231a6e6fe5dcf9a312bb6226b9112d2ba1ab032a"
   }
 }
