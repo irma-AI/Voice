@@ -2,9 +2,10 @@ from django.conf import settings
 from django.contrib.auth import views as auth
 from django.urls import path
 
-from portal.accounts import views
+from portal.accounts import agent, views
 
 urlpatterns = [
+    path("mcp/", agent.endpoint, name="agent_endpoint"),
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("settings/", views.business_settings, name="business_settings"),

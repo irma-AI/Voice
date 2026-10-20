@@ -20,9 +20,10 @@ portal = [
     "dj-database-url",
     "gunicorn>=26.2.0",
     "whitenoise>=6.12.0",
-    "mcp",
+    "mcp==2.3.0",  # exact: the agent endpoint uses the SDK's provisional middleware and its tool manager (portal/accounts/agent.py)
     "publicsuffixlist>=1.1.0.20261017",
     "idna>=3.20",
+    "django-stateless-mcp==0.1.11",
 ]
 
 [tool.uv]

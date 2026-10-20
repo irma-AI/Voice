@@ -470,3 +470,38 @@ class AccessToken(models.Model):
         type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(
             revoked_at=Now()
         )
+
+
+# How a Command ended. A Command refused for its token is recorded too; an unknown one never reaches a Command, so it is not.
+COMMAND_RESULTS = {
+    "done": "Done",
+    "refused": "Refused",
+    "failed": "Failed",
+    "timed_out": "Timed out",
+}
+COMMAND_NAME_PATTERN = r"^[a-z_]{1,64}$"
+
+
+class CommandRecord(models.Model):
+    """One Command a Business's own assistant sent (ADR 0003): which, with which token, when and how it ended, never its values. Written once: a trigger (migration 0025) refuses UPDATE and DELETE for every role."""
+
+    token = models.ForeignKey(
+        AccessToken, on_delete=models.PROTECT, related_name="command_records"
+    )
+    command = models.CharField(
+        max_length=64, validators=[RegexValidator(COMMAND_NAME_PATTERN)]
+    )
+    sent_at = models.DateTimeField(db_default=Now())  # the database's clock, UTC
+    result = models.CharField(max_length=10, choices=list(COMMAND_RESULTS.items()))
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(result__in=list(COMMAND_RESULTS)),
+                name="command_record_result_must_be_a_known_result",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(command__regex=COMMAND_NAME_PATTERN),
+                name="command_record_command_must_be_a_command_name",
+            ),
+        ]
