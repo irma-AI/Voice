@@ -3,7 +3,7 @@
  "turns": [
   {
    "speaker": "agent",
-   "text": "Hej, Tandkliniken Exempel, vi har öppet till 17 idag. Du pratar med en AI-assistent."
+   "text": "Hej, Tandkliniken Exempel, vi har öppet till 17 idag. Jag heter Kim och är en AI-assistent."
   },
   {
    "speaker": "caller",

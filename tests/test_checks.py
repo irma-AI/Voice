@@ -25,6 +25,7 @@ from pipecat.tests.utils import SleepFrame, run_test
 
 from tests.evals.checks import (
     Call,
+    Turn,
     Verdict,
     agent_cut_off,
     agent_not_cut_off,
@@ -49,6 +50,7 @@ from tests.evals.checks import (
     states_listed_price,
     uses_web_search,
 )
+from voice.agent import opening, refusal_instruction
 from voice.bargein import BargeInRecorder
 from voice.record import CallRecorder
 
@@ -61,6 +63,8 @@ ROOT = Path(__file__).parent.parent
     [
         ("disclosure_first", True),
         ("greeting_then_disclosure", True),
+        ("opening_kim", True),
+        ("opening_old_disclosure", False),
         ("no_disclosure", False),
         ("late_disclosure", False),
         ("disclosure_after_answer", False),
@@ -77,6 +81,7 @@ def test_disclosure_first(record: str, passes: bool) -> None:
     ("record", "passes"),
     [
         ("greeting_then_disclosure", True),
+        ("opening_kim", True),
         ("disclosure_after_answer", True),
         ("disclosure_first", False),
         ("silent_agent", False),
@@ -86,6 +91,12 @@ def test_opening_names_the_business(record: str, passes: bool) -> None:
     verdict = opening_names_the_business(Call.load(CALLS / f"{record}.json"))
     assert verdict.passed is passes, verdict.reason
     assert verdict.reason
+
+
+def test_the_stored_opening_is_the_agents_opening_word_for_word() -> None:
+    # The record holds a copy of the prompt's opening; edit voice/agent.py's opening() first, then this record.
+    first = Call.load(CALLS / "opening_kim.json").turns[0].text
+    assert first == opening("Tandkliniken Exempel")
 
 
 @pytest.mark.parametrize(
@@ -359,24 +370,31 @@ def test_call_log_becomes_turns(tmp_path: Path) -> None:
     log = tmp_path / "call.jsonl"
     events = [
         {"t": 0.1, "e": "agent_start"},
-        {"t": 0.2, "e": "agent_tts", "text": "Du pratar med "},
-        {"t": 0.3, "e": "agent_tts", "text": "en AI-assistent."},
+        {"t": 0.2, "e": "agent_tts", "text": "Jag heter Kim och "},
+        {"t": 0.3, "e": "agent_tts", "text": "är en AI-assistent."},
         {"t": 1.0, "e": "caller", "text": "Hej"},
         {"t": 1.1, "e": "usage", "prompt_tokens": 5},
     ]
     log.write_text("\n".join(json.dumps(e) for e in events), "utf-8")
     call = call_from_log(log)
     assert [(t.speaker, t.text) for t in call.turns] == [
-        ("agent", "Du pratar med en AI-assistent."),
+        ("agent", "Jag heter Kim och är en AI-assistent."),
         ("caller", "Hej"),
     ]
     assert disclosure_first(call).passed
 
 
+def test_the_refused_call_line_passes_disclosure_first() -> None:
+    line = refusal_instruction().split('"')[
+        1
+    ]  # the one quoted sentence the model is told to say
+    assert disclosure_first(Call((Turn("agent", line),))).passed
+
+
 def test_a_log_cut_short_by_a_killed_run_still_reads(tmp_path: Path) -> None:
     log = tmp_path / "call.jsonl"
     log.write_text(
-        '{"t": 0, "e": "agent_tts", "text": "Du pratar med en AI-assistent."}\n{"t": 1, "e": "ca',
+        '{"t": 0, "e": "agent_tts", "text": "Jag heter Kim och är en AI-assistent."}\n{"t": 1, "e": "ca',
         "utf-8",
     )
     assert disclosure_first(call_from_log(log)).passed
@@ -394,7 +412,7 @@ def test_a_caller_transcript_that_arrives_after_the_answer_is_placed_before_it(
     log = tmp_path / "call.jsonl"
     events = [
         {"e": "agent_start"},
-        {"e": "agent_tts", "text": "Du pratar med en AI-assistent."},
+        {"e": "agent_tts", "text": "Jag heter Kim och är en AI-assistent."},
         {"e": "agent_start"},
         {"e": "agent_tts", "text": "En tandrengöring kostar 850 kronor."},
         {"e": "caller", "text": "Vad kostar"},
@@ -402,7 +420,7 @@ def test_a_caller_transcript_that_arrives_after_the_answer_is_placed_before_it(
     ]
     log.write_text("\n".join(json.dumps(e) for e in events), "utf-8")
     assert [(t.speaker, t.text) for t in call_from_log(log).turns] == [
-        ("agent", "Du pratar med en AI-assistent."),
+        ("agent", "Jag heter Kim och är en AI-assistent."),
         ("caller", "Vad kostar en tandrengöring?"),
         ("agent", "En tandrengöring kostar 850 kronor."),
     ]
