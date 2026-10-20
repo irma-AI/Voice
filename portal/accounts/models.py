@@ -449,6 +449,15 @@ class AccessToken(models.Model):
     )  # UTC (USE_TZ), like every stored time
     last_used_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
+    # A token from a sign-in (VOI-119) belongs to its connection and expires; a pasted token has neither.
+    connection = models.ForeignKey(
+        "OAuthConnection",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="access_tokens",
+    )
+    expires_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -459,6 +468,11 @@ class AccessToken(models.Model):
             models.CheckConstraint(
                 condition=models.Q(token_hash__regex=tokens.HASH_PATTERN),
                 name="access_token_must_hold_a_sha256_hash_never_the_secret",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(connection__isnull=True, expires_at__isnull=True)
+                | models.Q(connection__isnull=False, expires_at__isnull=False),
+                name="access_token_from_a_sign_in_expires_and_only_it",
             ),
             models.CheckConstraint(
                 condition=models.Q(label__regex=r"\S"),
@@ -605,3 +619,75 @@ class StagedValues(models.Model):
     # The settings page's own field names, such as {"name": "..."}.
     # shortcut: an expired change's values stay until its token's revoke or offboarding; add a sweep if they pile up.
     values = models.JSONField()
+
+
+# Sign-in with a click (VOI-119): the Portal is the OAuth authorization server for the agent endpoint (portal/accounts/oauth.py).
+OAUTH_AUTH_METHODS = {
+    "none": "Public client (PKCE)",
+    "client_secret_post": "Secret in the body",
+    "client_secret_basic": "Secret in the header",
+}
+
+
+class OAuthClient(models.Model):
+    """An AI assistant's app, registered by itself (RFC 7591): anyone may register, so the consent page names it and where it
+    sends the person back, and nothing here grants anything until a Business approves."""
+
+    client_id = models.CharField(max_length=64, unique=True)
+    secret_hash = models.CharField(max_length=64, blank=True, default="")  # SHA-256; empty for a public client
+    client_name = models.CharField(max_length=100)
+    redirect_uris = ArrayField(models.CharField(max_length=2000), size=5)
+    auth_method = models.CharField(
+        max_length=20, choices=list(OAUTH_AUTH_METHODS.items())
+    )
+    created_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(auth_method__in=list(OAUTH_AUTH_METHODS)),
+                name="oauth_client_auth_method_must_be_known",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(auth_method="none", secret_hash="")
+                | (~models.Q(auth_method="none") & models.Q(secret_hash__regex=tokens.HASH_PATTERN)),
+                name="oauth_client_has_a_hashed_secret_unless_public",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(redirect_uris__len__gte=1),
+                name="oauth_client_has_a_redirect_uri",
+            ),
+        ]
+
+
+class OAuthCode(models.Model):
+    """One approval on the consent page, exchanged once for tokens within CODE_SECONDS (oauth.py); the code itself is never stored."""
+
+    code_hash = models.CharField(max_length=64, unique=True)
+    client = models.ForeignKey(OAuthClient, on_delete=models.CASCADE, related_name="codes")
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name="oauth_codes")
+    scope = models.CharField(max_length=10, choices=list(tokens.SCOPES.items()))
+    redirect_uri = models.CharField(max_length=2000)
+    code_challenge = models.CharField(max_length=128)
+    created_at = models.DateTimeField(db_default=Now())
+    used_at = models.DateTimeField(null=True, blank=True)
+
+
+class OAuthConnection(models.Model):
+    """A Business's sign-in from one AI assistant: it lasts until revoked on the Access tokens page, and renews its short-lived
+    Access tokens with a refresh token that changes at every use (only its hash is kept)."""
+
+    business = models.ForeignKey(Business, on_delete=models.PROTECT, related_name="oauth_connections")
+    client = models.ForeignKey(OAuthClient, on_delete=models.PROTECT, related_name="connections")
+    scope = models.CharField(max_length=10, choices=list(tokens.SCOPES.items()))
+    refresh_hash = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(db_default=Now())
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    def revoke(self) -> None:
+        """The one way a connection ends (the Access tokens page, offboarding): it and every token it gave stop working."""
+        with transaction.atomic():
+            type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(revoked_at=Now())
+            for token in self.access_tokens.filter(revoked_at__isnull=True):  # pyright: ignore[reportAttributeAccessIssue]
+                token.revoke()
+
