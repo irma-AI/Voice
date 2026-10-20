@@ -7,6 +7,9 @@ import wave
 from datetime import UTC, datetime
 from pathlib import Path
 
+from pipecat.evals.scenario import EvalScenarioFile
+from pipecat.evals.script import EvalScriptScenario
+
 from tests.evals.checks import (
     HOSTILE_BUSINESS_FILE,
     MODULE_BUSINESS_FILE,
@@ -23,6 +26,7 @@ from tests.evals.run import (
     main,
     missing_audio,
     module_log,
+    never_reached,
     plan,
     report,
 )
@@ -39,7 +43,7 @@ def test_a_reached_day_cap_stops_with_exit_3_before_any_spend(tmp_path: Path) ->
     (tmp_path / "ledger.jsonl").write_text(json.dumps(entry) + "\n", "utf-8")
     caps = Caps(per_run_sek=10, per_loop_sek=30, per_day_sek=0.5)
 
-    assert main("disclosure_first", runs=tmp_path, caps=caps) == 3
+    assert main("swedish_question", runs=tmp_path, caps=caps) == 3
     assert (
         not (tmp_path / "ledger.jsonl").read_text("utf-8").count("\n") > 1
     )  # nothing new was spent
@@ -92,6 +96,20 @@ def test_the_module_scenarios_each_play_their_own_business() -> None:
     assert "example_hostile" not in MODULE_BUSINESS_FILE.read_text("utf-8")
 
 
+def test_the_module_scenarios_end_on_the_speech_after_the_tool_result() -> None:
+    # A holding line before the Action is speech too: stopping on its end would cut off the answer (VOI-206).
+    for sc in SETTINGS_FILES:
+        path = ROOT / "tests" / "evals" / "scenarios" / f"{sc}.yaml"
+        (scenario,) = EvalScenarioFile.load(path).scenarios
+        assert isinstance(scenario, EvalScriptScenario)
+        last = [e.event for e in scenario.turns[-1].expect]
+        assert last == [
+            "function_call_stopped",
+            "bot_started_speaking",
+            "bot_stopped_speaking",
+        ], f"{sc}'s last turn must wait for the tool result, then the speech after it"
+
+
 def test_missing_audio_is_found_before_any_scenario_is_played(tmp_path: Path) -> None:
     (tmp_path / "a.yaml").write_text(
         "turns:\n  - user: hej\n    audio: ../audio/x.wav\n", "utf-8"
@@ -124,3 +142,15 @@ def test_a_tts_reply_that_is_already_a_wav_keeps_only_its_frames() -> None:
         w.writeframes(pcm)
     assert frames(buf.getvalue()) == pcm  # no second header played as sound
     assert frames(pcm) == pcm  # bare PCM passes through
+
+
+def test_a_call_that_never_reached_the_agent_is_named(tmp_path: Path) -> None:
+    # main() stops the run on this after the first Scenario, so a broken harness spends nothing more
+    log = tmp_path / "call.jsonl"
+    assert never_reached(log) == "no call record"
+    log.write_text('{"e": "usage", "prompt_tokens": 0}\n', "utf-8")
+    assert never_reached(log) == "no agent turn in the call record"
+    log.write_text(
+        '{"e": "caller", "text": "hej"}\n{"e": "agent_llm", "text": "Hej!"}\n', "utf-8"
+    )
+    assert never_reached(log) is None

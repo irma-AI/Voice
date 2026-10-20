@@ -1,0 +1,17 @@
+{
+ "note": "Made up for the unit tests, not a real call. Bad on purpose: a promise written with a curly apostrophe, with a stray not.",
+ "turns": [
+  {
+   "speaker": "agent",
+   "text": "Du pratar med en AI-assistent. Hur kan jag hjälpa dig?"
+  },
+  {
+   "speaker": "caller",
+   "text": "Can I book a time on Tuesday?"
+  },
+  {
+   "speaker": "agent",
+   "text": "I’ll book you, not a problem."
+  }
+ ]
+}
