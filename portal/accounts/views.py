@@ -43,8 +43,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
+from portal.accounts import changes, probe, tokens
 from portal.accounts import modules as module_rules
-from portal.accounts import probe, tokens
 from portal.accounts.domain import parse_domain, shown_domain
 from portal.accounts.models import (
     BUDGET_COUNTED,
@@ -58,6 +58,7 @@ from portal.accounts.models import (
     CallLog,
     CallRecord,
     Module,
+    PendingChange,
     clean_email,
 )
 from portal.accounts.theme import (
@@ -724,6 +725,51 @@ def remove_module(request: HttpRequest, module_id: int) -> HttpResponse:
     if not Module.remove(mine):
         raise Http404
     return redirect("modules")
+
+
+# What the page says after a decision, by changes.decide's answer; every answer has one (tests/portal/test_pending_changes.py).
+OUTCOMES: dict[str, str] = {
+    "applied": "Approved. The change is made.",
+    "nothing_left": "Approved. What it would have changed was already gone, so nothing else changed.",
+    "rejected": "Rejected. Nothing changed.",
+    "already_decided": "That change was already approved or rejected, so nothing changed.",
+    "cancelled": "That change was cancelled when the Access token that asked for it was revoked, so nothing changed.",
+    "expired": "That change waited too long and expired, so nothing changed.",
+}
+
+
+@login_required
+def pending_changes(request: HttpRequest) -> HttpResponse:
+    """The changes the Business's AI assistant asked for that wait for its approval (VOI-239)."""
+    rows = [
+        (change, changes.preview(change), changes.RISK[change.kind])  # pyright: ignore[reportArgumentType]
+        for change in changes.waiting(request.user).select_related("token")  # pyright: ignore[reportArgumentType]
+    ]
+    return render(
+        request,
+        "accounts/changes.html",
+        {
+            "rows": rows,
+            # Kept in the session, so a link cannot show an outcome that did not happen.
+            "outcome": OUTCOMES.get(request.session.pop("change_outcome", "")),
+            "waits": changes.WAITS.days,
+            "time_zone": settings.TIME_ZONE,
+        },
+    )
+
+
+@login_required
+def decide_change(request: HttpRequest, change_id: int, decision: str) -> HttpResponse:
+    """Approve or Reject: only one of the logged-in Business's own changes, through changes.decide."""
+    if request.method != "POST":
+        return back_to("pending_changes")
+    change = get_object_or_404(
+        PendingChange.objects.select_related("token"),
+        pk=change_id,
+        token__business__account=request.user,
+    )
+    request.session["change_outcome"] = changes.decide(change, request.user, decision)  # pyright: ignore[reportArgumentType]
+    return redirect("pending_changes")
 
 
 class AccessTokenForm(forms.Form):

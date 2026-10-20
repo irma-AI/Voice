@@ -2,7 +2,7 @@
 {% block title %}Access tokens · Voice Portal{% endblock %}
 {% block content %}
 <h1 class="text-4xl sm:text-5xl">Access tokens</h1>
-<p class="mt-4 max-w-prose text-foam-muted">An Access token lets an AI assistant you use, such as Claude, work on your Voice for you. It works for your Business only. A read-only token can look but not change anything; a full token can do what you can do in the Portal. Revoke a token and it stops working at once.</p>
+<p class="mt-4 max-w-prose text-foam-muted">An Access token lets an AI assistant you use, such as Claude, work on your Voice for you. It works for your Business only. A read-only token can look but not change anything; a full token can do what you can do in the Portal, though some changes, such as removing a Module, wait for your approval under Pending changes. Revoke a token and it stops working at once.</p>
 
 {% if made %}
 <section class="mt-10 max-w-prose border-t border-granite pt-6" aria-labelledby="made-title">
@@ -28,7 +28,7 @@
     <details class="revoke">
       <summary>Revoke<span class="sr-only"> {{ token.label }}</span></summary>
       <form method="post" action="{% url 'revoke_access_token' token.pk %}">{% csrf_token %}
-        <p>Any agent using it stops at once. This cannot be undone.</p>
+        <p>Any agent using it stops at once, and the changes it asked for that still wait are cancelled. This cannot be undone.</p>
         <button class="ghost">Revoke for good<span class="sr-only"> {{ token.label }}</span></button>
       </form>
     </details>

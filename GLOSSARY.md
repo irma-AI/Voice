@@ -80,6 +80,10 @@ _Avoid_: tool (in everyday talk), Action, API call
 The Portal's note of one Command an assistant sent: which Command, with which Access token, when, and whether it was done, refused, failed or timed out. Never what it was asked or answered. Never changed or deleted.
 _Avoid_: audit log, history
 
+**Pending change**:
+A change a destructive Command asked for, waiting for the Business to approve or reject it in the Portal. Nothing changes before the approval; it expires after 7 days, and revoking the Access token that asked for it cancels it. Removing a Module is one.
+_Avoid_: staged operation, draft
+
 **Access token**:
 The secret a Business makes in its Portal and pastes into its own AI assistant (its own agent), so the assistant can send Commands. In Portal copy the owner's tool is "your AI assistant"; "your agent" is always the voice agent. It is read-only or full, chosen when it is made, and works for that one Business.
 _Avoid_: API key, password

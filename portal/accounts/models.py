@@ -21,6 +21,7 @@ from portal.accounts import theme, tokens
 from portal.accounts.domain import DOMAIN_MAX, DOMAIN_PATTERN
 
 log = logging.getLogger(__name__)
+audit = logging.getLogger("portal.audit")
 
 # The languages a Business may pick; contract/business-settings.schema.json lists the same two (tests/portal/test_settings_contract.py).
 LANGUAGES = {"sv": "Swedish", "en": "English"}
@@ -466,15 +467,34 @@ class AccessToken(models.Model):
         return made, secret
 
     def revoke(self) -> None:
-        """The one way a token stops working (the Access tokens page). The database sets the time (its own clock, refused if any other) and a revoked token stays revoked."""
-        type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(
-            revoked_at=Now()
-        )
+        """The one way a token stops working (the Access tokens page, offboarding). The database sets the time (its own clock, refused if any other) and a revoked token stays revoked.
+        The changes it asked for that still wait are cancelled with it, so a leaked token's asks die when it does (VOI-239)."""
+        with transaction.atomic(), connection.cursor() as cursor:
+            type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(
+                revoked_at=Now()
+            )
+            # Each change's row lock orders this against an approval in flight: whichever decides first wins, the other is refused.
+            cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
+            # Only the rows this revoke cancelled: an approval that won a change's row lock is not one of them.
+            cursor.execute(
+                "UPDATE accounts_pendingchange SET decision = 'cancelled', decided_at = statement_timestamp()"
+                " WHERE token_id = %s AND decision = '' RETURNING id",
+                [self.pk],
+            )
+            cancelled = sorted(row[0] for row in cursor.fetchall())
+            cursor.execute("SELECT set_config('voice.change_decide', '', true)")
+        if cancelled:
+            audit.info(
+                "cancelled pending changes %s with the revoke of token %s",
+                cancelled,
+                self.pk,
+            )
 
 
 # How a Command ended. A Command refused for its token is recorded too; an unknown one never reaches a Command, so it is not.
 COMMAND_RESULTS = {
     "done": "Done",
+    "staged": "Staged",  # a destructive Command's change waits for the Business's approval (PendingChange)
     "refused": "Refused",
     "failed": "Failed",
     "timed_out": "Timed out",
@@ -503,5 +523,46 @@ class CommandRecord(models.Model):
             models.CheckConstraint(
                 condition=models.Q(command__regex=COMMAND_NAME_PATTERN),
                 name="command_record_command_must_be_a_command_name",
+            ),
+        ]
+
+
+# What a destructive Command may stage. tests/portal/test_pending_changes.py fails until a new kind is also in changes.Kind and changes.RISK, where the closed matches handle it.
+CHANGE_KINDS = {"remove_module": "Remove a Module"}
+CHANGE_DECISIONS = {
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "cancelled": "Cancelled",  # its token was revoked (AccessToken.revoke)
+}
+
+
+class PendingChange(models.Model):
+    """A destructive Command's change, waiting for the Business to approve or reject it in the Portal (VOI-239). Only an approval applies it, once: triggers (migration 0026) refuse a second decision, an approval after the change expired, any other change to it and its delete, for every role."""
+
+    token = models.ForeignKey(
+        AccessToken, on_delete=models.PROTECT, related_name="pending_changes"
+    )  # the token that staged it; its Business is the one that decides
+    kind = models.CharField(max_length=20, choices=list(CHANGE_KINDS.items()))
+    target = models.JSONField()  # the id of what the change names, such as {"module": 5}; never a name (offboarding could not remove it)
+    staged_at = models.DateTimeField(db_default=Now())  # the database's clock, UTC
+    decision = models.CharField(
+        max_length=10, choices=list(CHANGE_DECISIONS.items()), blank=True, default=""
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(kind__in=list(CHANGE_KINDS)),
+                name="pending_change_kind_must_be_a_known_kind",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(decision__in=["", *CHANGE_DECISIONS]),
+                name="pending_change_decision_must_be_a_known_decision",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(decision="", decided_at__isnull=True)
+                | (~models.Q(decision="") & models.Q(decided_at__isnull=False)),
+                name="pending_change_is_decided_with_its_time",
             ),
         ]
