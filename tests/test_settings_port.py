@@ -48,7 +48,7 @@ from voice.settings import (
 
 ROOT = Path(__file__).parents[1]
 GOOD: dict[str, Any] = {
-    "name": "Anna's Salon",
+    "name": "Owner A's Salon",
     "instructions": "Öppet 8-17.",
     "languages": ["sv", "en"],
 }
@@ -338,7 +338,7 @@ def test_a_named_business_is_the_one_asked_for_and_never_comes_from_a_file() -> 
 def test_the_portal_is_asked_for_the_business_with_the_secret() -> None:
     with fake_portal() as url:
         got = load_settings(portal_env(url), "7")
-    assert got == Settings("Anna's Salon", "Öppet 8-17.", ("sv", "en"))
+    assert got == Settings("Owner A's Salon", "Öppet 8-17.", ("sv", "en"))
 
 
 def test_a_settings_change_shows_up_in_the_next_call() -> None:
@@ -427,7 +427,7 @@ def test_the_prompt_is_built_from_the_business_and_keeps_the_disclosure() -> Non
         "RESPOND IN SWEDISH OR ENGLISH. YOU MUST RESPOND UNMISTAKABLY IN SWEDISH OR ENGLISH."
         " Answer in the language the caller last spoke." in prompt
     )
-    assert prompt.endswith("Business instructions:\nname: Anna's Salon\nÖppet 8-17.")
+    assert prompt.endswith("Business instructions:\nname: Owner A's Salon\nÖppet 8-17.")
 
 
 def test_a_single_language_business_is_not_told_to_switch() -> None:
