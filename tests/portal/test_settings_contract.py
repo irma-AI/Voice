@@ -15,7 +15,7 @@ from portal.accounts.models import (
     Business,
     Module,
 )
-from portal.accounts.views import SettingsForm
+from portal.accounts.settings_form import SettingsForm
 from tests.portal.contract import SCHEMA, schema_errors
 
 PROPERTIES: dict[str, Any] = SCHEMA["properties"]

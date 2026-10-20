@@ -95,6 +95,9 @@ def test_an_assistant_with_no_token_sees_the_business_commands(era: str) -> None
     assert tool_names(ask("tools/list", era=era)) == [
         "list_recent_calls",
         "remove_module",
+        "read_settings",
+        "change_settings",
+        "change_business_details",
     ]
 
 
@@ -137,9 +140,13 @@ LIVE_KINDS = {
     "operator full": ("full", True),
 }
 # Arguments for a Command that needs some; one with required arguments and no entry here fails the sweep below.
-EXAMPLE_ARGUMENTS: dict[str, dict[str, Any]] = {"remove_module": {"name": "Bookings"}}
+EXAMPLE_ARGUMENTS: dict[str, dict[str, Any]] = {
+    "remove_module": {"name": "Bookings"},
+    "change_settings": {"accent": "#1a2a44"},
+    "change_business_details": {"name": "Owner A's Hair"},
+}
 # What a Command that ran leaves in its Command record: a destructive one only stages its change (VOI-239).
-STAGED = {"remove_module"}
+STAGED = {"remove_module", "change_business_details"}
 
 
 def same_as_no_such_command(name: str, secret: str, era: str = "2026-07-28") -> bool:

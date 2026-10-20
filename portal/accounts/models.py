@@ -196,6 +196,10 @@ class Business(models.Model):
                 name="business_call_slug_must_be_22_to_40_url_safe_chars",
             ),
             models.CheckConstraint(
+                condition=~models.Q(name__regex=r"[\n\r]"),
+                name="business_name_must_be_one_line",
+            ),
+            models.CheckConstraint(
                 condition=models.Q(name__regex=r"\S"),
                 name="business_name_must_not_be_blank",
             ),
@@ -484,6 +488,7 @@ class AccessToken(models.Model):
             )
             cancelled = sorted(row[0] for row in cursor.fetchall())
             cursor.execute("SELECT set_config('voice.change_decide', '', true)")
+            StagedValues.objects.filter(change__in=cancelled).delete()
         if cancelled:
             audit.info(
                 "cancelled pending changes %s with the revoke of token %s",
@@ -529,7 +534,10 @@ class CommandRecord(models.Model):
 
 
 # What a destructive Command may stage. tests/portal/test_pending_changes.py fails until a new kind is also in changes.Kind and changes.RISK, where the closed matches handle it.
-CHANGE_KINDS = {"remove_module": "Remove a Module"}
+CHANGE_KINDS = {
+    "remove_module": "Remove a Module",
+    "change_details": "Change the name, instructions or languages",
+}
 CHANGE_DECISIONS = {
     "approved": "Approved",
     "rejected": "Rejected",
@@ -567,3 +575,19 @@ class PendingChange(models.Model):
                 name="pending_change_is_decided_with_its_time",
             ),
         ]
+
+
+class StagedValues(models.Model):
+    """What a staged settings change would write (VOI-113): a name or instructions may be personal data, so they live apart from
+    their PendingChange, which is kept for good. Deleted once the change is decided or cancelled, or its Business offboarded; never
+    changed, deleted only once the change is decided, and added only to a change that waits (triggers, migration 0028), so what is approved is what was shown."""
+
+    change = models.OneToOneField(
+        PendingChange,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="staged_values",
+    )
+    # The settings page's own field names, such as {"name": "..."}.
+    # shortcut: an expired change's values stay until its token's revoke or offboarding; add a sweep if they pile up.
+    values = models.JSONField()

@@ -13,17 +13,32 @@ from django.db.models import QuerySet
 from django.db.models.functions import Now
 from django.urls import reverse
 
-from portal.accounts.models import AccessToken, Account, Module, PendingChange
+from portal.accounts.models import (
+    LANGUAGES,
+    AccessToken,
+    Account,
+    Business,
+    Module,
+    PendingChange,
+    StagedValues,
+)
+from portal.accounts.settings_form import changed
 
 audit = logging.getLogger("portal.audit")
 
 # How long a change waits for approval; migration 0026's trigger holds the same 7 days.
 WAITS = timedelta(days=7)
 
-Kind = Literal["remove_module"]
+Kind = Literal["remove_module", "change_details"]
 RISK: dict[Kind, Literal["low", "medium", "high"]] = {
-    "remove_module": "medium"  # the agent stops using it in calls; adding it again undoes it
+    "remove_module": "medium",  # the agent stops using it in calls; adding it again undoes it
+    "change_details": "high",  # the instructions are what the agent tells every Caller
 }
+
+
+def _values(change: PendingChange) -> dict[str, Any]:
+    staged = StagedValues.objects.filter(change=change).first()
+    return staged.values if staged is not None else {}
 
 
 def preview(change: PendingChange) -> str:
@@ -42,13 +57,34 @@ def preview(change: PendingChange) -> str:
                 if name is not None
                 else "Remove a Module that is already gone"
             )
+        case (
+            "change_details"
+        ):  # every value in full: the Business approves exactly what it reads here
+            values = _values(change)
+            lines = []
+            if "name" in values:
+                lines.append(f"Change the Business name to “{values['name']}”")
+            if "languages" in values:
+                names = " and ".join(LANGUAGES[code] for code in values["languages"])
+                lines.append(f"Change the languages to {names}")
+            if "instructions" in values:
+                lines.append(f"Change the instructions to:\n{values['instructions']}")
+            return "\n".join(lines) or "Change details that were already decided"
         case _:
             assert_never(kind)
 
 
-def stage(token: AccessToken, kind: Kind, target: dict[str, Any]) -> dict[str, Any]:
-    """The one way a change is staged: it is stored undecided, and the answer tells the agent nothing has changed yet."""
+def stage(
+    token: AccessToken,
+    kind: Kind,
+    target: dict[str, Any],
+    values: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """The one way a change is staged: it is stored undecided, and the answer tells the agent nothing has changed yet.
+    `values` are what it would write, kept apart from the change (StagedValues) so they can be deleted."""
     change = PendingChange.objects.create(token=token, kind=kind, target=target)
+    if values is not None:
+        StagedValues.objects.create(change=change, values=values)
     transaction.on_commit(  # the Command's transaction may still roll back
         lambda: audit.info(
             "staged pending change %s (%s) for business %s by token %s",
@@ -90,12 +126,38 @@ def _apply(change: PendingChange) -> bool:
                 )
                 > 0
             )
+        case (
+            "change_details"
+        ):  # the settings page's own form, with the staged values on top
+            values = _values(change)
+            if not values:
+                return False
+            business = Business.objects.select_for_update().get(
+                pk=change.token.business.pk
+            )  # as stored now: the form writes every setting
+            form = changed(business, **values)
+            if (
+                not form.is_valid()
+            ):  # a saved setting no longer passes (a rule changed): write none of it
+                raise NoLongerFits
+            form.save()
+            return True
         case _:
             assert_never(kind)
 
 
+class NoLongerFits(Exception):
+    """The Business's saved settings no longer pass the settings page's rules, so an approval writes nothing and the change waits."""
+
+
 Decided = Literal[
-    "applied", "nothing_left", "rejected", "already_decided", "cancelled", "expired"
+    "applied",
+    "nothing_left",
+    "rejected",
+    "already_decided",
+    "cancelled",
+    "expired",
+    "no_longer_fits",
 ]
 
 
@@ -115,6 +177,8 @@ def decide(
     applied = False
     try:
         with transaction.atomic(), connection.cursor() as cursor:
+            # The Business first, then the change, as a Command and offboarding lock them, so none waits on another in a ring.
+            list(Business.objects.select_for_update().filter(account=account))
             cursor.execute("SELECT set_config('voice.change_decide', 'on', true)")
             decided = PendingChange.objects.filter(
                 pk=change.pk, token__business__account=account
@@ -124,10 +188,13 @@ def decide(
                 return refusal(change)
             if decision == "approved":
                 applied = _apply(change)
+            StagedValues.objects.filter(change=change).delete()
     except IntegrityError as error:
         if "pending_change_" not in str(error):
             raise
         return refusal(change)
+    except NoLongerFits:
+        return "no_longer_fits"
     audit.info(
         "%s pending change %s (%s) for business %s by account %s%s",
         decision,
