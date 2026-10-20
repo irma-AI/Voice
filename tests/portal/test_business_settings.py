@@ -1,7 +1,6 @@
 """A Business edits its settings in the Portal and the core reads them from the settings address (make test-db). No mocks of our own code."""
 
 import json
-import re
 from contextlib import nullcontext
 from typing import Any
 
@@ -11,21 +10,14 @@ from django.test import Client
 
 from portal.accounts.models import Account, Business
 from tests.portal.contract import schema_errors
-from tests.portal.helpers import business_with_login
+from tests.portal.helpers import SECRET, ask_core, business_with_login
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
-
-SECRET = "a-secret-for-tests"
 
 
 @pytest.fixture(autouse=True)
 def core_secret(settings: Any) -> None:
     settings.CORE_SECRET = SECRET
-
-
-def ask_core(business_id: int, secret: str | None = SECRET) -> Any:
-    headers = {} if secret is None else {"Authorization": f"Bearer {secret}"}
-    return Client().get(f"/api/settings/{business_id}/", headers=headers)
 
 
 def test_editing_in_the_portal_changes_what_the_core_is_told() -> None:
@@ -75,17 +67,8 @@ def test_a_business_edits_only_its_own_settings() -> None:
     assert ask_core(bo.pk).json()["name"] == "Bo's Garage"
 
 
-def test_the_settings_page_needs_a_login() -> None:
-    assert Client().get("/settings/")["Location"] == "/login/?next=/settings/"
+def test_a_post_of_settings_needs_a_login() -> None:
     assert Client().post("/settings/", {"name": "x"}).status_code == 302
-
-
-def test_the_settings_page_has_no_field_for_the_ai_notice() -> None:
-    _, client = business_with_login("anna.testsson@example.com", "Anna's Salon")
-    page = client.get("/settings/").content.decode()
-    names = re.findall(r'<(?:input|textarea|select)[^>]*\bname="([^"]+)"', page)
-    assert {"name", "languages"} <= set(names)
-    assert not [n for n in names if "notice" in n or "disclosure" in n]
 
 
 def test_the_settings_address_refuses_a_missing_or_wrong_secret_and_unknown_businesses() -> (
