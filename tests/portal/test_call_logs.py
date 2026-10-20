@@ -41,8 +41,8 @@ def core_secret(settings: Any) -> None:
 
 
 def a_business() -> Business:
-    account = Account.objects.create_user("anna.testsson@example.com", "x" * 20)
-    return Business.objects.create(account=account, name="Anna's Salon")
+    account = Account.objects.create_user("user-a@example.com", "x" * 20)
+    return Business.objects.create(account=account, name="Owner A's Salon")
 
 
 def run_sql(*statements: str, params: list[Any] | None = None) -> Any:
