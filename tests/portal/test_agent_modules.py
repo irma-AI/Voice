@@ -8,11 +8,13 @@ The Commands run on the SDK's worker threads with their own database connection,
 
 import html
 import socket
+import threading
 import time
 from contextlib import closing
 from typing import Any
 
 import pytest
+from django.db import DatabaseError, connection, transaction
 from django.test import Client
 
 from portal.accounts import modules as module_rules
@@ -191,3 +193,51 @@ def test_an_add_is_recorded_without_its_values() -> None:
     rows = list(CommandRecord.objects.values())
     assert [r["command"] for r in rows] == ["add_module"]
     assert "Hours" not in str(rows) and "8.8.8.8" not in str(rows)
+
+
+def test_adding_looks_the_address_up_without_holding_the_business(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, (business, secret) = two_businesses()
+    real = socket.getaddrinfo
+    seen: list[str] = []
+
+    def while_looking_up(*args: Any, **kwargs: Any) -> Any:
+        def try_lock() -> None:
+            try:
+                with transaction.atomic():
+                    Business.objects.select_for_update(nowait=True).get(pk=business.pk)
+                seen.append("free")
+            except DatabaseError:
+                seen.append("locked")
+            finally:
+                connection.close()
+
+        locker = threading.Thread(target=try_lock)
+        locker.start()
+        locker.join()
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", while_looking_up)
+    run(secret, "add_module", name="Hours", address="https://8.8.8.8/mcp")
+    assert seen == ["free"]
+
+
+def test_a_token_cannot_add_a_local_module_even_where_the_page_may(
+    settings: Any,
+) -> None:
+    settings.ALLOW_LOCAL_MODULES = True  # self-hosted: the page takes a command line
+    _, (business, secret) = two_businesses()
+    answer = run(secret, "add_module", name="Run", address="touch /tmp/ran")
+    assert answer.get("isError") and "Modules page" in text(answer)
+    assert stored(business) == []
+
+
+def test_a_name_is_found_as_it_was_stored() -> None:
+    _, (business, secret) = two_businesses()
+    run(secret, "add_module", name=" Hours ", address=PUBLIC)
+    assert stored(business)[0][0] == "Hours"
+    assert (
+        run(secret, "check_module", name=" Hours ")["structuredContent"]["name"]
+        == "Hours"
+    )

@@ -183,7 +183,10 @@ def test_every_command_against_every_kind_of_token(era: str) -> None:
         "add the new need to MAY_RUN"
     )
     business = a_business()
-    Module.objects.create(business=business, name="Bookings", url="https://8.8.8.8/mcp")
+    # Not public, so check_module's probe refuses it at once and asks nothing on the internet.
+    Module.objects.create(
+        business=business, name="Bookings", url="https://127.0.0.1/mcp"
+    )
     for kind, (scope, operator) in LIVE_KINDS.items():
         # What the last kind's add_module added.
         Module.remove(Module.objects.filter(name="Hours"))

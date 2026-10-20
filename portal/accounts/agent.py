@@ -60,7 +60,8 @@ COMMANDS: dict[str, Need] = {
 }
 
 # Each database statement of a Command stops after this (Postgres statement_timeout), so a stuck one gives its thread back.
-# shortcut: only each statement is timed, not the Command (a thread cannot be stopped); check_module, the one Command that calls out, has the probe's own 2 s deadline. Add one before a Command makes several slow queries.
+# shortcut: only each statement is timed, not the Command (a thread cannot be stopped); check_module's probe has its own 2 s deadline, add_module's
+# address lookup none (as on the Modules page). Add one before a Command makes several slow queries or a lookup is seen to hang.
 COMMAND_TIMEOUT_MS = 5000
 
 # Requests served at once. gunicorn has 4 threads (Dockerfile.portal) and the core asks the Portal for settings at every
@@ -116,7 +117,7 @@ def failed(text: str) -> CallToolResult:
 
 
 def as_answer(staged: dict[str, Any]) -> CallToolResult:
-    """A staged change's answer, as data and as text, so no agent infers from prose that it is done."""
+    """An answer as data and as text (a staged change's, so no agent infers from prose that it is done)."""
     return CallToolResult(
         content=[TextContent(type="text", text=json.dumps(staged))],
         structured_content=staged,
@@ -321,7 +322,7 @@ def locked(token: AccessToken) -> Business:
 
 def mine(token: AccessToken, name: str) -> Module | None:
     """One of the token's own Business's Modules by name; another Business's is not found, like an unknown one."""
-    return Module.objects.filter(business=token.business, name=name).first()
+    return Module.objects.filter(business=token.business, name=name.strip()).first()
 
 
 NO_SUCH_MODULE = "Your Business has no Module by that name."
@@ -360,13 +361,21 @@ def check_module(ctx: Context[Any, Any], name: str) -> CallToolResult:
 
 @command("Add a Module", ToolAnnotations(read_only_hint=False, destructive_hint=False))
 def add_module(ctx: Context[Any, Any], name: str, address: str) -> CallToolResult:
-    """Adds a Module to your Business by its name and its https address, by the Modules page's rules: no password or key in the address, at most ten Modules, each name once."""
+    """Adds a Module to your Business by its name and its web address, by the Modules page's rules: https, no password or key in the address, at most ten Modules, each name once."""
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
-    form = ModuleForm({"name": name, "address": address}, business=locked(token))
-    if not form.is_valid() or form.add() is None:
+    # Not locked: the address lookup has no deadline of its own, and the database's limits hold without the lock.
+    form = ModuleForm({"name": name, "address": address}, business=token.business)
+    if not form.is_valid():
         return failed(problems(form))
-    return as_answer({"added": name.strip()})
+    if form.cleaned_data["address"][1]:
+        # A command line runs on the Portal's host at the next check: only the logged-in page adds a local Module.
+        return failed(
+            "Give the Module's web address. A local Module is added on the Modules page."
+        )
+    if form.add() is None:
+        return failed(problems(form))
+    return as_answer({"added": form.cleaned_data["name"]})
 
 
 def settings_of(business: Business) -> dict[str, Any]:

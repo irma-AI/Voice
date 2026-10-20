@@ -58,7 +58,7 @@ class ModuleForm(forms.Form):
         database's refusal (the ten-per-Business limit, or a name taken a moment ago) on the form."""
         try:
             with transaction.atomic():
-                return self.save()
+                return self._create()
         except IntegrityError:
             self.add_error(
                 None,
@@ -66,7 +66,7 @@ class ModuleForm(forms.Form):
             )
             return None
 
-    def save(self) -> Module:
+    def _create(self) -> Module:
         url, command, args = self.cleaned_data["address"]
         return Module.objects.create(
             business=self.business,
