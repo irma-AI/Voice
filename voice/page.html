@@ -349,6 +349,10 @@ async function browserFacts(stream, ctx) {
 }
 
 async function start() {
+  // Started inside the tap, before any wait: iOS WebKit lets an element play later only if play() first ran in a
+  // user gesture, and the loopback's track arrives seconds after it (VOI-221). The empty element's refusal is expected.
+  const speakerOut = new Audio();
+  speakerOut.play().catch(() => {});
   show("connecting");
   speaking("");
   tick(0);
@@ -373,13 +377,14 @@ async function start() {
   // Chrome's echo cancelling removes only audio that arrives over WebRTC and plays in a media element,
   // not what an AudioContext plays itself, so with the speaker on the microphone heard the agent and
   // cut it off. The agent's audio therefore makes a round trip through a WebRTC connection to this page.
-  const out = ctx.createMediaStreamDestination(), speakerOut = new Audio();
+  const out = ctx.createMediaStreamDestination();
   const sender = new RTCPeerConnection(), receiver = new RTCPeerConnection();
   let loopback = "set_up";
   try {
     sender.onicecandidate = (e) => e.candidate && receiver.addIceCandidate(e.candidate);
     receiver.onicecandidate = (e) => e.candidate && sender.addIceCandidate(e.candidate);
-    receiver.ontrack = (e) => { speakerOut.srcObject = e.streams[0]; speakerOut.play().catch(() => {}); };
+    // Still refused: play straight through Web Audio, as when the loopback fails, so the agent is heard.
+    receiver.ontrack = (e) => { speakerOut.srcObject = e.streams[0]; speakerOut.play().catch(() => out.connect(ctx.destination)); };
     out.stream.getTracks().forEach((t) => sender.addTrack(t, out.stream));
     await sender.setLocalDescription(await sender.createOffer());
     await receiver.setRemoteDescription(sender.localDescription);
