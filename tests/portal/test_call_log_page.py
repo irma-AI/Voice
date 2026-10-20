@@ -80,7 +80,7 @@ def test_the_timeline_shows_every_event_with_its_fields(settings: Any) -> None:
     _, petter = business_with_login(EMAIL, "Petter's Business")
     a_log(anna, events=[*EVENTS, {"t": 10.0, "call": CALL, "e": "new_kind"}])
     events = petter.get(f"/logs/{CALL}/").context["events"]
-    assert [name for _, name, _ in events] == [
+    assert [name for _, name, _, _ in events] == [
         "Call starts",
         "Agent speech",
         "Barge-in",
@@ -97,11 +97,26 @@ def test_the_timeline_shows_every_event_with_its_fields(settings: Any) -> None:
         "bot_ms": "1300",
         "peak_dbfs": "-12.5",
         "rms_dbfs": "-30.1",
-        "src": '"gemini"',
+        "src": "gemini",  # without its JSON quotes; the text file keeps them
         "echo_corr": "0.12",
         "echo_lag_ms": "180",
     }
+    # The barge-in has Caller's words after it; start and end are drawn quieter.
+    assert [tone for *_, tone in events][:3] == ["frame", "", "barge_in"]
+    assert events[-2][3] == "frame"
     assert petter.get("/logs/no-such-call-01/").status_code == 404
+
+
+def test_a_barge_in_with_no_words_after_it_is_marked_on_its_row(settings: Any) -> None:
+    settings.SUPER_ADMIN_EMAIL = EMAIL
+    anna, _ = business_with_login("anna.testsson@example.com", "Anna's Salon")
+    _, petter = business_with_login(EMAIL, "Petter's Business")
+    no_words = {**EVENTS[2], "t": 5.0}  # a second barge-in, no words after it
+    a_log(anna, events=[*EVENTS[:-1], no_words, EVENTS[-1]])
+    response = petter.get(f"/logs/{CALL}/")
+    tones = [tone for *_, tone in response.context["events"]]
+    assert tones.count("barge_in") == 1 and tones.count("no_words") == 1
+    assert response.content.decode().count("No words after") == 1
 
 
 def test_the_text_file_has_the_lines_the_core_wrote(settings: Any) -> None:
