@@ -1,6 +1,6 @@
 # A Business's own agent operates Voice through one MCP endpoint, with an Access token
 
-Status: proposed (the framework and where it runs wait on Petter's answers, `DECISIONS.md` ESCALATED lines of 2026-10-18)
+Status: accepted (Petter, 2026-10-20: the official SDK plus `django-stateless-mcp`, inside the Portal; `DECISIONS.md`)
 
 Every thing a person can do in the Portal is also a Command a Business's own agent can send over MCP (PRODUCT.md principle 2), through one endpoint of the Portal, calling the same functions as the Portal pages. The agent signs in with an Access token that a person makes on the Portal page: read-only or full, one Business each; the operator's token additionally sees the operator Commands. The tool list a client sees follows its token, and a hidden Command is refused if called anyway.
 

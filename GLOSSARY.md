@@ -76,6 +76,10 @@ _Avoid_: tool (in everyday talk), function
 One thing a Business's own agent can tell Voice to do, such as changing its facts or removing a Module, over MCP. Each is something a person can already do in the Portal. Not an Action, which is what the voice agent does during a call.
 _Avoid_: tool (in everyday talk), Action, API call
 
+**Command record**:
+The Portal's note of one Command an assistant sent: which Command, with which Access token, when, and whether it was done, refused, failed or timed out. Never what it was asked or answered. Never changed or deleted.
+_Avoid_: audit log, history
+
 **Access token**:
 The secret a Business makes in its Portal and pastes into its own AI assistant (its own agent), so the assistant can send Commands. In Portal copy the owner's tool is "your AI assistant"; "your agent" is always the voice agent. It is read-only or full, chosen when it is made, and works for that one Business.
 _Avoid_: API key, password

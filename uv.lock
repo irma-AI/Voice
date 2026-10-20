@@ -489,6 +489,19 @@ wheels = [
 ]
 
 [[package]]
+name = "django-stateless-mcp"
+version = "0.1.11"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "mcp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c7/ca/be9dc83d3c9b588a11addc91ee597d940f9232d3bc06068aba104a7f81c1/django_stateless_mcp-0.1.11.tar.gz", hash = "sha256:8ba227fd8f6880bbfe8e3312a41afd5d1d509c82a426c3f5bcc2c3e95038fb22", size = 287318, upload-time = "2026-08-31T08:06:21.131Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ff/a8/04f90193ad4d3d35ed5ad8be30eee96e0d5ebf2527f09a107c2c788b681a/django_stateless_mcp-0.1.11-py3-none-any.whl", hash = "sha256:81652f07d2398a147df252387ce208ff8688a0f659ba66c366c161731bbe4723", size = 19516, upload-time = "2026-08-31T08:06:19.491Z" },
+]
+
+[[package]]
 name = "django-stubs"
 version = "6.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2672,6 +2685,7 @@ dev = [
 portal = [
     { name = "dj-database-url" },
     { name = "django" },
+    { name = "django-stateless-mcp" },
     { name = "gunicorn" },
     { name = "idna" },
     { name = "mcp" },
@@ -2701,9 +2715,10 @@ dev = [
 portal = [
     { name = "dj-database-url" },
     { name = "django" },
+    { name = "django-stateless-mcp", specifier = "==0.1.11" },
     { name = "gunicorn", specifier = ">=26.2.0" },
     { name = "idna", specifier = ">=3.20" },
-    { name = "mcp" },
+    { name = "mcp", specifier = "==2.3.0" },
     { name = "psycopg", extras = ["binary"] },
     { name = "publicsuffixlist", specifier = ">=1.1.0.20261017" },
     { name = "whitenoise", specifier = ">=6.12.0" },
