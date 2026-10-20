@@ -1,0 +1,6 @@
+{
+  "receipt": "eval-receipt.json",
+  "paths": [],
+  "lines": {},
+  "rendered": {"command": ["node", "render.js"], "from": ["voice/settings.py"]}
+}
