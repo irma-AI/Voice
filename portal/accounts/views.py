@@ -698,18 +698,37 @@ def to_core(
     request: HttpRequest, business: Business, kind: str, domain: str = ""
 ) -> HttpResponse:
     """Sends a browser to the core's call page with a ticket for this one Business, the kind of call and the website allowed to frame the page: the only way a browser is let to call. Once the Business's daily budget is spent (VOI-123), a kind BUDGET_COUNTED counts gets no ticket until the next day, whichever view mints it (VOI-172); a kind missing from it raises, so no ticket."""
+    try:
+        return redirect(core_address(business, kind, domain))
+    except BudgetSpent:
+        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
+    except CallsNotSetUp:
+        return HttpResponse("Calls are not set up: CORE_SECRET is empty.", status=503)
+
+
+class BudgetSpent(Exception):
+    pass
+
+
+class CallsNotSetUp(Exception):
+    pass
+
+
+def core_address(business: Business, kind: str, domain: str = "") -> str:
+    """The core's call page with a fresh ticket: the one place a ticket is minted, for to_core and the agent's Test call link.
+    Raises BudgetSpent once the daily budget is spent for a kind BUDGET_COUNTED counts (a kind missing from it raises KeyError), and
+    CallsNotSetUp with no CORE_SECRET (only on a local run; a ticket signed with nothing would be refused by the core anyway)."""
     if BUDGET_COUNTED[kind] and spent_today(business) >= business.daily_budget_usd:
         log.warning(
             "call refused: Business %s has spent its daily budget (kind %s)",
             business.pk,
             kind,
         )
-        return call_link_refused(request, BUDGET_SPENT_REFUSAL)
-    # Empty only on a local run; a ticket signed with nothing would be refused by the core anyway.
+        raise BudgetSpent
     if not settings.CORE_SECRET:
-        return HttpResponse("Calls are not set up: CORE_SECRET is empty.", status=503)
+        raise CallsNotSetUp
     ticket = mint(settings.CORE_SECRET, business.pk, kind, domain)
-    return redirect(f"{settings.CORE_URL.rstrip('/')}/?ticket={ticket}")
+    return f"{settings.CORE_URL.rstrip('/')}/?ticket={ticket}"
 
 
 @login_required
