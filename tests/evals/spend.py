@@ -12,11 +12,19 @@ class Caps:
     per_run_sek: float
     per_loop_sek: float
     per_day_sek: float
+    per_scenario_sek: (
+        float  # the least a batch prices each Scenario at, before it starts
+    )
 
     @classmethod
     def load(cls, path: Path = CAPS_FILE) -> "Caps":
         data = json.loads(path.read_text("utf-8"))
-        return cls(data["per_run_sek"], data["per_loop_sek"], data["per_day_sek"])
+        return cls(
+            data["per_run_sek"],
+            data["per_loop_sek"],
+            data["per_day_sek"],
+            data["per_scenario_sek"],
+        )
 
 
 def stopped_by(caps: Caps, *, run: float, loop: float, day: float) -> str | None:

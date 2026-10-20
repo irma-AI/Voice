@@ -2,7 +2,7 @@
 
 from tests.evals.spend import Caps, stopped_by
 
-CAPS = Caps(per_run_sek=10, per_loop_sek=30, per_day_sek=50)
+CAPS = Caps(per_run_sek=10, per_loop_sek=30, per_day_sek=50, per_scenario_sek=0.5)
 
 
 def test_under_every_cap_runs_on() -> None:
@@ -16,5 +16,5 @@ def test_each_cap_stops_the_run() -> None:
 
 
 def test_committed_caps_are_the_approved_ones() -> None:
-    # Parity: Petter's approved 10/30/50 SEK live here and in tests/evals/caps.json; edit caps.json only with his OK.
+    # Parity: Petter's approved 10/30/50 SEK and 0.5 SEK per Scenario live here and in tests/evals/caps.json; edit caps.json only with his OK.
     assert Caps.load() == CAPS
