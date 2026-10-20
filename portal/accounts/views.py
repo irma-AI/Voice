@@ -420,7 +420,7 @@ def call_log(request: HttpRequest, call_id: str) -> HttpResponse:
         (
             e.get("t"),
             EVENT_NAMES.get(str(e.get("e")), e.get("e", "–")),
-            # A string without its JSON quotes and no empty object: the text file keeps the exact JSON.
+            # A string without its JSON quotes and no empty object: the copied text keeps the exact JSON.
             [
                 (k, v if isinstance(v, str) else json.dumps(v))
                 for k, v in e.items()
@@ -441,22 +441,11 @@ def call_log(request: HttpRequest, call_id: str) -> HttpResponse:
             "barge_ins": barge_ins,
             "no_words": no_words,
             "events": events,
+            # The server log's barge-in lines (`barge-in ` and the event's JSON), one per event, that Copy as text hands to an agent.
+            "text": "\n".join("barge-in " + json.dumps(e) for e in ordered),
             "time_zone": settings.TIME_ZONE,
         },
     )
-
-
-@operator_only
-def call_log_text(request: HttpRequest, call_id: str) -> HttpResponse:
-    """The Call log as the server log's barge-in lines (`barge-in ` and the event's JSON), one per event, to hand to an agent."""
-    log = get_object_or_404(CallLog, call_id=call_id)
-    lines = ("barge-in " + json.dumps(e) for e in in_recorder_order(log.events))
-    response = HttpResponse(
-        "".join(line + "\n" for line in lines), content_type="text/plain; charset=utf-8"
-    )
-    # The call id is a plain code (the database refuses anything else), so it is safe in the header.
-    response["Content-Disposition"] = f'attachment; filename="call-log-{call_id}.txt"'
-    return response
 
 
 class Text(forms.CharField):
