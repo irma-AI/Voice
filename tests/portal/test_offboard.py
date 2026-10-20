@@ -15,28 +15,27 @@ from django.core.management.base import CommandError
 from django.test import Client
 
 from portal.accounts.models import AccessToken, Account, Business, CallRecord, Module
-from tests.portal.helpers import PASSWORD, business_with_login
-from tests.portal.test_recent_calls import a_call
+from tests.portal.helpers import PASSWORD, a_call, business_with_login
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
-EMAIL = "anna.testsson@example.com"  # synthetic
+EMAIL = "user-a@example.com"  # synthetic
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
 
 
 def a_business_with_everything() -> Business:
-    business, _ = business_with_login(EMAIL, "Anna's Salon")
-    business.instructions = "Anna Testsson cuts hair on Tuesdays."
-    business.website_domain = "anna.example.se"
+    business, _ = business_with_login(EMAIL, "Owner A's Salon")
+    business.instructions = "Owner A cuts hair on Tuesdays."
+    business.website_domain = "site-a.example.se"
     business.accent = "#2f6f4f"
-    business.privacy_url = "https://anna.example.se/privacy"
+    business.privacy_url = "https://site-a.example.se/privacy"
     business.set_logo(PNG)
     business.save()
     Module.objects.create(
         business=business, name="Bookings", url="https://mcp.example.se/"
     )
-    AccessToken.make(business, "Anna's laptop", "read", is_operator=False)
-    AccessToken.make(business, "Anna's old phone", "full", is_operator=False)[
+    AccessToken.make(business, "Owner A's laptop", "read", is_operator=False)
+    AccessToken.make(business, "Owner A's old phone", "full", is_operator=False)[
         0
     ].revoke()
     a_call(business, "c0ffee0123456789", datetime(2026, 10, 17, 9, tzinfo=UTC))
@@ -68,7 +67,7 @@ def test_the_dry_run_changes_nothing_and_execute_needs_the_reviewed_hash_and_tar
     dry = StringIO()
     call_command("offboard_business", EMAIL, target="local", stdout=dry)
     assert f'"business": "{business.pk}"' in dry.getvalue()
-    assert '"name now": "Anna\'s Salon"' in dry.getvalue()
+    assert '"name now": "Owner A\'s Salon"' in dry.getvalue()
     assert '"access tokens to revoke": "1"' in dry.getvalue()
     assert '"modules to delete": "1"' in dry.getvalue()
     with pytest.raises(CommandError, match="plan changed"):
@@ -149,7 +148,7 @@ def test_the_call_records_still_add_up_on_the_totals_page(settings: Any) -> None
     _, operator = business_with_login("operator@example.com", "Voice")
     settings.SUPER_ADMIN_EMAIL = "operator@example.com"
     page = operator.get("/totals/").content.decode()
-    assert f"Business {business.pk}" in page and "Anna" not in page
+    assert f"Business {business.pk}" in page and "Owner A" not in page
     assert "3.1" in page  # the one 184-second call, in minutes
 
 

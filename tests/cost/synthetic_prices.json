@@ -1,0 +1,6 @@
+{
+  "as_of": "2026-01-01",
+  "source": "synthetic: round numbers for tests/test_cost.py, not Google's prices",
+  "usd_per_million_tokens": {"audio_in": 2.0, "text_in": 1.0, "audio_out": 8.0, "text_out": 4.0},
+  "sek_per_usd": 10.0
+}

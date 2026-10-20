@@ -21,12 +21,13 @@ from portal.accounts.models import (
     COST_REASON_PATTERN,
     Account,
     Business,
+    CallLog,
     CallRecord,
 )
+from tests.portal.helpers import SECRET, a_log
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
-SECRET = "a-secret-for-tests"
 SCHEMA: dict[str, Any] = json.loads(
     (Path(__file__).parents[2] / "contract/call-record.schema.json").read_text()
 )
@@ -39,8 +40,8 @@ def core_secret(settings: Any) -> None:
 
 
 def a_business() -> Business:
-    account = Account.objects.create_user("anna.testsson@example.com", "x" * 20)
-    return Business.objects.create(account=account, name="Anna's Salon")
+    account = Account.objects.create_user("user-a@example.com", "x" * 20)
+    return Business.objects.create(account=account, name="Owner A's Salon")
 
 
 def a_record(owner: Business, **changes: Any) -> dict[str, Any]:
@@ -69,11 +70,16 @@ def run_sql(*statements: str) -> None:
             cursor.execute(sql)
 
 
-def send(record: Any, secret: str | None = SECRET, raw: bytes | None = None) -> Any:
+def send(
+    record: Any,
+    secret: str | None = SECRET,
+    raw: bytes | None = None,
+    address: str = "/api/calls/",
+) -> Any:
     headers = {} if secret is None else {"Authorization": f"Bearer {secret}"}
     body = raw if raw is not None else json.dumps(record).encode()
     return Client().post(
-        "/api/calls/", body, content_type="application/json", headers=headers
+        address, body, content_type="application/json", headers=headers
     )
 
 
@@ -106,33 +112,42 @@ def test_a_record_with_no_cost_keeps_its_length_and_tokens_and_says_why() -> Non
     )
 
 
-def test_without_the_secret_or_with_a_wrong_one_it_answers_401_before_any_lookup(
-    django_assert_num_queries: Any, settings: Any
+# Both addresses the core reports to are gated and parsed by store_core_report: one test for the two.
+# Each address: how to build a good body, where it is stored, and one field it must have.
+ADDRESSES: dict[str, tuple[Any, Any, str]] = {
+    "/api/calls/": (a_record, CallRecord, "cost_reason"),
+    "/api/call-logs/": (a_log, CallLog, "events"),
+}
+
+
+@pytest.mark.parametrize("address", sorted(ADDRESSES))
+def test_each_core_report_address_refuses_a_wrong_secret_before_any_lookup_and_a_body_off_its_shape(
+    address: str, django_assert_num_queries: Any, settings: Any
 ) -> None:
-    record = a_record(a_business())
-    with django_assert_num_queries(0):
-        assert send(record, secret=None).status_code == 401
-        assert send(record, secret="wrong").status_code == 401
-        assert send({}, secret="wrong").status_code == 401  # not even read
-    settings.CORE_SECRET = ""
-    assert send(record, secret="").status_code == 401  # an unset secret refuses all
-    assert CallRecord.objects.count() == 0
-
-
-def test_only_a_post_is_answered() -> None:
-    assert (
-        Client()
-        .get("/api/calls/", headers={"Authorization": f"Bearer {SECRET}"})
-        .status_code
-        == 405
-    )
-
-
-def test_a_record_for_an_unknown_business_is_refused() -> None:
+    build, stored, required = ADDRESSES[address]
     business = a_business()
-    response = send(a_record(business, business=business.pk + 1))
-    assert response.status_code == 400 and response.json()["fields"] == ["business"]
-    assert CallRecord.objects.count() == 0
+    good = build(business)
+    with django_assert_num_queries(0):
+        assert send(good, secret=None, address=address).status_code == 401
+        assert send(good, secret="wrong", address=address).status_code == 401
+        assert (
+            send({}, secret="wrong", address=address).status_code == 401
+        )  # not even read
+    bearer = {"Authorization": f"Bearer {SECRET}"}
+    assert Client().get(address, headers=bearer).status_code == 405  # only a POST
+    unknown = send(build(business, business=business.pk + 1), address=address)
+    assert unknown.status_code == 400 and unknown.json()["fields"] == ["business"]
+    assert send(build(business, transcript="hello"), address=address).status_code == 400
+    missing = build(business)
+    del missing[required]
+    assert send(missing, address=address).status_code == 400
+    assert send(None, raw=b"not json", address=address).status_code == 400
+    assert send([1, 2], address=address).status_code == 400
+    settings.CORE_SECRET = ""
+    assert (
+        send(good, secret="", address=address).status_code == 401
+    )  # an unset secret refuses all
+    assert stored.objects.count() == 0
 
 
 # Each bad record is also checked against the schema by the parity test below.
@@ -188,18 +203,6 @@ def test_the_contract_refuses_what_the_portal_refuses(name: str) -> None:
         assert list(validator.iter_errors(a_record(business, **BAD[name]))), (
             f"'{name}' is refused by the Portal but passes the schema: edit contract/call-record.schema.json to refuse it too"
         )
-
-
-def test_only_the_listed_fields_are_accepted_and_all_are_required() -> None:
-    business = a_business()
-    assert send(a_record(business, note="hello")).status_code == 400
-    assert send(a_record(business, transcript="hello")).status_code == 400
-    record = a_record(business)
-    del record["cost_reason"]
-    assert send(record).status_code == 400
-    assert send(None, raw=b"not json").status_code == 400
-    assert send([1, 2]).status_code == 400
-    assert CallRecord.objects.count() == 0
 
 
 def test_the_database_refuses_update_and_delete_of_a_stored_record() -> None:

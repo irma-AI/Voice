@@ -1,7 +1,7 @@
 """The Business's website domain: the one place a typed address becomes the registrable domain the database stores.
 
 The registrable domain is the public suffix plus the label before it (`shop.example.se` -> `example.se`), counting the
-Public Suffix List's private section, so `alice.github.io` and `bob.github.io` are two domains. The list is the snapshot
+Public Suffix List's private section, so `site-a.github.io` and `site-b.github.io` are two domains. The list is the snapshot
 bundled in the library: no network at request time. The Portal alone holds the domain (VOI-70); the settings contract and
 the call ticket do not carry it.
 """
