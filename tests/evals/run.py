@@ -163,6 +163,25 @@ def _play(scenario: str, run_dir: Path, name: str, port: int) -> tuple[int, Path
         RUNNING.discard(proc)
 
 
+# The exit code a call that raised gets, beside -1 for one past the time limit.
+CRASHED = -2
+
+
+def isolated(
+    play: Callable[[str, Path, str, int], tuple[int, Path]],
+) -> Callable[[str, Path, str, int], tuple[int, Path]]:
+    """`play` for one call of a batch: an error fails that call alone, so the batch's other calls still reach the ledger (VOI-218)."""
+
+    def one(scenario: str, run_dir: Path, name: str, port: int) -> tuple[int, Path]:
+        try:
+            return play(scenario, run_dir, name, port)
+        except Exception as error:  # noqa: BLE001  any error; a Ctrl-C still stops the batch
+            print(f"{name}: the call crashed ({error!r})", file=sys.stderr)
+            return CRASHED, run_dir / "calls" / f"{name}.jsonl"
+
+    return one
+
+
 def _kill(proc: subprocess.Popen[bytes]) -> None:
     """Kills the suite and the bot it spawned, which shares its process group."""
     if sys.platform == "win32":
@@ -266,7 +285,14 @@ def batch_stop(
     return stopped_by(caps, **_totals(runs, spent + worst * size, loop_id, today))
 
 
-def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
+def main(
+    only: str | None,
+    runs: Path = RUNS,
+    caps: Caps | None = None,
+    play: Callable[
+        [str, Path, str, int], tuple[int, Path]
+    ] = _play,  # a stand-in call in the runner's own tests
+) -> int:
     pairs = plan(only)
     if pairs is None:
         print(
@@ -303,7 +329,9 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
             ports = [BASE_PORT + k for k in range(len(batch))]
             with ThreadPoolExecutor(len(batch)) as pool:
                 try:
-                    calls = pool.map(_play, bases, [run_dir] * len(batch), names, ports)
+                    calls = pool.map(
+                        isolated(play), bases, [run_dir] * len(batch), names, ports
+                    )
                     played = dict(zip(names, calls, strict=True))
                 except KeyboardInterrupt:
                     # Here, not after the `with`: leaving it waits for every call to end first.
