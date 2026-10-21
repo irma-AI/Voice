@@ -83,8 +83,15 @@ def test_a_log_of_every_kind_the_contract_names_is_stored() -> None:
 
 
 # Each bad log is also checked against the schema by the parity test below.
+WORDS = [
+    {"t": 1.2, "who": "agent", "text": "Hej och välkommen till Frisör Exempel!"},
+    {"t": 3.4, "who": "caller", "text": "Vad kostar en klippning?"},
+]
 BAD: dict[str, dict[str, Any]] = {
     "unknown kind": {"kind": "phone"},
+    "words on a call that is not a test call": {"kind": "call_link", "words": WORDS},
+    "a word from someone else": {"words": [{"t": 1, "who": "bot", "text": "x"}]},
+    "a word with another field": {"words": [{**WORDS[0], "name": "Anna"}]},
     "call id with words": {"call_id": "hello, I would like to book"},
     "time in another zone": {"started_at": "2026-10-19T07:00:00+02:00"},
     "events that are not a list": {"events": {"t": 1}},
@@ -114,8 +121,9 @@ BAD: dict[str, dict[str, Any]] = {
     "events that are null": {"events": None},
     "a start in the future": {"started_at": "9999-12-31T23:59:59.999999Z"},
 }
-# What only the database refuses (the schema cannot know the time).
-DATABASE_ONLY = {"a start in the future"}
+# What only the database refuses (the schema cannot know the time,
+# and only the database ties words to a test call).
+DATABASE_ONLY = {"a start in the future", "words on a call that is not a test call"}
 
 
 @pytest.mark.parametrize("name", sorted(BAD))
@@ -147,6 +155,43 @@ def stored(started_at: datetime) -> CallLog:
         started_at=started_at,
         events=EVENTS,
     )
+
+
+def test_a_test_call_s_words_are_stored_and_an_older_core_s_log_without_any_too() -> (
+    None
+):
+    business = a_business()
+    assert send(a_log(business, words=WORDS)).status_code == 201
+    older = a_log(business, call_id="older-core-0001")
+    del older["words"]  # a core copy from before VOI-160, still running mid-deploy
+    assert send(older).status_code == 201
+    assert [log.words for log in CallLog.objects.order_by("pk")] == [WORDS, []]
+
+
+@pytest.mark.parametrize(
+    "fields, rule",
+    [
+        ({"kind": "call_link", "words": WORDS}, "call_log_words_only_on_a_test_call"),
+        ({"words": [{"t": 1, "who": "agent"}]}, "call_log_words_hold_only_who_t_text"),
+        ({"words": {"t": 1}}, "call_log_words_hold_only_who_t_text"),
+    ],
+)
+def test_the_database_itself_refuses_words_off_a_test_call_or_in_another_shape(
+    fields: dict[str, Any], rule: str
+) -> None:
+    """VOI-160: a bug in the core or any other writer cannot store a real Caller's words."""
+    with pytest.raises(IntegrityError, match=rule), transaction.atomic():
+        CallLog.objects.create(
+            **{
+                "call_id": CALL,
+                "business": a_business(),
+                "kind": "test",
+                "started_at": datetime.now(UTC),
+                "events": EVENTS,
+                **fields,
+            }
+        )
+    assert CallLog.objects.count() == 0
 
 
 def test_the_database_refuses_an_update_of_a_stored_log() -> None:

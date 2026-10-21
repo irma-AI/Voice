@@ -648,6 +648,9 @@ def test_call_logs_give_the_operator_every_business_and_a_business_its_own_timin
             kind="test",
             started_at=started,
             events=EVENTS,
+            words=[
+                {"t": 1.0, "who": "caller", "text": "Vad kostar en klippning?"}
+            ],  # VOI-160
         )
     timing_fields = set(
         json.loads(
@@ -666,6 +669,9 @@ def test_call_logs_give_the_operator_every_business_and_a_business_its_own_timin
     assert listed[0]["barge_ins"] == 1
     read = answer(as_operator, "read_call_log", call="log-other-00001")
     assert read["structuredContent"]["events"] == EVENTS
+    assert "klippning" not in json.dumps(
+        read
+    )  # a test call's words stay on the operator's page
     assert {
         key for event in read["structuredContent"]["events"] for key in event
     } <= timing_fields

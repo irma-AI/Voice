@@ -13,6 +13,7 @@ the log, so the stored copy is exactly what the server log holds; it is sent bes
 import asyncio
 import json
 import os
+import time
 from collections import defaultdict
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
@@ -20,7 +21,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from loguru import logger
-from pipecat.frames.frames import Frame, MetricsFrame
+from pipecat.frames.frames import Frame, MetricsFrame, TranscriptionFrame, TTSTextFrame
 from pipecat.metrics.metrics import LLMUsageMetricsData
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
@@ -87,6 +88,41 @@ class UsageTally(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
+# A test call's words by call id (VOI-160), in memory only until report_call sends them with its Call log: never logged.
+# shortcut: a test call that never reaches report_call leaves its words here until the process ends, like EVENTS above.
+WORDS: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
+
+
+class WordKeeper(FrameProcessor):
+    """Keeps a test call's words for its Call log: the Caller's transcript travels upstream, the agent's downstream,
+    so the pipeline holds one on each side of the model. A real Caller's call gets none (voice/agent.py)."""
+
+    def __init__(self, call_id: str, t0: float) -> None:
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]  # untyped kwargs upstream
+        self._call_id, self._t0 = call_id, t0
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
+        await super().process_frame(frame, direction)
+        if (
+            isinstance(frame, TranscriptionFrame)
+            and direction == FrameDirection.UPSTREAM
+        ):
+            self._keep("caller", frame.text)
+        elif isinstance(frame, TTSTextFrame) and direction == FrameDirection.DOWNSTREAM:
+            self._keep("agent", frame.text)
+        await self.push_frame(frame, direction)
+
+    def _keep(self, who: str, text: str) -> None:
+        words = WORDS[self._call_id]
+        if (
+            words and words[-1]["who"] == who
+        ):  # the agent's words come in pieces: one entry per turn
+            words[-1]["text"] = " ".join(f"{words[-1]['text']} {text}".split())[:2000]
+        else:
+            t = round(time.monotonic() - self._t0, 3)
+            words.append({"t": t, "who": who, "text": " ".join(text.split())[:2000]})
+
+
 def build_record(
     call_id: str,
     ticket: Ticket,
@@ -112,14 +148,16 @@ def build_log(
     ticket: Ticket,
     started_at: datetime,
     events: list[dict[str, Any]],
+    words: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """The Call log, in the shape of contract/call-log.schema.json."""
+    """The Call log, in the shape of contract/call-log.schema.json: words on a test call only, whatever was kept."""
     return {
         "call_id": call_id,
         "business": ticket.business,
         "kind": ticket.kind,
         "started_at": started_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "events": events,
+        "words": words[:2000] if ticket.kind == "test" else [],
     }
 
 
@@ -148,7 +186,9 @@ def report_call(
 ) -> None:
     """Starts pricing, logging and sending the call's record, and sending its Call log, and returns: the caller never waits on Google or the Portal. Needs a running loop."""
     loop = asyncio.get_running_loop()
-    log = build_log(call_id, ticket, started_at, EVENTS.pop(call_id, []))
+    log = build_log(
+        call_id, ticket, started_at, EVENTS.pop(call_id, []), WORDS.pop(call_id, [])
+    )
     for task in (
         loop.run_in_executor(
             SENDER, finish, call_id, ticket, started_at, length_seconds, totals, env

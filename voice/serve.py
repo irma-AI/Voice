@@ -66,6 +66,12 @@ DRAIN_CEILING_S = MAX_CALL_SECS + 30
 PAGE = (Path(__file__).parent / "page.html").read_text("utf-8")
 # Caller-facing wording, approved by Petter 2026-10-18 (CLAUDE.md § Stop and ask): a change here waits for his answer.
 PRIVACY_LINK = "Privacy notice"
+# What a test call's page says before Start, since its words are kept (VOI-160). Caller wording: a DRAFT from
+# docs/research/call-log-legal-ground.md § 7, cut to words only; not to merge before Petter approves it (DECISIONS.md, ESCALATED).
+TEST_CALL_NOTICE = (
+    "This is a test call. We keep what you say, and what the assistant says, as text for 30 days "
+    "to find and fix faults in the service. Only the Voice team can read it. Call where only you can be heard."
+)
 # The typefaces the call page uses: a copy of the Portal's, held equal by tests/test_design_tokens.py.
 FONTS = {
     p.name: p.read_bytes()
@@ -168,7 +174,7 @@ async def receive_page_facts(websocket: WebSocket) -> dict[str, object] | None:
     return page_facts(message.get("text"))
 
 
-def render_page(settings: Settings | None, call_secs: int) -> str:
+def render_page(settings: Settings | None, call_secs: int, kept: bool = False) -> str:
     """The call page for one Business, in its Theme, with its ring sized to this call's cap; None (no settings to be had) is Voice's own look.
 
     Text from the settings is escaped; the colours were checked as `#` and six hex digits by the settings port.
@@ -196,6 +202,8 @@ def render_page(settings: Settings | None, call_secs: int) -> str:
             f'<p class="privacy"><a href="{html.escape(settings.privacy_url)}" '
             f'target="_blank" rel="noopener">{PRIVACY_LINK}<span class="sr-only"> (opens in a new tab)</span></a></p>'
         )
+    if kept:  # a test call, whose words are kept: said before the Caller presses Start
+        privacy = f'<p class="privacy">{TEST_CALL_NOTICE}</p>' + privacy
     return (
         PAGE.replace("__IN_RATE__", str(IN_RATE))
         .replace("__OUT_RATE__", str(OUT_RATE))
@@ -499,7 +507,7 @@ def create_app(ticket_secret: str) -> FastAPI:
             logger.warning("call page in Voice's own look: {}", e)
             settings = None
         return HTMLResponse(
-            render_page(settings, CALL_SECS[ticket.kind]),
+            render_page(settings, CALL_SECS[ticket.kind], kept=ticket.kind == "test"),
             headers={"Content-Security-Policy": csp},
         )
 

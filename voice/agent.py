@@ -29,7 +29,7 @@ from voice.bargein import VAD, BargeInRecorder
 from voice.cost import MODEL
 from voice.modules import Connected, connect_modules, local_modules_allowed
 from voice.record import CallRecorder
-from voice.report import UsageTally, report_call
+from voice.report import UsageTally, WordKeeper, report_call
 from voice.settings import LANGUAGES, Settings, SettingsRefused, load_settings
 from voice.ticket import Ticket
 
@@ -257,6 +257,15 @@ async def _run(
         steps.insert(
             steps.index(llm) + 1, HangUpWhenDone(lambda: worker.stop_when_done())
         )
+    if ticket is not None and ticket.kind == "test":
+        # A test call keeps both sides' words for its Call log (VOI-160); a real Caller's call never does.
+        t0 = time.monotonic()
+        steps.insert(
+            steps.index(llm) + 1, WordKeeper(call_id, t0)
+        )  # the agent's, downstream
+        steps.insert(
+            steps.index(llm), WordKeeper(call_id, t0)
+        )  # the Caller's, upstream
     pipeline = Pipeline(steps)
     worker = PipelineWorker(
         pipeline,

@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "call-log",
   "title": "The barge-in events of one finished call, which the core sends the Portal",
-  "description": "The one definition of the Call log shape (VOI-153). The core sends it to POST /api/call-logs/ (voice/report.py) and the Portal stores it (portal/accounts/models.py CallLog) for 30 days after the call's start; tests/portal/test_call_logs.py fails when the Portal drifts from it, and tests/test_report.py when the core does. Each event is one barge-in line as the core logged it (voice/bargein.py): timings, levels, scores and short codes only, never words or audio. An event's fields are the ones .claude/rules/security.md lists for a barge-in line, nothing else.",
+  "description": "The one definition of the Call log shape (VOI-153; words on a test call, VOI-160). The core sends it to POST /api/call-logs/ (voice/report.py) and the Portal stores it (portal/accounts/models.py CallLog) for 30 days after the call's start; tests/portal/test_call_logs.py fails when the Portal drifts from it, and tests/test_report.py when the core does. Each event is one barge-in line as the core logged it (voice/bargein.py): timings, levels, scores and short codes only, never words or audio. An event's fields are the ones .claude/rules/security.md lists for a barge-in line, nothing else.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["call_id", "business", "kind", "started_at", "events"],
+  "required": ["call_id", "business", "kind", "started_at", "events", "words"],
   "properties": {
     "call_id": { "type": "string", "pattern": "^[A-Za-z0-9-]{8,64}$" },
     "business": { "type": "integer", "minimum": 1 },
@@ -14,7 +14,22 @@
       "type": "string",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"
     },
-    "events": { "type": "array", "items": { "$ref": "#/$defs/event" } }
+    "events": { "type": "array", "items": { "$ref": "#/$defs/event" } },
+    "words": {
+      "description": "Both sides' words of a test call (VOI-160), in order: empty on every other kind, which the Portal's database refuses words on (call_log_words_only_on_a_test_call).",
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["t", "who", "text"],
+        "properties": {
+          "t": { "type": "number" },
+          "who": { "enum": ["caller", "agent"] },
+          "text": { "type": "string", "maxLength": 2000 }
+        }
+      }
+    }
   },
   "$defs": {
     "code": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },

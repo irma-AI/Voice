@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 from jsonschema import Draft202012Validator
 from loguru import logger
-from pipecat.frames.frames import EndFrame, MetricsFrame
+from pipecat.frames.frames import EndFrame, MetricsFrame, TTSTextFrame
 from pipecat.metrics.metrics import LLMTokenUsage, LLMUsageMetricsData
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineWorker
@@ -28,7 +28,7 @@ from voice import report
 from voice.bargein import BargeInRecorder
 from voice.cost import MODEL, price
 from voice.portal_client import post
-from voice.report import UsageTally, build_record, report_call
+from voice.report import UsageTally, WordKeeper, build_record, report_call
 from voice.ticket import Ticket
 
 ROOT = Path(__file__).parents[1]
@@ -374,6 +374,7 @@ def test_a_call_s_barge_in_lines_reach_the_portal_as_its_call_log_and_the_call_n
         "kind": "call_link",
         "started_at": "2026-10-17T07:30:05.123456Z",
         "events": logged,
+        "words": [],
     }
     validator: Any = Draft202012Validator(LOG_SCHEMA)
     assert list(validator.iter_errors(log)) == []
@@ -439,3 +440,35 @@ def test_a_call_log_the_portal_never_takes_is_given_up_and_said() -> None:
             is False
         )
     assert "gave up sending the Call log" in lines[-1]
+
+
+@pytest.mark.parametrize("kind", ["test", "call_link"])
+def test_a_test_call_s_words_reach_its_call_log_and_never_a_log_line(kind: str) -> None:
+    """VOI-160: the agent's pieces become one turn in a test call's log; any other kind sends none, and no line holds a word."""
+    call = f"c0ffee-words-{kind.replace('_', '-')}"
+    seen: list[Any] = []
+    with fake_portal([], seen) as portal, log_lines() as lines:
+        env = portal_env(portal)
+
+        async def a_call_ends() -> None:
+            pieces = [
+                TTSTextFrame(w, aggregated_by="word")
+                for w in ("Hej", " och", "välkommen!")
+            ]
+            worker = PipelineWorker(Pipeline([WordKeeper(call, time.monotonic())]))
+            await worker.queue_frames([*pieces, EndFrame()])
+            runner = WorkerRunner()
+            await runner.add_workers(worker)
+            await runner.run()
+            report_call(call, Ticket(7, kind), STARTED, 2, TOTALS, env)
+            await asyncio.gather(*report.sending)
+
+        asyncio.run(a_call_ends())
+
+    [(_, _, log)] = [s for s in seen if s[0] == "/api/call-logs/"]
+    words = [w["text"] for w in log["words"]]
+    assert words == (["Hej och välkommen!"] if kind == "test" else [])
+    validator: Any = Draft202012Validator(LOG_SCHEMA)
+    assert list(validator.iter_errors(log)) == []
+    assert not any("välkommen" in line or "Hej" in line for line in lines)
+    assert call not in report.WORDS  # taken out at the call's end, not kept

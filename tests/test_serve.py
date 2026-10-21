@@ -47,10 +47,12 @@ from voice import serve
 from voice.auth import FONTS_PATH, REFUSAL, TICKET_PATHS
 from voice.bargein import BargeInRecorder
 from voice.serve import (
+    TEST_CALL_NOTICE,
     DrainingServer,
     OneCallPerBusiness,
     RawPcmSerializer,
     create_app,
+    render_page,
     same_site,
 )
 from voice.ticket import KINDS, sign
@@ -409,10 +411,10 @@ def test_the_call_page_links_the_business_privacy_notice_only_when_it_has_one(
     # The page is often framed in the Business's own website: the notice opens outside the call, which goes on.
     assert link[2] == 'target="_blank" rel="noopener"'
     assert page.index(DISCLOSURE) < page.index(
-        'class="privacy"'
+        "Privacy notice<"
     )  # beside the disclosure, after it
     with fake_portal() as url:  # no notice given: no link at all
-        assert 'class="privacy"' not in call_page(monkeypatch, portal_env(url))
+        assert "Privacy notice<" not in call_page(monkeypatch, portal_env(url))
     # An address that spells another page marker is filled in last, so it stays an address.
     with fake_portal(body={**GOOD, "privacy_url": "https://x.se/__BRAND__"}) as url:
         page = call_page(monkeypatch, portal_env(url))
@@ -772,3 +774,17 @@ def test_a_page_that_sends_no_facts_first_leaves_the_reason_and_no_gap_count(
     ]
     assert events[0]["page_facts"] == "not_sent"
     assert "playback_gaps" not in events[-1], "a gap count nobody counted"
+
+
+def test_a_test_call_s_page_says_its_words_are_kept_before_start_and_no_other_kind_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """VOI-160: a test call keeps its words, so its page says so beside the disclosure; a real Caller's page never does."""
+    with fake_portal() as url:
+        page = call_page(monkeypatch, portal_env(url))  # a test call's ticket
+    assert (
+        page.index(DISCLOSURE) < page.index(TEST_CALL_NOTICE) < page.index("Start call")
+    )
+    assert TEST_CALL_NOTICE not in render_page(
+        None, 180
+    )  # every other kind (serve.py passes kept for a test call only)

@@ -424,6 +424,11 @@ class CallLog(models.Model):
     kind = models.CharField(max_length=20, choices=list(CALL_KINDS.items()))
     started_at = models.DateTimeField()  # UTC (USE_TZ); the expiry counts from it
     events = models.JSONField()
+    # Both sides' words of a test call only (VOI-160), shown to the operator, gone with the log; the database refuses them on any
+    # other kind (call_log_words_only_on_a_test_call) and any shape but [{t, who, text}] (migration 0034). db_default for the previous copy.
+    words = models.JSONField(
+        default=list, db_default=models.Value([], models.JSONField())
+    )
 
     @classmethod
     def expired(cls) -> models.QuerySet[CallLog]:
@@ -450,6 +455,10 @@ class CallLog(models.Model):
             models.CheckConstraint(
                 condition=models.Q(call_id__regex=CALL_ID_PATTERN),
                 name="call_log_id_must_be_a_plain_code",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(words=[]) | models.Q(kind="test"),
+                name="call_log_words_only_on_a_test_call",
             ),
         ]
 

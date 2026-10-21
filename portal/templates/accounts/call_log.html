@@ -27,4 +27,16 @@
   <li class="border-b border-granite py-4 text-foam-muted">This log holds no events.</li>
   {% endfor %}
 </ol>
+{% if log.words %}
+<h2 class="mt-12 text-2xl">What was said</h2>
+<p class="mt-2 max-w-prose text-sm text-foam-muted">A test call's words, both sides, kept with this log for 30 days and shown only here.</p>
+<ol class="mt-4 border-t border-granite" aria-label="Words">
+  {% for w in log.words %}
+  <li class="grid grid-cols-[4.5rem_1fr] gap-x-4 border-b border-granite py-3 sm:grid-cols-[6rem_1fr]">
+    <p class="font-mono text-sm tabular-nums text-foam-muted">{{ w.t|floatformat:3 }}&#8239;s</p>
+    <p class="min-w-0 break-words"><span class="text-xs font-medium tracking-label text-foam-muted uppercase">{% if w.who == "caller" %}Caller{% else %}Agent{% endif %}</span> {{ w.text }}</p>
+  </li>
+  {% endfor %}
+</ol>
+{% endif %}
 {% endblock %}

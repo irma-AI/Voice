@@ -926,8 +926,9 @@ def store_core_report(
     form_class: type[CoreReportForm],
     name: str,
     stored_as_sent: dict[str, type] | None = None,
+    if_unsent: dict[str, Any] | None = None,
 ) -> JsonResponse:
-    """The one opening for every report the core sends: the secret before any lookup, then the body parsed once and stored once per call id. `stored_as_sent` names the keys the form leaves out and the type each must be."""
+    """The one opening for every report the core sends: the secret before any lookup, then the body parsed once and stored once per call id. `stored_as_sent` names the keys the form leaves out and the type each must be; `if_unsent` the value a key takes when an older core copy (mid-deploy) leaves it out."""
     if not core_secret_sent(request):
         return JsonResponse({"error": "missing or wrong secret"}, status=401)
     stored_as_sent = stored_as_sent or {}
@@ -935,6 +936,8 @@ def store_core_report(
         body = json.loads(request.body)
     except ValueError:
         body = None
+    if isinstance(body, dict):
+        body = {**(if_unsent or {}), **body}
     if (
         not isinstance(body, dict)
         or body.keys() != {*form_class.base_fields, *stored_as_sent}  # pyright: ignore[reportUnknownMemberType]
@@ -984,7 +987,7 @@ class CallLogForm(CoreReportForm):
 
     class Meta:
         model = CallLog
-        exclude = ("events",)
+        exclude = ("events", "words")
 
 
 @csrf_exempt  # the shared secret gates it, not a session
@@ -993,12 +996,20 @@ class CallLogForm(CoreReportForm):
 def record_call_log(request: HttpRequest) -> HttpResponse:
     """The one address the core sends a finished call's Call log to. Stores it once per call id; the database refuses every later change, and a delete before its expiry."""
     try:
-        return store_core_report(request, CallLogForm, "Call log", {"events": list})
+        return store_core_report(
+            request,
+            CallLogForm,
+            "Call log",
+            {"events": list, "words": list},
+            {"words": []},
+        )
     except (IntegrityError, DataError) as e:
-        # The database is what checks the events and the start (migration 0020), or refuses text jsonb can't hold (a NUL); this only says so.
-        if isinstance(e, DataError) or "call_log_events_hold_only_listed_fields" in str(
-            e
-        ):
+        # The database is what checks the events, the words and the start (migrations 0020, 0034), or refuses text jsonb can't hold (a NUL); this only says so.
+        if "call_log_words_" in str(e):
+            field = "words"
+        elif isinstance(
+            e, DataError
+        ) or "call_log_events_hold_only_listed_fields" in str(e):
             field = "events"
         elif "call_log_must_not_start_in_the_future" in str(e):
             field = "started_at"

@@ -158,3 +158,25 @@ def test_an_odd_event_the_database_took_never_breaks_the_pages(
         assert petter.get(page).status_code == 200, page
     length, _, no_words = petter.get("/logs/").context["rows"][0][4:]
     assert length == "–" and no_words >= 0
+
+
+def test_a_test_call_s_words_show_beside_its_timeline_and_never_in_the_copied_text(
+    settings: Any,
+) -> None:
+    """VOI-160: the operator reads the words on the page; Copy as text, which goes to a coding agent, holds the timings only."""
+    settings.SUPER_ADMIN_EMAIL = EMAIL
+    business, _ = business_with_login()
+    _, petter = business_with_login(EMAIL, "Petter's Business")
+    said = "Vad kostar en klippning?"
+    CallLog.objects.create(
+        call_id=CALL,
+        business=business,
+        kind="test",
+        started_at=datetime(2026, 10, 19, 5, 0, tzinfo=UTC),
+        events=EVENTS,
+        words=[{"t": 3.4, "who": "caller", "text": said}],
+    )
+    page = petter.get(f"/logs/{CALL}/").content.decode()
+    assert "What was said" in page and said in page
+    copied = re.search(r'<pre id="call-log-text"[^>]*>(.*?)</pre>', page, re.DOTALL)
+    assert copied and "klippning" not in copied[1]
