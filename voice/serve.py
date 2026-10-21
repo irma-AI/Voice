@@ -66,8 +66,8 @@ DRAIN_CEILING_S = MAX_CALL_SECS + 30
 PAGE = (Path(__file__).parent / "page.html").read_text("utf-8")
 # Caller-facing wording, approved by Petter 2026-10-18 (CLAUDE.md § Stop and ask): a change here waits for his answer.
 PRIVACY_LINK = "Privacy notice"
-# What a test call's page says before Start, since its words are kept (VOI-160). Caller wording: a DRAFT from
-# docs/research/call-log-legal-ground.md § 7, cut to words only; not to merge before Petter approves it (DECISIONS.md, ESCALATED).
+# What a test call's page says before Start, since its words are kept (VOI-160). Caller wording: approved by Petter 2026-10-21
+# (from docs/research/call-log-legal-ground.md § 7, cut to words only); a change needs his go again.
 TEST_CALL_NOTICE = (
     "This is a test call. We keep what you say, and what the assistant says, as text for 30 days "
     "to find and fix faults in the service. Only the Voice team can read it. Call where only you can be heard."
