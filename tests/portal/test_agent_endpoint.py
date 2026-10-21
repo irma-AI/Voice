@@ -11,6 +11,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -26,10 +27,11 @@ from portal.accounts.models import (
     AccessToken,
     Account,
     Business,
+    CallLog,
     CommandRecord,
     Module,
 )
-from tests.portal.helpers import PASSWORD, a_call
+from tests.portal.helpers import EVENTS, PASSWORD, a_call
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db(transaction=True)]
 
@@ -107,6 +109,8 @@ CALL = {"name": "list_recent_calls", "arguments": {}}
 def test_an_assistant_with_no_token_sees_the_business_commands(era: str) -> None:
     assert tool_names(ask("tools/list", era=era)) == [
         "list_recent_calls",
+        "list_call_logs",
+        "read_call_log",
         "remove_module",
         "list_modules",
         "check_module",
@@ -166,6 +170,7 @@ EXAMPLE_ARGUMENTS: dict[str, dict[str, Any]] = {
     "change_settings": {"accent": "#1a2a44"},
     "change_business_details": {"name": "Owner A's Hair"},
     "check_module": {"name": "Bookings"},
+    "read_call_log": {"call": "c0ffee-0123456789"},
     "add_module": {"name": "Hours", "address": "https://8.8.4.4/mcp"},
     "invite_business": {"name": "New Salon", "email": "new@example.com"},
 }
@@ -226,6 +231,13 @@ def test_every_command_against_every_kind_of_token(era: str) -> None:
     # Not public, so check_module's probe refuses it at once and asks nothing on the internet.
     Module.objects.create(
         business=business, name="Bookings", url="https://127.0.0.1/mcp"
+    )
+    CallLog.objects.create(  # read_call_log's example
+        call_id="c0ffee-0123456789",
+        business=business,
+        kind="test",
+        started_at=datetime(2026, 10, 19, 5, tzinfo=UTC),
+        events=EVENTS,
     )
     Business.objects.filter(pk=business.pk).update(website_domain="example.se")
     business.refresh_from_db()  # get_call_button needs a saved website
@@ -620,3 +632,48 @@ def test_arguments_that_are_not_an_object_get_the_sdks_refusal_for_every_name(
         assert not CommandRecord.objects.exists()
     finally:
         agent.server.remove_tool("hidden")
+
+
+def test_call_logs_give_the_operator_every_business_and_a_business_its_own_timings_only() -> (
+    None
+):
+    """VOI-161: the Call log Commands. A log holds no words or audio (the database refuses them, migrations 0020 to 0024);
+    the answer carries only the contract's timing fields, so a log that one day held words would fail here first."""
+    operator, other = a_business(), a_business("user-b@example.com", "Owner B's Bikes")
+    started = datetime(2026, 10, 19, 5, tzinfo=UTC)
+    for owner, call_id in ((operator, "log-operator-01"), (other, "log-other-00001")):
+        CallLog.objects.create(
+            call_id=call_id,
+            business=owner,
+            kind="test",
+            started_at=started,
+            events=EVENTS,
+        )
+    timing_fields = set(
+        json.loads(
+            (Path(__file__).parents[2] / "contract/call-log.schema.json").read_text()
+        )["$defs"]["event"]["properties"]
+    )
+
+    def answer(secret: str, name: str, **arguments: Any) -> Any:
+        return ask("tools/call", {"name": name, "arguments": arguments}, secret).json()[
+            "result"
+        ]
+
+    as_operator = a_token(operator, "read", operator=True)
+    listed = answer(as_operator, "list_call_logs")["structuredContent"]["result"]
+    assert {log["call"] for log in listed} == {"log-operator-01", "log-other-00001"}
+    assert listed[0]["barge_ins"] == 1
+    read = answer(as_operator, "read_call_log", call="log-other-00001")
+    assert read["structuredContent"]["events"] == EVENTS
+    assert {
+        key for event in read["structuredContent"]["events"] for key in event
+    } <= timing_fields
+
+    as_other = a_token(other, "full")
+    assert [
+        log["call"]
+        for log in answer(as_other, "list_call_logs")["structuredContent"]["result"]
+    ] == ["log-other-00001"]
+    assert answer(as_other, "read_call_log", call="log-operator-01")["isError"]
+    assert CommandRecord.objects.filter(command="read_call_log").count() == 2

@@ -20,7 +20,7 @@ from typing import Any, Literal, assert_never
 from asgiref.sync import async_to_sync, sync_to_async
 from django.conf import settings
 from django.db import DatabaseError, OperationalError, connection, transaction
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.db.models.functions import Now
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.urls import reverse
@@ -37,6 +37,7 @@ from portal.accounts.domain import shown_domain
 from portal.accounts.models import (
     AccessToken,
     Business,
+    CallLog,
     CallRecord,
     CommandRecord,
     Module,
@@ -54,6 +55,8 @@ Need = Literal["read", "write", "operator_read", "operator_write"]
 # Deny by default: every Command has an entry, and a Command with no entry is refused even with a full operator token.
 COMMANDS: dict[str, Need] = {
     "list_recent_calls": "read",
+    "list_call_logs": "read",
+    "read_call_log": "read",
     "remove_module": "write",
     "list_modules": "read",
     "check_module": "read",
@@ -318,6 +321,45 @@ def list_recent_calls(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
             "-started_at"
         )[:20]
     ]
+
+
+def logs_for(token: AccessToken) -> QuerySet[CallLog]:
+    """The Call logs a token may read: every Business's for the operator, its own Business's for any other."""
+    logs = CallLog.objects.all()
+    return logs if is_operator(token) else logs.filter(business=token.business)
+
+
+@command("Call logs", ToolAnnotations(read_only_hint=True))
+def list_call_logs(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
+    """The 20 most recent calls that have a Call log, newest first: the call's id (for read_call_log), when it started (UTC), its kind, its Business's number and how many barge-ins it had."""
+    # shortcut: loads 20 whole event lists to count barge-ins (no cap on a log's size beyond the 2.5 MB upload); count in SQL once logs grow.
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    return [
+        {
+            "call": log.call_id,
+            "started_at": log.started_at.isoformat(),
+            "kind": log.kind,
+            "business": log.business.pk,
+            "barge_ins": sum(1 for e in log.events if e.get("e") == "barge_in"),
+        }
+        for log in logs_for(token)
+        .select_related("business")
+        .order_by("-started_at", "-pk")[:20]
+    ]
+
+
+@command("Read a call log", ToolAnnotations(read_only_hint=True))
+def read_call_log(ctx: Context[Any, Any], call: str) -> CallToolResult:
+    """One call's barge-in events as the core logged them: timings, levels and counts only, never words or audio (a Call log holds none)."""
+    token = caller(ctx)
+    assert token is not None  # `command` refused it otherwise
+    log = logs_for(token).filter(call_id=call).first()
+    if log is None:
+        return failed(
+            "No call log by that id. list_call_logs names the ones you can read."
+        )
+    return as_answer({"call": log.call_id, "events": log.events})
 
 
 @command(
