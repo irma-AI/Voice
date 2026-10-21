@@ -19,9 +19,11 @@ from tests.portal.contract import SCHEMA, schema_errors
 from voice.agent import (
     DISCLOSURES,
     REFUSAL,
+    TRANSCRIPT_CODES,
     opening,
     refusal_instruction,
     system_instruction,
+    transcript_hints,
 )
 from voice.settings import (
     COLOUR_PATTERN,
@@ -463,3 +465,14 @@ def test_a_refused_call_says_the_disclosure_then_the_reason_and_holds_no_facts()
     prompt = refusal_instruction()
     assert f'"Hi! {DISCLOSURES["en"]} {REFUSAL}"' in prompt
     assert "Business instructions" not in prompt
+
+
+def test_the_transcript_hints_follow_the_businesss_languages_and_cover_every_language() -> (
+    None
+):
+    # VOI-181: a language added to LANGUAGES with no transcript code fails here, not at a call.
+    assert set(TRANSCRIPT_CODES) == set(LANGUAGES), (
+        "edit TRANSCRIPT_CODES in voice/agent.py"
+    )
+    assert transcript_hints(("en", "sv")) == ["en-US", "sv-SE"]
+    assert transcript_hints(("sv",)) == ["sv-SE"]

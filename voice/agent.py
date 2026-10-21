@@ -8,8 +8,9 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
-from google.genai.types import LiveConnectConfig
+from google.genai.types import AudioTranscriptionConfig, LiveConnectConfig
 from loguru import logger
 from pipecat.adapters.schemas.function_schema import FunctionSchema
 from pipecat.adapters.schemas.tools_schema import ToolsSchema
@@ -121,16 +122,34 @@ name: {settings.name}
 {settings.instructions}"""
 
 
+# The input transcript's language hints per Business language (VOI-181). A hint, not a limit: Gemini still transcribes other speech.
+# tests/test_settings_port.py fails for a language in LANGUAGES with no code here.
+TRANSCRIPT_CODES = {"sv": "sv-SE", "en": "en-US"}
+
+
+def transcript_hints(languages: tuple[str, ...]) -> list[str]:
+    return [TRANSCRIPT_CODES[lang] for lang in languages]
+
+
 class DefaultVoiceGeminiLive(GeminiLiveLLMService):
     """Gemini Live with no speech config at all, so the server picks its default voice (Petter's setup E, VOI-196).
 
     Pipecat always builds one, with Charon when no voice is given and an empty voice config for voice=None.
+    It also sends an empty input transcription config; this one carries the Business's languages as hints.
     """
+
+    def __init__(self, *args: Any, transcript_hints: list[str], **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)  # pyright: ignore[reportUnknownMemberType]  # Pipecat types it partly
+        self._transcript_hints = transcript_hints
 
     async def _connection_task_handler(self, config: LiveConnectConfig):  # pyright: ignore[reportImplicitOverride, reportMissingParameterType, reportUnknownParameterType]
         if config.generation_config is not None:
             config.generation_config.speech_config = None
         config.speech_config = None
+        if self._transcript_hints:
+            config.input_audio_transcription = AudioTranscriptionConfig(
+                language_codes=self._transcript_hints
+            )
         return await super()._connection_task_handler(config)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
 
@@ -173,7 +192,7 @@ async def run_call(
     logger.add(sys.stderr, level="INFO")
     # The Business's settings come fresh from the settings port at every call start; without safe ones
     # the call is refused out loud and logged, never served from a fallback (ADR 0002).
-    refused = False
+    refused, hints = False, list[str]()
     modules = Connected()
     try:
         settings = await asyncio.to_thread(
@@ -184,6 +203,7 @@ async def run_call(
         # The Business's Modules are read once, here: Gemini Live fixes its tool list when the call starts.
         modules = await connect_modules(settings.modules, local_modules_allowed())
         instruction = system_instruction(settings, has_actions=bool(modules.actions))
+        hints = transcript_hints(settings.languages)
     except SettingsRefused as e:
         logger.error("call refused: {}", e)
         instruction, refused = refusal_instruction(), True
@@ -193,6 +213,7 @@ async def run_call(
             ticket,
             instruction,
             refused,
+            hints,
             modules.actions,
             idle_timeout_secs,
             record_to,
@@ -208,6 +229,7 @@ async def _run(
     ticket: Ticket | None,
     instruction: str,
     refused: bool,
+    hints: list[str],
     actions: list[FunctionSchema],
     idle_timeout_secs: float | None,
     record_to: Path | None,
@@ -216,6 +238,7 @@ async def _run(
 ) -> None:
     llm = DefaultVoiceGeminiLive(
         api_key=os.environ["GOOGLE_API_KEY"],
+        transcript_hints=hints,
         # At init, not in the context: tools in the first context make Gemini Live reconnect, which delays the greeting.
         tools=ToolsSchema(standard_tools=actions) if actions else None,
         settings=GeminiLiveLLMService.Settings(
