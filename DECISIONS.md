@@ -265,3 +265,4 @@ One line per non-obvious choice, newest at the bottom: `[YYYY-MM-DD] <decision>:
 [2026-10-20] RESOLVED 2026-10-19: VOI-159 merged with its own full eval receipt (#154 changed eval-receipt.json); receipts since (VOI-168 to VOI-232) cover main, so no new paid run is needed.
 [2026-10-21] VOI-256: the Design review's after screenshots and ship-or-iterate gate moved after ponytail-review and code-review (Petter): either review can change what renders, so a go given before them did not cover the page that merges.
 [2026-10-21] VOI-257: make portal-up compares DATABASE_URL's address with the port Docker published for Voice's Postgres, not only whether 55431 is free: a stale .env on 5432 would otherwise still reach another project's database.
+[2026-10-21] VOI-260: local-portal-db.sh no longer probes the port before startup or names its holder: Docker already refuses a taken port and names it, so only the DATABASE_URL port comparison stays.
