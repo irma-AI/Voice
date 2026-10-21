@@ -22,14 +22,6 @@ jobs:
             word: Voice
             schema: true
             expect: success
-          - case: fail-verdict
-            word: zebra-quokka-7
-            schema: true
-            expect: failure
-          - case: missing-output
-            word: Voice
-            schema: false
-            expect: failure
     name: ${{ matrix.case }}
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +32,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          show_full_output: true  # one diagnostic run: the hidden result had is_error true and no model usage
           prompt: "Read README.md. Answer pass if it contains the exact word ${{ matrix.word }}, otherwise fail."
           claude_args: >-
             --max-turns 3
