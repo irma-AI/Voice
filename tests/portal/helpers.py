@@ -156,6 +156,5 @@ def a_log(owner: Business, **changes: Any) -> dict[str, Any]:
         "kind": "test",
         "started_at": "2026-10-19T05:00:00.000000Z",
         "events": EVENTS,
-        "words": [],
         **changes,
     }

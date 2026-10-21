@@ -157,14 +157,11 @@ def stored(started_at: datetime) -> CallLog:
     )
 
 
-def test_a_test_call_s_words_are_stored_and_an_older_core_s_log_without_any_too() -> (
-    None
-):
+def test_a_test_call_s_words_are_stored_and_a_log_without_any_too() -> None:
     business = a_business()
     assert send(a_log(business, words=WORDS)).status_code == 201
-    older = a_log(business, call_id="older-core-0001")
-    del older["words"]  # a core copy from before VOI-160, still running mid-deploy
-    assert send(older).status_code == 201
+    # No words key: any call without words, and a core copy from before VOI-160 still running mid-deploy.
+    assert send(a_log(business, call_id="older-core-0001")).status_code == 201
     assert [log.words for log in CallLog.objects.order_by("pk")] == [WORDS, []]
 
 
@@ -174,6 +171,11 @@ def test_a_test_call_s_words_are_stored_and_an_older_core_s_log_without_any_too(
         ({"kind": "call_link", "words": WORDS}, "call_log_words_only_on_a_test_call"),
         ({"words": [{"t": 1, "who": "agent"}]}, "call_log_words_hold_only_who_t_text"),
         ({"words": {"t": 1}}, "call_log_words_hold_only_who_t_text"),
+        ({"words": [{}]}, "call_log_words_hold_only_who_t_text"),
+        (
+            {"words": [{"t": 1, "who": None, "text": "x"}]},
+            "call_log_words_hold_only_who_t_text",
+        ),
     ],
 )
 def test_the_database_itself_refuses_words_off_a_test_call_or_in_another_shape(
@@ -387,7 +389,8 @@ def test_a_stored_event_holds_only_the_fields_the_security_rule_lists() -> None:
 def test_the_log_shape_is_the_same_in_the_schema_and_the_portal() -> None:
     Draft202012Validator.check_schema(SCHEMA)
     names = {f.name for f in CallLog._meta.get_fields() if f.name != "id"}  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
-    assert names == set(SCHEMA["properties"]) == set(SCHEMA["required"]), (
+    # words is the one optional field: the core leaves it out when a call has none (VOI-160).
+    assert names == set(SCHEMA["properties"]) == {*SCHEMA["required"], "words"}, (
         "CallLog's fields and the schema's properties and required list must name the same fields: edit whichever is wrong"
     )
     assert set(CALL_KINDS) == set(SCHEMA["properties"]["kind"]["enum"]), (

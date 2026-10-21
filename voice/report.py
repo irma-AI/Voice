@@ -7,7 +7,7 @@ mid-retry; the raw usage reports are logged as they arrive, so the tokens surviv
 delays or cuts a call.
 
 The Call log (contract/call-log.schema.json) is the call's barge-in lines (voice/bargein.py), read here as they reach
-the log, so the stored copy is exactly what the server log holds; it is sent beside the record, the same way.
+the log, so the stored copy is exactly what the server log holds (and, on a test call only, its words, which no log line holds); it is sent beside the record, the same way.
 """
 
 import asyncio
@@ -114,13 +114,12 @@ class WordKeeper(FrameProcessor):
 
     def _keep(self, who: str, text: str) -> None:
         words = WORDS[self._call_id]
-        if (
-            words and words[-1]["who"] == who
-        ):  # the agent's words come in pieces: one entry per turn
-            words[-1]["text"] = " ".join(f"{words[-1]['text']} {text}".split())[:2000]
+        if words and words[-1]["who"] == who:
+            # The agent's words come in pieces carrying their own spaces (Pipecat's includes_inter_frame_spaces): joined as they are.
+            words[-1]["text"] = (words[-1]["text"] + text)[:2000]
         else:
             t = round(time.monotonic() - self._t0, 3)
-            words.append({"t": t, "who": who, "text": " ".join(text.split())[:2000]})
+            words.append({"t": t, "who": who, "text": text.lstrip()[:2000]})
 
 
 def build_record(
@@ -157,7 +156,8 @@ def build_log(
         "kind": ticket.kind,
         "started_at": started_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "events": events,
-        "words": words[:2000] if ticket.kind == "test" else [],
+        # Left out when empty, so a Portal from before VOI-160 still takes every other log mid-deploy.
+        **({"words": words[:2000]} if words and ticket.kind == "test" else {}),
     }
 
 

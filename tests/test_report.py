@@ -374,7 +374,6 @@ def test_a_call_s_barge_in_lines_reach_the_portal_as_its_call_log_and_the_call_n
         "kind": "call_link",
         "started_at": "2026-10-17T07:30:05.123456Z",
         "events": logged,
-        "words": [],
     }
     validator: Any = Draft202012Validator(LOG_SCHEMA)
     assert list(validator.iter_errors(log)) == []
@@ -453,7 +452,7 @@ def test_a_test_call_s_words_reach_its_call_log_and_never_a_log_line(kind: str) 
         async def a_call_ends() -> None:
             pieces = [
                 TTSTextFrame(w, aggregated_by="word")
-                for w in ("Hej", " och", "välkommen!")
+                for w in ("Hej", " och", " välkommen!")
             ]
             worker = PipelineWorker(Pipeline([WordKeeper(call, time.monotonic())]))
             await worker.queue_frames([*pieces, EndFrame()])
@@ -466,7 +465,7 @@ def test_a_test_call_s_words_reach_its_call_log_and_never_a_log_line(kind: str) 
         asyncio.run(a_call_ends())
 
     [(_, _, log)] = [s for s in seen if s[0] == "/api/call-logs/"]
-    words = [w["text"] for w in log["words"]]
+    words = [w["text"] for w in log.get("words", [])]
     assert words == (["Hej och välkommen!"] if kind == "test" else [])
     validator: Any = Draft202012Validator(LOG_SCHEMA)
     assert list(validator.iter_errors(log)) == []

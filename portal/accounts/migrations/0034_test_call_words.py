@@ -10,12 +10,16 @@ SHAPE = """
 CREATE FUNCTION accounts_call_log_words_are_plain(words jsonb) RETURNS boolean AS $$
     SELECT jsonb_typeof(words) = 'array' AND jsonb_array_length(words) <= 2000 AND NOT EXISTS (
         SELECT 1 FROM jsonb_array_elements(words) w
-        WHERE jsonb_typeof(w) <> 'object'
-           OR (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(w) k) <> ARRAY['t', 'text', 'who']
-           OR jsonb_typeof(w->'t') <> 'number'
-           OR (w->>'who') NOT IN ('caller', 'agent')
-           OR jsonb_typeof(w->'text') <> 'string'
-           OR length(w->>'text') > 2000
+        -- COALESCE: a NULL (an empty object, a JSON null) counts as not plain, so the check fails closed.
+        WHERE COALESCE(
+            jsonb_typeof(w) <> 'object'
+            OR (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(w) k) <> ARRAY['t', 'text', 'who']
+            OR jsonb_typeof(w->'t') <> 'number'
+            OR (w->>'who') NOT IN ('caller', 'agent')
+            OR jsonb_typeof(w->'text') <> 'string'
+            OR length(w->>'text') > 2000,
+            true
+        )
     )
 $$ LANGUAGE sql IMMUTABLE;
 ALTER TABLE accounts_calllog ADD CONSTRAINT call_log_words_hold_only_who_t_text

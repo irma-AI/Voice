@@ -41,7 +41,7 @@ A Business's logo and one accent colour, shown to its Callers on the call page a
 _Avoid_: branding, skin, white-label
 
 **Live transcript**:
-The words of a call shown to the Caller on the call page while it runs, for both sides. Shown only, never kept: it is not part of the Call record.
+The words of a call shown to the Caller on the call page while it runs, for both sides. Shown only, never kept, except on a test call, whose Call log keeps them 30 days (VOI-160); never part of the Call record.
 _Avoid_: transcript log, captions
 
 **Greeting language**:
@@ -65,7 +65,7 @@ What one call that reached the model used: when it started, how long it ran, wha
 _Avoid_: usage log, CDR
 
 **Call log**:
-Everything stored about one call's events (for now its Barge-in timings, levels and scores, and what the Caller's browser applied), kept 30 days from the call's start and then deleted. Not the Call record, which stays final and is kept for billing.
+Everything stored about one call's events (its Barge-in timings, levels and scores, and what the Caller's browser applied; on a test call also both sides' words, VOI-160), kept 30 days from the call's start and then deleted. Not the Call record, which stays final and is kept for billing.
 _Avoid_: event log, call history, trace
 
 **Barge-in**:

@@ -134,7 +134,8 @@ def test_a_business_saves_a_logo_and_an_accent_and_the_core_is_told(
         "logo_url": f"{settings.PORTAL_URL.rstrip('/')}/logo/{key}/",
     }
     assert not schema_errors(told)
-    assert str(business.pk) not in told["theme"]["logo_url"].rsplit("/logo/", 1)[1]
+    # The address is the logo's hash and nothing else, never the Business's id: compared whole, since an id's digits can occur inside a hash.
+    assert told["theme"]["logo_url"].rsplit("/logo/", 1)[1] == f"{key}/"
 
 
 @pytest.mark.db
