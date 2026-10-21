@@ -168,7 +168,7 @@ No tickets, and no new test unless the rendered content changes.
 
 ### Design review
 
-Impeccable's Evaluate commands judge a surface that exists, then one fix command per finding, and a ponytail-review closes it, so a design that grew by patches gets one look as a whole.
+Impeccable's Evaluate commands judge a surface that exists, then one fix command per finding, and a ponytail-review reads the result, so a design that grew by patches gets one look as a whole. The ship-or-iterate comes last, so the go covers the page that merges.
 
 ```
 - [ ] impeccable critique <surface> ⏸: its two isolated assessments, its report, its closing question
@@ -178,9 +178,10 @@ Impeccable's Evaluate commands judge a surface that exists, then one fix command
 - [ ] screenshot: "before"
 - [ ] per finding, the one command that fits: too much → distill · unclear words → clarify · real data and errors → harden · spacing, type, colour → layout, typeset, colorize · phone → adapt · loud or flat → quieter, bolder
 - [ ] impeccable polish
-- [ ] screenshot: "after" at 390px and 1280px; show both, ship or iterate ⏸
 - [ ] ponytail-review over the whole design the work touched, the page and the code behind it, not only the diff
-- [ ] review → commit → pr → merge
+- [ ] review
+- [ ] screenshot: "after" at 390px and 1280px, once both reviews' fixes are in; show both, ship or iterate ⏸ (iterate → back to the fix commands)
+- [ ] commit → pr → merge
 ```
 
 ### Code health
