@@ -39,15 +39,17 @@ The flows below name these:
 - **review**: `code-review` against `git merge-base origin/<default branch> HEAD`. Diff the working tree against the merge base (`git diff <merge-base>`), which covers commits and uncommitted changes, not `...HEAD`. Give it the ticket or spec as the spec, and `CLAUDE.md`, every `.claude/rules/` file whose `paths:` match the diff (plus `DESIGN.md` if the repo has one) as the standards. Fix what it finds that holds up; list anything you disagree with for the user, and log each finding you decline (`CLAUDE.md` § Decisions).
 - **commit**: commit on the branch as often as the work needs, never on the default branch.
 - **skeptic**: when the change touches a path in the `skeptic_pass` list or a `CLAUDE.md` § Stop and ask area (`CLAUDE.md` § Workflow holds the rule and the guard), run `skeptic-pass` on the frozen head and put its SHA and result in the PR body's `## Skeptic pass` section; otherwise skip it.
-- **pr**: walk `CLAUDE.md` § Definition of Done item by item; every item holds, or you name the one that doesn't and why. Then push and open the PR without asking, and `pr` writes the body, filling every section of `.github/pull_request_template.md`: the three first-principles answers and what is not live yet. The PR names every ticket it closes, with the tracker's closing keyword (`docs/agents/issue-tracker.md`).
+- **pr**: walk `CLAUDE.md` § Definition of Done item by item; every item holds, or you name the one that doesn't and why. Then push and open the PR without asking, and `pr` writes the body, filling every section of `.github/pull_request_template.md`: the three first-principles answers and what is not live yet. The PR names every ticket it closes, with the tracker's closing keyword (`docs/agents/issue-tracker.md`). A change that renders differently carries its **screenshot** step's before and after shots inline in the `pr` skill's Evidence section, besides the chat: `![alt](.playwright-cli/<file>.png)` in the body and `gh pr create --attach .playwright-cli/<file>.png` for each (`gh pr edit --attach` when they change after the PR opens).
 - **merge**: unless a `CLAUDE.md` § Stop and ask area applies, mark the PR ready and turn on auto-merge (`gh pr merge --auto --squash`, or the GitHub MCP `enable_pr_auto_merge`); once `ci-summary` passes, the merge queue retests the PR on top of main and merges it (`CLAUDE.md` § Workflow), so end the turn instead of waiting on CI or updating the branch. If checks already passed, `gh pr merge --squash` without `--auto` queues it. A PR in a Stop and ask area waits for the user's answer. Resolve open review threads first if the ruleset requires it. Linear closes the parent spec itself once its last ticket is Done (team setting, on since 2026-10-20; not checked: not yet seen to fire), so the merge of the last ticket's PR closes the spec with no step here.
-- **screenshot**: the one home for when agents use `playwright-cli`, a design and verification tool; tests stay at the seams in `CLAUDE.md` § Tests (Petter decided against a browser test seam, 2026-10-17), so a `playwright-cli` run never becomes a test. Start `make up` (core call page) or `make portal-up` (Portal) in the background (`make seed` first if the page needs data; the URLs are in `CLAUDE.md` § Commands), then use it for:
+- **screenshot**: the one home for when agents use `playwright-cli`, a design and verification tool; tests stay at the seams in `CLAUDE.md` § Tests (Petter decided against a browser test seam, 2026-10-17), so a `playwright-cli` run never becomes a test. Start `make up` (core call page) or `make portal-up` (Portal) in the background (the URLs are in `CLAUDE.md` § Commands), then use it for:
   - **before and after** screenshots while iterating on UI, at the widths the change can reach (390px phone, 1280px desktop; a change scoped to one breakpoint needs only that width)
   - driving a Portal flow end to end (login, settings, Modules) to see it work
   - checking widths and layout: no horizontal scroll at 390px, nothing clipped at 1280px
   - reading console errors and failed network requests while developing
 
   Save any login state only as `.playwright-cli/<name>.json`.
+
+  The repo is public, so an image attached to a PR is visible to anyone (`docs/research/pr-screenshot-data.md`). Capture only seeded data: a Portal this session started with `make portal-up` (its port check keeps it on Voice's own Postgres; restart any other), then `make seed`, logged in as a login it prints. Save shots as `.playwright-cli/<issue-id>-<surface>-<before|after>-<width>.png`. Frame the dashboard above its Call button snippet, which holds a call link; take the Access tokens page before making a token, since the page after shows its secret. The core's call page during a live call is out of scope (the Caller's words) until a synthetic Caller exists.
 
 ## Tickets and resuming
 
@@ -164,7 +166,7 @@ In a cloud session you can't open a page served in the container: present the de
 - [ ] commit
 ```
 
-No tickets, and no new test unless the rendered content changes.
+No tickets, and no new test unless the rendered content changes. New component and Visual tweak end at commit: their shots ride on the PR that carries the commit (**pr** step).
 
 ### Design review
 
@@ -181,7 +183,7 @@ Impeccable's Evaluate commands judge a surface that exists, then one fix command
 - [ ] ponytail-review over the whole design the work touched, the page and the code behind it, not only the diff
 - [ ] review
 - [ ] screenshot: "after" at 390px and 1280px, once both reviews' fixes are in; show both, ship or iterate ⏸ (iterate → back to the fix commands)
-- [ ] commit → pr → merge
+- [ ] commit → pr (the before and after set attached) → merge
 ```
 
 ### Code health
