@@ -36,7 +36,7 @@ def run(secret: str, command: str, **arguments: Any) -> dict[str, Any]:
 
 
 def staged() -> tuple[Business, str, int]:
-    business, _ = business_with_login("user-a@example.com", "Owner's Salon")
+    business, _ = business_with_login()
     Module.objects.create(business=business, name="Bookings", url=ADDRESS)
     secret = a_token(business, "full")
     change = run(secret, "remove_module", name="Bookings")["structuredContent"][

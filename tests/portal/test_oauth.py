@@ -260,7 +260,7 @@ def test_revoking_a_connection_stops_its_token_and_its_refresh_and_only_its_owne
     None
 ):
     _, owner = business_with_login("user-a@example.com", "Owner A's Salon")
-    _, other = business_with_login("user-b@example.com", "Owner B's Bikes")
+    _, other = business_with_login()
     client_id, tokens = signed_in(owner)
     page = owner.get("/tokens/").content.decode()
     assert "Signed-in assistants" in page and "Claude" in page
@@ -480,7 +480,7 @@ def test_the_answer_names_its_issuer() -> None:
 
 def test_the_database_refuses_what_a_sign_in_must_never_hold() -> None:
     business, owner = business_with_login("user-a@example.com", "Owner A's Salon")
-    other, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
+    other, _ = business_with_login()
     signed_in(owner, "read")
     sign_in = OAuthConnection.objects.get()
     good = {

@@ -43,7 +43,7 @@ def saved_domain() -> str:
 def test_what_is_typed_is_saved_as_the_registrable_domain(
     typed: str, stored: str
 ) -> None:
-    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    _, client = business_with_login()
     assert save(client, typed)["Location"] == "/settings/?saved=1"
     assert saved_domain() == stored
 
@@ -65,7 +65,7 @@ def test_what_is_typed_is_saved_as_the_registrable_domain(
 def test_something_that_is_not_a_domain_is_refused_and_changes_nothing(
     typed: str,
 ) -> None:
-    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    _, client = business_with_login()
     save(client, "example.se")
 
     response = save(client, typed)
@@ -76,20 +76,20 @@ def test_something_that_is_not_a_domain_is_refused_and_changes_nothing(
 
 
 def test_an_empty_value_clears_the_domain() -> None:
-    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    _, client = business_with_login()
     save(client, "example.se")
     save(client, "  ")
     assert saved_domain() == ""
 
 
 def test_the_settings_page_shows_the_saved_domain() -> None:
-    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    _, client = business_with_login()
     save(client, "https://www.example.se")
     assert 'value="example.se"' in client.get("/settings/").content.decode()
 
 
 def test_the_dashboard_shows_the_domain_or_that_none_is_set() -> None:
-    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    _, client = business_with_login()
     assert "until you save your website" in client.get("/dashboard/").content.decode()
     save(client, "www.example.se")
     assert (
@@ -99,7 +99,7 @@ def test_the_dashboard_shows_the_domain_or_that_none_is_set() -> None:
 
 
 def test_the_core_is_not_told_the_domain(settings: Any) -> None:
-    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    business, client = business_with_login()
     save(client, "example.se")
 
     told = told_to_core(business, settings)
@@ -123,7 +123,7 @@ def test_the_core_is_not_told_the_domain(settings: Any) -> None:
     ],
 )
 def test_the_database_refuses_a_stored_domain_that_is_not_clean(bad: str) -> None:
-    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business, _ = business_with_login()
     # The savepoint keeps the test's own transaction usable after Postgres refuses the write.
     with (
         pytest.raises(

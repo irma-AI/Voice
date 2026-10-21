@@ -28,7 +28,7 @@ def saved_url() -> str:
 
 
 def test_the_address_is_saved_and_told_to_the_core(settings: Any) -> None:
-    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    business, client = business_with_login()
     assert save(client, NOTICE)["Location"] == "/settings/?saved=1"
     assert saved_url() == NOTICE
 
@@ -38,7 +38,7 @@ def test_the_address_is_saved_and_told_to_the_core(settings: Any) -> None:
 
 
 def test_an_address_without_a_scheme_is_taken_as_https() -> None:
-    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    _, client = business_with_login()
     save(client, "www.example.se/integritet")
     assert saved_url() == "https://www.example.se/integritet"
 
@@ -56,7 +56,7 @@ def test_an_address_without_a_scheme_is_taken_as_https() -> None:
 def test_something_that_is_not_an_https_address_is_refused_and_changes_nothing(
     typed: str,
 ) -> None:
-    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    _, client = business_with_login()
     save(client, NOTICE)
 
     response = save(client, typed)
@@ -69,7 +69,7 @@ def test_something_that_is_not_an_https_address_is_refused_and_changes_nothing(
 def test_an_empty_value_clears_the_address_and_the_core_is_told_none(
     settings: Any,
 ) -> None:
-    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    business, client = business_with_login()
     save(client, NOTICE)
     save(client, "  ")
     assert saved_url() == ""
@@ -78,7 +78,7 @@ def test_an_empty_value_clears_the_address_and_the_core_is_told_none(
 
 
 def test_the_settings_page_shows_the_saved_address() -> None:
-    _, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    _, client = business_with_login()
     save(client, NOTICE)
     assert f'value="{NOTICE}"' in client.get("/settings/").content.decode()
 
@@ -95,7 +95,7 @@ def test_the_settings_page_shows_the_saved_address() -> None:
     ],
 )
 def test_the_database_refuses_a_stored_address_that_is_not_https(bad: str) -> None:
-    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business, _ = business_with_login()
     # The savepoint keeps the test's own transaction usable after Postgres refuses the write.
     with (
         pytest.raises(

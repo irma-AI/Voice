@@ -13,6 +13,9 @@ dependencies = [
 [dependency-groups]
 # cli and runner are for the eval Channel (voice/web.py), not the call image.
 dev = ["pipecat-ai[cli,runner]==1.12.0", "ruff", "pyright", "pytest", "pytest-django", "django-stubs", "jsonschema"]
+# Synthetic people for `make seed` and the Portal tests (portal/synthetic.py). Exact: an upgrade can change the seed's names and emails,
+# so it is a deliberate bump. Its own group so the dev line stays the one eval-required watches.
+synthetic = ["faker==40.43.0"]
 # The Portal's own runtime; the core image leaves it out (Dockerfile, ADR 0002).
 portal = [
     "django",
@@ -29,7 +32,7 @@ portal = [
 
 [tool.uv]
 package = false
-default-groups = ["dev", "portal"]
+default-groups = ["dev", "portal", "synthetic"]
 
 [tool.ruff]
 target-version = "py313"
