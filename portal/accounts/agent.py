@@ -332,6 +332,7 @@ def logs_for(token: AccessToken) -> QuerySet[CallLog]:
 @command("Call logs", ToolAnnotations(read_only_hint=True))
 def list_call_logs(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
     """The 20 most recent calls that have a Call log, newest first: the call's id (for read_call_log), when it started (UTC), its kind, its Business's number and how many barge-ins it had."""
+    # shortcut: loads 20 whole event lists to count barge-ins (no cap on a log's size beyond the 2.5 MB upload); count in SQL once logs grow.
     token = caller(ctx)
     assert token is not None  # `command` refused it otherwise
     return [
@@ -344,7 +345,7 @@ def list_call_logs(ctx: Context[Any, Any]) -> list[dict[str, Any]]:
         }
         for log in logs_for(token)
         .select_related("business")
-        .order_by("-started_at")[:20]
+        .order_by("-started_at", "-pk")[:20]
     ]
 
 
@@ -358,10 +359,7 @@ def read_call_log(ctx: Context[Any, Any], call: str) -> CallToolResult:
         return failed(
             "No call log by that id. list_call_logs names the ones you can read."
         )
-    return CallToolResult(
-        content=[TextContent(type="text", text=json.dumps(log.events))],
-        structured_content={"call": log.call_id, "events": log.events},
-    )
+    return as_answer({"call": log.call_id, "events": log.events})
 
 
 @command(
