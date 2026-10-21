@@ -438,7 +438,7 @@ class CallLog(models.Model):
 
     @classmethod
     def delete_expired(cls) -> int:
-        """The one way a Call log is deleted (VOI-157); the trigger refuses any log not yet expired, whatever deletes it."""
+        """How the daily job deletes Call logs (VOI-157); the trigger refuses any log not yet expired, whatever deletes it."""
         return cls.expired().delete()[0]
 
     class Meta:
