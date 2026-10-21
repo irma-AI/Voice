@@ -5,11 +5,11 @@ Question: when an agent attaches before and after screenshots to a pull request 
 ## Who sees an attachment
 
 - The repository is public (`gh repo view --json visibility` returned `PUBLIC`, read 2026-10-21). An image attached to a PR body is visible to anyone, and it stays reachable after the PR closes. So a screenshot may show only seeded, synthetic data.
-- `gh` 2.99.0 uploads images with the repeatable `--attach` flag on `gh pr create`, `gh pr edit` and `gh pr comment`. A body reference such as `![alt](./file.png)` is rewritten to the uploaded asset, and unreferenced attachments are appended. If some uploads fail, the PR is still made and the command exits non-zero. Up to 50 files per command, alt text after `#` (`gh pr create --help`, gh 2.99.0, read 2026-10-21; also `.claude/skills/playwright-cli/references/pr-attachments.md`).
+- The installed `gh` is 2.99.0, which has `--attach` (`gh pr create --help`, read 2026-10-21). How it works: `.claude/skills/playwright-cli/references/pr-attachments.md`. One thing that file leaves out: if some uploads fail, the PR is still made and the command exits non-zero.
 
 ## Which database the Portal shows
 
-Before VOI-257, `make portal-up` could read another project's Postgres on 5432, so a screenshot could have shown someone else's data. Now the Portal's Postgres is on 55431, and `scripts/local-portal-db.sh` refuses to start when `DATABASE_URL`'s port is not the one Voice's container got (VOI-257, VOI-260). A Portal started with `make portal-up` is therefore on Voice's own database. `make seed` (VOI-259) fills it with two synthetic Businesses on example.com, PTS's reserved phone numbers (`docs/research/swedish-fictional-phone-numbers.md`), and calls, call logs and a pending change.
+Seen 2026-10-21: before VOI-257, `make portal-up` could read another project's Postgres on 5432, so a screenshot could have shown someone else's data. Now the Portal's Postgres is on 55431, and `scripts/local-portal-db.sh` refuses to start when `DATABASE_URL`'s port is not the one Voice's container got (VOI-257, VOI-260). A Portal started with `make portal-up` is therefore on Voice's own database. `make seed` (VOI-259) fills it with two synthetic Businesses on example.com, PTS's reserved phone numbers (`docs/research/swedish-fictional-phone-numbers.md`), and calls, call logs and a pending change.
 
 ## Each surface
 
