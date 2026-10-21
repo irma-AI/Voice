@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 import wave
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from tests.evals.checks import (
 from tests.evals.cost import cost_sek
 from tests.evals.render_audio import LINES, frames
 from tests.evals.run import (
+    CRASHED,
     MAX_REPEATS,
     PARALLEL,
     ROOT,
@@ -34,6 +36,7 @@ from tests.evals.run import (
     batch_at,
     batch_stop,
     interrupted,
+    isolated,
     main,
     missing_audio,
     module_log,
@@ -246,3 +249,30 @@ def test_an_interrupted_batch_kills_its_calls_and_records_their_spend(
         ("run", "loop", cost_sek([usage]))
     ]
     assert ledger[0]["sek"] > 0
+
+
+def test_a_call_that_crashes_fails_alone_and_the_rest_of_its_batch_still_returns(
+    tmp_path: Path,
+) -> None:
+    # VOI-218: before, the crash re-raised from pool.map and the batch's other calls never reached the ledger.
+    def play(scenario: str, run_dir: Path, name: str, port: int) -> tuple[int, Path]:
+        if name == "b":
+            raise OSError(
+                "killpg failed"
+            )  # what Popen or killpg can raise inside _play
+        return 0, run_dir / "calls" / f"{name}.jsonl"
+
+    names = ["a", "b", "c"]
+    with ThreadPoolExecutor(len(names)) as pool:
+        played = dict(
+            zip(
+                names,
+                pool.map(isolated(play), names, [tmp_path] * 3, names, [1, 2, 3]),
+                strict=True,
+            )
+        )
+    assert played == {
+        "a": (0, tmp_path / "calls" / "a.jsonl"),
+        "b": (CRASHED, tmp_path / "calls" / "b.jsonl"),
+        "c": (0, tmp_path / "calls" / "c.jsonl"),
+    }
