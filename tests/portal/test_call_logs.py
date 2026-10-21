@@ -187,6 +187,10 @@ def test_the_expiry_is_the_same_instant_whatever_the_sessions_time_zone() -> Non
     # VOI-261: Stockholm leaves summer time on 2026-10-25, inside these 30 days; a calendar-day expiry came an hour late or early.
     with connection.cursor() as cursor:
         cursor.execute("SET LOCAL TIME ZONE 'Europe/Stockholm'")
+        cursor.execute("SHOW TIME ZONE")
+        assert cursor.fetchall() == [
+            ("Europe/Stockholm",)
+        ]  # outside a transaction SET LOCAL would do nothing
         # Compared in SQL: Django's datetime adapters assume a UTC session and would shift both sides.
         cursor.execute(
             "SELECT accounts_call_log_expires_at(timestamptz '2026-10-19 05:00+00')"
