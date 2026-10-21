@@ -4,6 +4,7 @@ The log shape lives once, in contract/call-log.schema.json; the parity tests fai
 # pyright: basic
 # (django-stubs types model fields for mypy's plugin; strict pyright cannot read them)
 
+import io
 import json
 import re
 from datetime import UTC, datetime, timedelta
@@ -11,6 +12,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db import connection, transaction
 from django.db.utils import DatabaseError, IntegrityError
 from django.test import Client
@@ -22,8 +25,9 @@ from portal.accounts.models import (
     Account,
     Business,
     CallLog,
+    CallRecord,
 )
-from tests.portal.helpers import CALL, EVENTS, SECRET, a_log
+from tests.portal.helpers import CALL, EVENTS, SECRET, a_call, a_log
 
 pytestmark = [pytest.mark.db, pytest.mark.django_db]
 
@@ -173,6 +177,42 @@ def test_the_database_refuses_deleting_a_log_before_its_expiry() -> None:
 def test_a_log_past_its_expiry_can_be_deleted() -> None:
     stored(datetime.now(UTC) - timedelta(days=30, minutes=1)).delete()
     assert CallLog.objects.count() == 0
+
+
+def test_the_expiry_command_deletes_only_logs_past_their_expiry_and_no_call_record(
+    settings: Any,
+) -> None:
+    """VOI-157: one minute before expiry kept, one minute after gone; a dry run or a wrong target changes nothing."""
+    owner = a_business()
+    now = datetime.now(UTC)
+    for call_id, age in (
+        ("log-kept-000001", timedelta(days=30, minutes=-1)),
+        ("log-gone-000001", timedelta(days=30, minutes=1)),
+    ):
+        CallLog.objects.create(
+            call_id=call_id,
+            business=owner,
+            kind="test",
+            started_at=now - age,
+            events=EVENTS,
+        )
+    a_call(owner, "call-old-000001", now - timedelta(days=40))
+    settings.ENVIRONMENT = "local"
+    with pytest.raises(CommandError, match="--target production"):
+        call_command("expire_call_logs", "--target", "production", "--execute")
+    out = io.StringIO()
+    call_command("expire_call_logs", "--target", "local", stdout=out)
+    assert (
+        "log-gone-000001" in out.getvalue() and "log-kept-000001" not in out.getvalue()
+    )
+    assert CallLog.objects.count() == 2  # the dry run deleted nothing
+    call_command(
+        "expire_call_logs", "--target", "local", "--execute", stdout=io.StringIO()
+    )
+    assert list(CallLog.objects.values_list("call_id", flat=True)) == [
+        "log-kept-000001"
+    ]
+    assert CallRecord.objects.count() == 1
 
 
 def test_the_expiry_is_30_days_after_the_call_started() -> None:
