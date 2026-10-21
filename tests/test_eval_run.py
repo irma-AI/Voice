@@ -8,7 +8,6 @@ import subprocess
 import sys
 import time
 import wave
-from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -25,7 +24,6 @@ from tests.evals.checks import (
 from tests.evals.cost import cost_sek
 from tests.evals.render_audio import LINES, frames
 from tests.evals.run import (
-    CRASHED,
     MAX_REPEATS,
     PARALLEL,
     ROOT,
@@ -36,7 +34,6 @@ from tests.evals.run import (
     batch_at,
     batch_stop,
     interrupted,
-    isolated,
     main,
     missing_audio,
     module_log,
@@ -251,28 +248,33 @@ def test_an_interrupted_batch_kills_its_calls_and_records_their_spend(
     assert ledger[0]["sek"] > 0
 
 
-def test_a_call_that_crashes_fails_alone_and_the_rest_of_its_batch_still_returns(
+def test_a_call_that_crashes_fails_alone_and_its_batch_still_reaches_the_ledger(
     tmp_path: Path,
 ) -> None:
     # VOI-218: before, the crash re-raised from pool.map and the batch's other calls never reached the ledger.
-    def play(scenario: str, run_dir: Path, name: str, port: int) -> tuple[int, Path]:
-        if name == "b":
-            raise OSError(
-                "killpg failed"
-            )  # what Popen or killpg can raise inside _play
-        return 0, run_dir / "calls" / f"{name}.jsonl"
+    usage = {"e": "usage", "prompt_tokens": 1000, "output_audio_tokens": 2000}
 
-    names = ["a", "b", "c"]
-    with ThreadPoolExecutor(len(names)) as pool:
-        played = dict(
-            zip(
-                names,
-                pool.map(isolated(play), names, [tmp_path] * 3, names, [1, 2, 3]),
-                strict=True,
-            )
-        )
-    assert played == {
-        "a": (0, tmp_path / "calls" / "a.jsonl"),
-        "b": (CRASHED, tmp_path / "calls" / "b.jsonl"),
-        "c": (0, tmp_path / "calls" / "c.jsonl"),
-    }
+    def play(scenario: str, run_dir: Path, name: str, port: int) -> tuple[int, Path]:
+        log = run_dir / "calls" / f"{name}.jsonl"
+        if name == "swedish_question_3":
+            # What Popen or killpg can raise inside _play.
+            raise OSError("killpg failed")
+        log.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            {"e": "caller", "text": "hej"},
+            {"e": "agent_llm", "text": "Hej!"},
+            usage,
+        ]
+        log.write_text("".join(json.dumps(e) + "\n" for e in lines), "utf-8")
+        return 0, log
+
+    caps = Caps(
+        per_run_sek=100, per_loop_sek=100, per_day_sek=100, per_scenario_sek=0.01
+    )
+    # One alone, then a batch of three with the crash in the middle.
+    assert main("swedish_question_x4", runs=tmp_path, caps=caps, play=play) == 1
+    ledger = (tmp_path / "ledger.jsonl").read_text("utf-8").splitlines()
+    assert (
+        len(ledger) == 3
+    )  # every call that ran, the crashed one's batch-mates included
+    assert all(json.loads(line)["sek"] == cost_sek([usage]) for line in ledger)

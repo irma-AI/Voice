@@ -163,9 +163,8 @@ def _play(scenario: str, run_dir: Path, name: str, port: int) -> tuple[int, Path
         RUNNING.discard(proc)
 
 
-CRASHED = (
-    -2
-)  # the exit code a call that raised gets, beside -1 for one past the time limit
+# The exit code a call that raised gets, beside -1 for one past the time limit.
+CRASHED = -2
 
 
 def isolated(
@@ -177,7 +176,7 @@ def isolated(
         try:
             return play(scenario, run_dir, name, port)
         except Exception as error:  # noqa: BLE001  any error; a Ctrl-C still stops the batch
-            print(f"{name}: the call crashed ({type(error).__name__})", file=sys.stderr)
+            print(f"{name}: the call crashed ({error!r})", file=sys.stderr)
             return CRASHED, run_dir / "calls" / f"{name}.jsonl"
 
     return one
@@ -286,7 +285,14 @@ def batch_stop(
     return stopped_by(caps, **_totals(runs, spent + worst * size, loop_id, today))
 
 
-def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
+def main(
+    only: str | None,
+    runs: Path = RUNS,
+    caps: Caps | None = None,
+    play: Callable[
+        [str, Path, str, int], tuple[int, Path]
+    ] = _play,  # a stand-in call in the runner's own tests
+) -> int:
     pairs = plan(only)
     if pairs is None:
         print(
@@ -324,7 +330,7 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
             with ThreadPoolExecutor(len(batch)) as pool:
                 try:
                     calls = pool.map(
-                        isolated(_play), bases, [run_dir] * len(batch), names, ports
+                        isolated(play), bases, [run_dir] * len(batch), names, ports
                     )
                     played = dict(zip(names, calls, strict=True))
                 except KeyboardInterrupt:
