@@ -111,7 +111,7 @@ def emptied(business: Business) -> dict[str, dict[str, Any]]:
 
 NOT_ABOUT_A_PERSON = {
     "account": {"id", "password"},  # password: unusable, checked below
-    "business": {"id", "account", "languages", "call_slug"},
+    "business": {"id", "account", "languages", "greeting_language", "call_slug"},
 }
 
 

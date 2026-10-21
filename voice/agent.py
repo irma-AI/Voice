@@ -36,28 +36,32 @@ from voice.ticket import Ticket
 # The agent's first name, one for every Business (Petter, 2026-10-20, VOI-196): product content, not a person.
 AGENT_NAME = "Kim"
 
-# Legal wording, this sentence approved by Petter 2026-10-20 (VOI-196); changing it is his call (CLAUDE.md § Stop and ask).
-DISCLOSURE = f"Jag heter {AGENT_NAME} och är en AI-assistent."
+# Legal wording, approved by Petter (Swedish 2026-10-20, VOI-196; English 2026-10-20, VOI-255); changing it is his call (CLAUDE.md § Stop and ask).
+# One per greeting language; the Business picks which its calls open in (Settings.greeting, English by default).
+DISCLOSURES = {
+    "sv": f"Jag heter {AGENT_NAME} och är en AI-assistent.",
+    "en": f"My name is {AGENT_NAME} and I'm an AI assistant.",
+}
 
-# What the model is told to say when a call is refused (no settings source, or the Portal is down).
-# Wording for callers: Petter's call (CLAUDE.md § Stop and ask).
-REFUSAL = "Tyvärr kan jag inte ta emot samtal just nu, försök igen om en stund."
+# What the model is told to say when a call is refused (no settings source, or the Portal is down): with no settings there is no
+# greeting language to read, so it is the default's, English (VOI-255). Wording for callers: Petter's call (CLAUDE.md § Stop and ask).
+REFUSAL = "Sorry, I can't take calls right now. Please try again in a moment."
 
 
 def refusal_instruction() -> str:
     return f"""\
-Say exactly this, once, and nothing else: "Hej! {DISCLOSURE} {REFUSAL}"
+Say exactly this, once, and nothing else: "Hi! {DISCLOSURES["en"]} {REFUSAL}"
 Whatever the caller says afterwards, answer nothing."""
 
 
-def opening(business: str) -> str:
-    """The first thing a Caller hears: a greeting, the Business's name, the disclosure word for word, an offer of help.
+def opening(business: str, greeting: str = "en") -> str:
+    """The first thing a Caller hears, in the Business's greeting language: a greeting, the Business's name, the disclosure word for word, an offer of help.
 
-    Wording for callers: approved by Petter 2026-10-20 (CLAUDE.md § Stop and ask).
+    Wording for callers: approved by Petter 2026-10-20, Swedish and English (CLAUDE.md § Stop and ask).
     """
-    return (
-        f"Hej och välkommen till {business}! {DISCLOSURE} Vad kan jag hjälpa dig med?"
-    )
+    if greeting == "sv":
+        return f"Hej och välkommen till {business}! {DISCLOSURES['sv']} Vad kan jag hjälpa dig med?"
+    return f"Hi and welcome to {business}! {DISCLOSURES['en']} How can I help you?"
 
 
 def system_instruction(settings: Settings, has_actions: bool = False) -> str:
@@ -99,7 +103,7 @@ You are {AGENT_NAME}, the AI assistant who answers the phone for {settings.name}
 In Swedish, always say "du" to the caller, never "ni".
 
 Conversational rules:
-Start every call by saying exactly: "{opening(settings.name)}"
+Start every call by saying exactly: "{opening(settings.name, settings.greeting)}"
 {speak}
 Talk like a person on the phone: short, natural sentences. No lists or formatting: everything is spoken aloud.
 Max 2 sentences per turn.

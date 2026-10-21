@@ -1,5 +1,6 @@
 {
   "name": "Tandkliniken Exempel",
   "instructions": "address: Exempelgatan 1, 123 45 Exempelstad\nhours: måndag-torsdag 08-17, fredag 08-14, stängt helger\nservices: undersökning, tandrengöring, lagning, akuttid\nprice undersökning: 950 kr\nprice tandrengöring: 850 kr\nprice akuttid: 1200 kr",
-  "languages": ["sv", "en"]
+  "languages": ["sv", "en"],
+  "greeting": "sv"
 }

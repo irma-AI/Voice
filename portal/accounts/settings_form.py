@@ -41,6 +41,7 @@ SHOWN = (
     "name",
     "instructions",
     "languages",
+    "greeting_language",
     "website_domain",
     "privacy_url",
     "use_accent",
@@ -54,6 +55,13 @@ class SettingsForm(forms.ModelForm):
         choices=list(LANGUAGES.items()),
         widget=forms.CheckboxSelectMultiple,
         error_messages={"required": "Pick at least one language."},
+    )
+    greeting_language = forms.ChoiceField(
+        label="Greeting",
+        choices=list(LANGUAGES.items()),
+        widget=forms.RadioSelect,
+        required=False,  # the page always sends it; a request built without it keeps the Business's current one (clean_greeting_language)
+        help_text="The language every call opens in: the agent's greeting and that it is an AI. After that it answers in the caller's language, from those you picked above.",
     )
     instructions = Text(
         required=False,
@@ -164,6 +172,9 @@ class SettingsForm(forms.ModelForm):
         except ValueError as e:
             raise forms.ValidationError(str(e)) from None
 
+    def clean_greeting_language(self) -> str:
+        return self.cleaned_data["greeting_language"] or self.instance.greeting_language
+
     def clean_name(self) -> str:
         name: str = self.cleaned_data["name"]
         if (
@@ -197,7 +208,14 @@ class SettingsForm(forms.ModelForm):
 
     class Meta:
         model = Business
-        fields = ("name", "instructions", "languages", "website_domain", "privacy_url")
+        fields = (
+            "name",
+            "instructions",
+            "languages",
+            "greeting_language",
+            "website_domain",
+            "privacy_url",
+        )
 
 
 def changed(
@@ -209,6 +227,7 @@ def changed(
         "name": business.name,
         "instructions": business.instructions,
         "languages": business.languages,
+        "greeting_language": business.greeting_language,
         "website_domain": shown_domain(business.website_domain),
         "privacy_url": business.privacy_url,
         "use_accent": "on" if business.accent else "",

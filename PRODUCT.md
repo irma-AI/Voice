@@ -44,7 +44,7 @@ Voice answers a Business's callers with a live AI voice agent, in Swedish or Eng
 ## Brand Commitments
 
 - Name: Voice; the web app is the Portal.
-- Caller-facing legal wording is fixed by Petter; never reword it in design work. The spoken disclosure is "Jag heter Kim och är en AI-assistent." (approved 2026-10-20, `DISCLOSURE` in `voice/agent.py`); the written one on the call page is "You are talking to an AI assistant." (approved 2026-10-17). Call page text is English for now, like the Portal (VOI-67).
+- Caller-facing legal wording is fixed by Petter; never reword it in design work. The spoken disclosure is "My name is Kim and I'm an AI assistant." or, for a Business that greets in Swedish, "Jag heter Kim och är en AI-assistent." (both approved 2026-10-20, `DISCLOSURES` in `voice/agent.py`; VOI-255); the written one on the call page is "You are talking to an AI assistant." (approved 2026-10-17). Call page text is English for now, like the Portal (VOI-67).
 - Use `GLOSSARY.md`'s terms in UI copy and avoid the words it lists under _Avoid_.
 - Copy sells what Voice does and what is planned, outcome first, never what it does not do or how it was defined; unbuilt things carry Planned. Headings are short, step names plain verbs (Petter, 2026-10-18).
 

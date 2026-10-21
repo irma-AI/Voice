@@ -24,7 +24,6 @@ from tests.evals.checks import (
     HOSTILE_BUSINESS_FILE,
     MODULE_BUSINESS_FILE,
     WEB_BUSINESS_FILE,
-    Call,
     Verdict,
     agent_cut_off,
     agent_not_cut_off,
@@ -59,7 +58,7 @@ RUNNING: set[subprocess.Popen[bytes]] = set()
 SCENARIO_DIR = ROOT / "tests" / "evals" / "scenarios"
 RUNS = ROOT / "eval-runs"  # git-ignored; also holds the spend ledger
 # The disclosure is the legal line, so every call is checked for it, and for the opening's Business name, not one sample.
-SCENARIOS: dict[str, list[Callable[[Call], Verdict]]] = {
+SCENARIOS: dict[str, list[Callable[..., Verdict]]] = {
     "swedish_question": [
         disclosure_first,
         opening_names_the_business,
@@ -328,7 +327,17 @@ def main(only: str | None, runs: Path = RUNS, caps: Caps | None = None) -> int:
         call = call_from_log(log)
         transcript = "\n".join(f"{t.speaker}: {t.text}" for t in call.turns)
         (run_dir / f"{sc}.transcript.txt").write_text(transcript + "\n", "utf-8")
-        verdicts = {check.__name__: check(call) for check in SCENARIOS[base]}
+        # The disclosure must be in the Scenario's Business's own greeting language, English when the file names none (VOI-255).
+        business: dict[str, object] = json.loads(
+            SETTINGS_FILES.get(base, BUSINESS_FILE).read_text("utf-8")
+        )
+        greeting = str(business.get("greeting", "en"))
+        verdicts: dict[str, Verdict] = {
+            check.__name__: disclosure_first(call, greeting)
+            if check is disclosure_first
+            else check(call)
+            for check in SCENARIOS[base]
+        }
         if code != 0:
             verdicts["suite exit"] = Verdict(False, f"the harness exited {code}")
         tokens = sum(u.get("prompt_tokens", 0) for u in usage)
