@@ -1,0 +1,62 @@
+# VOI-264: throwaway test of Claude Code's GitHub Action on a Pro/Max subscription token (docs/new-repo-plan.md 2.11).
+# Runs only on pushes to its own branch; the branch, its runs and the secret are deleted afterwards.
+name: token-test
+
+on:
+  push:
+    branches: [voi-264-token-test]
+
+permissions:
+  contents: read
+
+jobs:
+  judge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: pass
+            word: Voice
+            schema: true
+            expect: success
+          - case: fail-verdict
+            word: zebra-quokka-7
+            schema: true
+            expect: failure
+          - case: missing-output
+            word: Voice
+            schema: false
+            expect: failure
+    name: ${{ matrix.case }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: "Read README.md. Answer pass if it contains the exact word ${{ matrix.word }}, otherwise fail."
+          claude_args: >-
+            --max-turns 3
+            --allowedTools Read,Grep,Glob
+            ${{ matrix.schema && '--json-schema ''{"type":"object","properties":{"verdict":{"type":"string","enum":["pass","fail"]}},"required":["verdict"],"additionalProperties":false}''' || '' }}
+      - id: check
+        name: Fail unless the verdict is pass
+        continue-on-error: true
+        env:
+          OUT: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          echo "structured_output: ${OUT:-<none>}"
+          test -n "$OUT" || { echo "no structured output"; exit 1; }
+          echo "$OUT" | jq -e '.verdict == "pass"'
+      - name: Outcome matches the expected one
+        env:
+          GOT: ${{ steps.check.outcome }}
+          WANT: ${{ matrix.expect }}
+        run: |
+          echo "check outcome: $GOT, expected: $WANT"
+          test "$GOT" = "$WANT"
