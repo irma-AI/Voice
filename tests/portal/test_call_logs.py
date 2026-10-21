@@ -183,6 +183,19 @@ def test_the_expiry_is_30_days_after_the_call_started() -> None:
     assert expires == datetime(2026, 11, 18, 5, tzinfo=UTC)
 
 
+def test_the_expiry_is_the_same_instant_whatever_the_sessions_time_zone() -> None:
+    # VOI-261: Stockholm leaves summer time on 2026-10-25, inside these 30 days; a calendar-day expiry came an hour late or early.
+    with connection.cursor() as cursor:
+        cursor.execute("SET LOCAL TIME ZONE 'Europe/Stockholm'")
+        # Compared in SQL: Django's datetime adapters assume a UTC session and would shift both sides.
+        cursor.execute(
+            "SELECT accounts_call_log_expires_at(timestamptz '2026-10-19 05:00+00')"
+            " = timestamptz '2026-11-18 05:00+00'"
+        )
+        [[exact]] = cursor.fetchall()
+    assert exact
+
+
 def test_a_business_with_logs_cannot_be_deleted() -> None:
     log = stored(datetime.now(UTC))
     with pytest.raises(Exception, match="protected"), transaction.atomic():
