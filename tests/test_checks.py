@@ -72,7 +72,7 @@ ROOT = Path(__file__).parent.parent
     ],
 )
 def test_disclosure_first(record: str, passes: bool) -> None:
-    verdict = disclosure_first(Call.load(CALLS / f"{record}.json"))
+    verdict = disclosure_first(Call.load(CALLS / f"{record}.json"), "sv")
     assert verdict.passed is passes, verdict.reason
     assert verdict.reason
 
@@ -94,9 +94,9 @@ def test_opening_names_the_business(record: str, passes: bool) -> None:
 
 
 def test_the_stored_opening_is_the_agents_opening_word_for_word() -> None:
-    # The record holds a copy of the prompt's opening; edit voice/agent.py's opening() first, then this record.
+    # The record holds a copy of the prompt's Swedish opening (the eval clinic greets in Swedish, VOI-255); edit voice/agent.py's opening() first, then this record.
     first = Call.load(CALLS / "opening_kim.json").turns[0].text
-    assert first == opening("Tandkliniken Exempel")
+    assert first == opening("Tandkliniken Exempel", "sv")
 
 
 @pytest.mark.parametrize(
@@ -381,14 +381,25 @@ def test_call_log_becomes_turns(tmp_path: Path) -> None:
         ("agent", "Jag heter Kim och är en AI-assistent."),
         ("caller", "Hej"),
     ]
-    assert disclosure_first(call).passed
+    assert disclosure_first(call, "sv").passed
+
+
+def test_the_disclosure_must_be_in_the_scenarios_greeting_language() -> None:
+    """VOI-255: the right language passes, the other one and a mixed opening fail."""
+    english = Call((Turn("agent", opening("Frisör Exempel", "en")),))
+    mixed = Call(
+        (Turn("agent", "Hej och välkommen! My name is Kim and I'm an AI assistant."),)
+    )
+    assert disclosure_first(english, "en").passed
+    assert not disclosure_first(english, "sv").passed
+    assert not disclosure_first(mixed, "en").passed
 
 
 def test_the_refused_call_line_passes_disclosure_first() -> None:
     line = refusal_instruction().split('"')[
         1
     ]  # the one quoted sentence the model is told to say
-    assert disclosure_first(Call((Turn("agent", line),))).passed
+    assert disclosure_first(Call((Turn("agent", line),)), "en").passed
 
 
 def test_a_log_cut_short_by_a_killed_run_still_reads(tmp_path: Path) -> None:
@@ -397,7 +408,7 @@ def test_a_log_cut_short_by_a_killed_run_still_reads(tmp_path: Path) -> None:
         '{"t": 0, "e": "agent_tts", "text": "Jag heter Kim och är en AI-assistent."}\n{"t": 1, "e": "ca',
         "utf-8",
     )
-    assert disclosure_first(call_from_log(log)).passed
+    assert disclosure_first(call_from_log(log), "sv").passed
 
 
 def test_every_stored_call_says_it_is_made_up_and_what_it_shows() -> None:

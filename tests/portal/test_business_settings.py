@@ -139,6 +139,21 @@ def test_the_database_refuses_no_language_or_an_unknown_one(
         Business.objects.create(account=account, name="A", languages=languages)
 
 
+def test_every_business_greets_in_english_until_it_picks_swedish() -> None:
+    """VOI-255: English by default, not even sent; Swedish once picked; a request without the field keeps it; the database refuses another."""
+    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    assert "greeting" not in ask_core(business.pk).json()
+    edit = {"name": "Owner A's Salon", "languages": ["sv", "en"]}
+    client.post("/settings/", {**edit, "greeting_language": "sv"})
+    client.post("/settings/", edit)
+    assert ask_core(business.pk).json()["greeting"] == "sv"
+    with (
+        pytest.raises(IntegrityError, match="business_greeting_language_must_be_known"),
+        transaction.atomic(),
+    ):
+        Business.objects.filter(pk=business.pk).update(greeting_language="de")
+
+
 def test_the_database_refuses_a_setting_longer_than_the_contract_allows() -> None:
     account = Account.objects.create_user("user-a@example.com")
     with pytest.raises(DataError, match="value too long"), transaction.atomic():

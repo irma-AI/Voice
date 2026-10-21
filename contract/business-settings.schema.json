@@ -14,6 +14,11 @@
       "minItems": 1,
       "items": { "enum": ["sv", "en"] }
     },
+    "greeting": {
+      "description": "The language the call opens in, its greeting and the AI disclosure (VOI-255); absent means English, the default, so the Portal sends it only for Swedish.",
+      "type": "string",
+      "enum": ["sv", "en"]
+    },
     "theme": {
       "description": "The Business's Theme, optional and shown only to its Callers (GLOSSARY.md); absent for Voice's own look. `accent` is the colour as Callers see it, already adjusted by the Portal so `accent_text` on it meets WCAG 2.2 AA; the two come together. `logo_url` is the Portal's public address of the logo, which names no Business.",
       "type": "object",

@@ -139,6 +139,12 @@ class Business(models.Model):
         models.CharField(max_length=2, choices=list(LANGUAGES.items())),
         default=swedish_only,
     )
+    # The language every call opens in, its greeting and the AI disclosure (VOI-255, Petter 2026-10-20: English by default, and for every
+    # Business when it shipped). The settings reply carries it only when it is not English, the core's default, so a core that predates it
+    # never sees a key it would refuse. db_default: the previous Portal copy still invites while the migration runs (.claude/rules/data.md).
+    greeting_language = models.CharField(
+        max_length=2, choices=list(LANGUAGES.items()), default="en", db_default="en"
+    )
     # The public call link is /call/<call_slug>/; unique in the database, so one link is one Business.
     call_slug = models.CharField(max_length=40, unique=True, default=new_call_slug)
     # The registrable domain of the Business's own website, or empty for none (domain.py). Portal-only: the settings contract does not carry it.
@@ -218,6 +224,10 @@ class Business(models.Model):
                 & models.Q(languages__contained_by=list(LANGUAGES)),
                 name="business_languages_must_be_one_or_more_known",
             ),
+            models.CheckConstraint(
+                condition=models.Q(greeting_language__in=list(LANGUAGES)),
+                name="business_greeting_language_must_be_known",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -235,6 +245,8 @@ class Business(models.Model):
             served["theme"] = found
         if self.privacy_url:
             served["privacy_url"] = self.privacy_url
+        if self.greeting_language != "en":
+            served["greeting"] = self.greeting_language
         return served
 
     def set_logo(self, data: bytes | None) -> None:

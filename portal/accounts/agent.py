@@ -527,6 +527,7 @@ def settings_of(business: Business) -> dict[str, Any]:
         "name": business.name,
         "instructions": business.instructions,
         "languages": business.languages,
+        "greeting_language": business.greeting_language,
         "website": shown_domain(business.website_domain),
         "privacy_notice": business.privacy_url,
         "accent": business.accent,
