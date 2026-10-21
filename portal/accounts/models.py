@@ -425,6 +425,22 @@ class CallLog(models.Model):
     started_at = models.DateTimeField()  # UTC (USE_TZ); the expiry counts from it
     events = models.JSONField()
 
+    @classmethod
+    def expired(cls) -> models.QuerySet[CallLog]:
+        """Logs past their expiry, by the database's own rule (accounts_call_log_expires_at), so the two never differ."""
+        return cls.objects.alias(
+            gone=models.expressions.RawSQL(
+                "now() >= accounts_call_log_expires_at(started_at)",
+                [],
+                output_field=models.BooleanField(),
+            )
+        ).filter(gone=True)
+
+    @classmethod
+    def delete_expired(cls) -> int:
+        """The one way a Call log is deleted (VOI-157); the trigger refuses any log not yet expired, whatever deletes it."""
+        return cls.expired().delete()[0]
+
     class Meta:
         constraints = [
             models.CheckConstraint(
