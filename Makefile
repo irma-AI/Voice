@@ -16,12 +16,13 @@ up: ## Start the app with its services (agents run it in the background)
 down: ## Stop what `make up` started
 	pkill -f "[p]ython -m voice.serve" || true
 
-portal := DJANGO_SETTINGS_MODULE=portal.settings uv run --env-file .env.example --env-file .env python -m django
+portal-env := uv run --env-file .env.example --env-file .env
+portal := DJANGO_SETTINGS_MODULE=portal.settings $(portal-env) python -m django
 
 portal-up: ## Start the Portal at http://localhost:8000 with its Postgres and migrations applied (agents run it in the background)
 	scripts/ensure-docker.sh
 	[ -f .env ] || touch .env
-	docker compose up -d --wait
+	$(portal-env) scripts/local-portal-db.sh
 	$(portal) migrate
 	$(portal) runserver 0.0.0.0:8000
 
