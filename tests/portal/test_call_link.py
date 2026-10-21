@@ -75,7 +75,7 @@ def core(settings: Any) -> None:
 
 def test_the_link_sends_anyone_to_the_core_with_a_ticket_for_that_business() -> None:
     business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
-    business_b, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
+    business_b, _ = business_with_login()
     Business.objects.filter(pk=business_a.pk).update(website_domain="site-a.example.se")
 
     response = Client().get(
@@ -437,7 +437,7 @@ def test_every_business_has_its_own_link_and_the_database_refuses_a_shared_one()
     None
 ):
     business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
-    business_b, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
+    business_b, _ = business_with_login()
     assert (
         business_a.call_slug != business_b.call_slug and len(business_a.call_slug) >= 20
     )
@@ -475,7 +475,7 @@ def snippet(page: str) -> str:
 
 def test_the_dashboard_shows_the_script_snippet_only_with_a_saved_website() -> None:
     business_a, client = business_with_login("user-a@example.com", "Owner A's Salon")
-    business_b, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
+    business_b, _ = business_with_login()
 
     closed = client.get("/dashboard/").content.decode()
     assert "<code>" not in closed and "Your call button is closed" in closed
@@ -635,7 +635,7 @@ def test_the_launcher_carries_its_business_s_adjusted_accent_or_voice_s_own_look
     None
 ):
     business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
-    business_b, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
+    business_b, _ = business_with_login()
     # #2f6b4f passes AA under Foam and stays; #ffd60a is lightened toward Deep sea text only as far as it must.
     Business.objects.filter(pk=business_a.pk).update(accent="#2f6b4f")
     Business.objects.filter(pk=business_b.pk).update(accent="#ffd60a")

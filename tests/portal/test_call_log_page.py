@@ -34,7 +34,7 @@ def a_log(owner: Business, call_id: str = CALL, events: Any = EVENTS) -> None:
 def test_only_the_operator_opens_the_pages_and_a_visitor_goes_to_the_login(
     settings: Any,
 ) -> None:
-    business_a, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_a, client = business_with_login()
     _, petter = business_with_login(EMAIL, "Petter's Business")
     a_log(business_a)  # Owner A's own call: they still see none of it
     settings.SUPER_ADMIN_EMAIL = ""  # unset: nobody, not even the right account
@@ -56,7 +56,7 @@ def test_only_the_operator_opens_the_pages_and_a_visitor_goes_to_the_login(
 def test_the_list_sums_up_each_log_on_the_portal_clock(settings: Any) -> None:
     settings.SUPER_ADMIN_EMAIL = EMAIL
     settings.TIME_ZONE = "Europe/Stockholm"  # 05:00 UTC is 07:00 in October
-    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_a, _ = business_with_login()
     _, petter = business_with_login(EMAIL, "Petter's Business")
     no_words = {**EVENTS[2], "t": 5.0}  # a second barge-in, no words after it
     a_log(business_a, events=[*EVENTS[:-1], no_words, EVENTS[-1]])
@@ -65,7 +65,8 @@ def test_the_list_sums_up_each_log_on_the_portal_clock(settings: Any) -> None:
     )  # cut short: no end event
     response = petter.get("/logs/")
     page = response.content.decode()
-    assert "2026-10-19 07:00" in page and "Owner A&#x27;s Salon · Test call" in page
+    assert "2026-10-19 07:00" in page
+    assert f"{html.escape(business_a.name)} · Test call" in page
     assert "2 barge-ins, 1 without words" in page
     assert "1 barge-in, 1 without words" in page
     # Length from the end event's 9.9 s; a log with no end event has none.
@@ -77,7 +78,7 @@ def test_the_list_sums_up_each_log_on_the_portal_clock(settings: Any) -> None:
 
 def test_the_timeline_shows_every_event_with_its_fields(settings: Any) -> None:
     settings.SUPER_ADMIN_EMAIL = EMAIL
-    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_a, _ = business_with_login()
     _, petter = business_with_login(EMAIL, "Petter's Business")
     a_log(business_a, events=[*EVENTS, {"t": 10.0, "call": CALL, "e": "new_kind"}])
     events = petter.get(f"/logs/{CALL}/").context["events"]
@@ -110,7 +111,7 @@ def test_the_timeline_shows_every_event_with_its_fields(settings: Any) -> None:
 
 def test_a_barge_in_with_no_words_after_it_is_marked_on_its_row(settings: Any) -> None:
     settings.SUPER_ADMIN_EMAIL = EMAIL
-    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_a, _ = business_with_login()
     _, petter = business_with_login(EMAIL, "Petter's Business")
     no_words = {**EVENTS[2], "t": 5.0}  # a second barge-in, no words after it
     a_log(business_a, events=[*EVENTS[:-1], no_words, EVENTS[-1]])
@@ -122,7 +123,7 @@ def test_a_barge_in_with_no_words_after_it_is_marked_on_its_row(settings: Any) -
 
 def test_copy_as_text_copies_the_lines_the_core_wrote(settings: Any) -> None:
     settings.SUPER_ADMIN_EMAIL = EMAIL
-    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_a, _ = business_with_login()
     _, petter = business_with_login(EMAIL, "Petter's Business")
     a_log(business_a)
     page = petter.get(f"/logs/{CALL}/").content.decode()
@@ -150,7 +151,7 @@ def test_an_odd_event_the_database_took_never_breaks_the_pages(
 ) -> None:
     """The database checks an event's field names and value shapes, not that t, call and e are there; one odd log must not take the list down for its 30 days."""
     settings.SUPER_ADMIN_EMAIL = EMAIL
-    business_a, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business_a, _ = business_with_login()
     _, petter = business_with_login(EMAIL, "Petter's Business")
     a_log(business_a, events=events)
     for page in PAGES:

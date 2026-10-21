@@ -77,7 +77,7 @@ def test_a_change_rejected_in_the_chat_never_applies() -> None:
 
 def test_another_businesss_change_answers_like_an_unknown_one() -> None:
     _, _, module, change = staged_removal()
-    other, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
+    other, _ = business_with_login()
     theirs = a_token(other, "full")
     for command in ("approve_change", "reject_change"):
         mine = run(theirs, command, change=change)

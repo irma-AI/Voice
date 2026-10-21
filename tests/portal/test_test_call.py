@@ -40,7 +40,7 @@ def ticket_in(location: str) -> str:
 
 def test_the_button_sends_a_business_to_the_core_with_a_ticket_for_itself() -> None:
     business, client = business_with_login("user-a@example.com", "Owner A's Salon")
-    other, _ = business_with_login("user-b@example.com", "Owner B's Bikes")
+    other, _ = business_with_login()
 
     # Naming another Business in the request changes nothing: the ticket follows the session.
     response = client.post(
@@ -65,7 +65,7 @@ def test_a_visitor_gets_no_ticket_and_a_page_visit_starts_nothing() -> None:
     assert response.status_code == 302 and response["Location"].startswith("/login/")
     assert "ticket" not in response["Location"]
 
-    _, client = business_with_login("user-b@example.com", "Owner B's Bikes")
+    _, client = business_with_login()
     # A link or an image cannot start a call: it goes back to the dashboard, where a login after an ended session lands.
     assert client.get("/test-call/")["Location"] == "/dashboard/"
 
@@ -88,7 +88,7 @@ def test_the_core_reads_the_ticketed_businesss_settings_from_the_real_portal(
 ) -> None:
     business_a, client = business_with_login("user-a@example.com", "Owner A's Salon")
     Business.objects.filter(pk=business_a.pk).update(instructions="Open 8-17.")
-    business_with_login("user-b@example.com", "Owner B's Bikes")
+    business_with_login()
 
     ticket = ticket_in(client.post("/test-call/")["Location"])
     named = read_ticket(ticket, SECRET)

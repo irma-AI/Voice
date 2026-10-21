@@ -51,8 +51,8 @@ def stored(business: Business) -> list[tuple[str, str, str, list[str]]]:
 
 def two_businesses() -> tuple[tuple[Business, Client], tuple[Business, str]]:
     """Two Businesses alike: one adds through the page, the other through the Commands."""
-    page, client = business_with_login("user-a@example.com", "Owner's Salon")
-    agent, _ = business_with_login("user-b@example.com", "Owner's Salon")
+    page, client = business_with_login()
+    agent, _ = business_with_login()
     return (page, client), (agent, a_token(agent, "full"))
 
 

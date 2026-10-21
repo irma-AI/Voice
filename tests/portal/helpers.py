@@ -8,16 +8,22 @@ from typing import Any
 
 from django.test import Client
 
+from portal import synthetic
 from portal.accounts.models import Account, Business, CallRecord
 
 PASSWORD = "a-long-passphrase-for-tests"
 SECRET = "a-secret-for-tests"
 
 
-def business_with_login(email: str, name: str) -> tuple[Business, Client]:
-    """A Business with its Account, and a test client logged in as it."""
+def business_with_login(
+    email: str | None = None, name: str | None = None
+) -> tuple[Business, Client]:
+    """A Business with its Account, and a test client logged in as it; synthetic (portal/synthetic.py) unless the test names them."""
+    email = email or synthetic.email()
     account = Account.objects.create_user(email, PASSWORD)
-    business = Business.objects.create(account=account, name=name)
+    business = Business.objects.create(
+        account=account, name=name or synthetic.business_name()
+    )
     client = Client()
     assert client.login(email=email, password=PASSWORD)
     return business, client

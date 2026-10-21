@@ -46,8 +46,8 @@ eval-audio: ## PAID, local only, ask Petter first: render the Caller audio under
 voice-samples: ## PAID, local only, ask Petter first: one call per voice setup into eval-runs/voice-samples/ (SETUPS="A C" for some)
 	uv run python -m scripts.render_voice_samples $(SETUPS)
 
-seed: ## Load demo data into the local app (never a copy of production)
-	@echo "n/a: no demo data yet"
+seed: ## Load the same synthetic data into the local Portal on every run, after `make portal-up` (local database only, never a copy of production)
+	$(portal-env) python -m portal.seed
 
 lint: ## Lint and format check
 	uv run ruff check .

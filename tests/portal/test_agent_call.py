@@ -34,7 +34,7 @@ def text(answer: dict[str, Any]) -> str:
 
 
 def test_the_script_is_the_dashboards_tag_once_a_website_is_saved() -> None:
-    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    business, client = business_with_login()
     secret = a_token(business, "read")
     refused = run(secret, "get_call_button")
     assert refused.get("isError") and "website" in text(refused)
@@ -45,7 +45,7 @@ def test_the_script_is_the_dashboards_tag_once_a_website_is_saved() -> None:
 
 
 def test_the_test_call_link_is_a_test_call_counted_toward_the_budget() -> None:
-    business, client = business_with_login("user-a@example.com", "Owner A's Salon")
+    business, client = business_with_login()
     secret = a_token(business, "full")
     link = run(secret, "get_test_call_link")["structuredContent"]["link"]
     button = client.post("/test-call/")["Location"]
@@ -63,13 +63,13 @@ def test_the_test_call_link_is_a_test_call_counted_toward_the_budget() -> None:
 
 
 def test_a_read_only_token_gets_no_test_call_link() -> None:
-    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business, _ = business_with_login()
     answer = run(a_token(business, "read"), "get_test_call_link")
     assert answer.get("isError") and text(answer) == "Unknown tool: get_test_call_link"
 
 
 def test_no_link_while_calls_are_not_set_up(settings: Any) -> None:
     settings.CORE_SECRET = ""
-    business, _ = business_with_login("user-a@example.com", "Owner A's Salon")
+    business, _ = business_with_login()
     answer = run(a_token(business, "full"), "get_test_call_link")
     assert answer.get("isError") and "ticket" not in text(answer)

@@ -21,7 +21,7 @@ paths:
 - The landing page's demo call (VOI-244) counts a visitor's calls by address when each starts, in the core (`DemoCalls` in `voice/serve.py`): the last `X-Forwarded-For` entry keyed together with the day (HMAC-SHA-256 under a random key made per core process, so the code cannot be reversed by trying addresses), kept in the core's memory until the day changes on `TIME_ZONE` and nowhere else; the address itself is never logged or stored (`tests/test_serve.py`, and `tests/portal/test_call_link.py` that the Portal's lines carry none).
 - Sign-in with a click (VOI-119) keeps no secret it hands out: a client's secret, a code and a refresh token are stored as SHA-256 only, and a sign-in's Access tokens like any other. A registered client's name and redirect addresses are what it says about itself, shown on the consent page as its claim.
 - The Call button snippet puts a Business's call slug in the HTML of that Business's own website: it is public by design. The Portal gives a ticket only to a request that says it is in a frame, and the core lets only the Business's saved website frame the page; neither stops a script that sends the header itself and opens the page in a tab (not enforced).
-- Test fixtures use synthetic people only: generated names, +46 numbers we own or reserved test numbers, and personnummer that pass the checksum and are marked synthetic.
+- Test fixtures use synthetic people only: generated names, +46 numbers we own or reserved test numbers (PTS's series for books and films, `portal/synthetic.py` `RESERVED_PHONES`; never Faker's own phone numbers, which can be someone's), and personnummer that pass the checksum and are marked synthetic.
 - Any real recording sits outside the repo.
 
 ## Enforced by

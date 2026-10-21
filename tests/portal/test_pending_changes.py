@@ -45,10 +45,8 @@ def audited(caplog: pytest.LogCaptureFixture) -> list[str]:
     return [r.getMessage() for r in caplog.records if r.name == "portal.audit"]
 
 
-def a_business_with_a_module(
-    email: str = "user-a@example.com",
-) -> tuple[Client, str, Module]:
-    business, client = business_with_login(email, "Owner's Salon")
+def a_business_with_a_module(email: str | None = None) -> tuple[Client, str, Module]:
+    business, client = business_with_login(email)
     module = Module.objects.create(business=business, name="Bookings", url=ADDRESS)
     return client, a_token(business, "full"), module
 
@@ -119,9 +117,9 @@ def test_a_decision_must_be_a_post_behind_the_login() -> None:
 
 
 def test_another_businesss_module_or_an_unknown_one_stages_nothing() -> None:
-    _, secret, _ = a_business_with_a_module()
-    a_business_with_a_module("user-b@example.com")  # also has a "Bookings"
-    Module.remove(Module.objects.filter(business__account__email="user-a@example.com"))
+    _, secret, own = a_business_with_a_module()
+    a_business_with_a_module()  # also has a "Bookings"
+    Module.remove(Module.objects.filter(pk=own.pk))
     for name in ("Bookings", "Nothing by this name"):
         answer = remove(secret, name)
         assert answer["isError"]
