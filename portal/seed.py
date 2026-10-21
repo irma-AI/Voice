@@ -19,6 +19,7 @@ from django.utils import timezone
 from portal import synthetic
 from portal.accounts import changes
 from portal.accounts.models import (
+    CALL_KINDS,
     AccessToken,
     Account,
     Business,
@@ -31,18 +32,23 @@ PASSWORD = (
     "seeded-local-only"  # not a secret: the seed runs only against a local database
 )
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+# Voice's own Postgres: compose.yml (make portal-up) and compose.test.yml (make test-db); tests/portal/test_seed.py reads both.
+# A port check too, so a tunnel on this machine to a shared database is refused.
+LOCAL_PORTS = {"55431", "55432"}
 
 
 class Refused(Exception):
     pass
 
 
-def check_local(environment: str, host: str) -> None:
+def check_local(environment: str, host: str, port: str) -> None:
     """Fails closed: the seed writes only to a local database in a local environment, so the invite stays the one way in elsewhere (VOI-32)."""
     if environment != "local":
         raise Refused(f"ENVIRONMENT is {environment!r}, not local")
     if host not in LOCAL_HOSTS:
         raise Refused(f"the database host is {host!r}, not this machine")
+    if port not in LOCAL_PORTS:
+        raise Refused(f"the database port is {port!r}, not Voice's own local Postgres")
 
 
 def a_business(nth: int, email: str) -> Business:
@@ -68,7 +74,7 @@ def a_business(nth: int, email: str) -> Business:
         CallRecord.objects.create(
             call_id=fake.hexify("^^^^^^-^^^^^^^^^^"),
             business=business,
-            kind=fake.random_element(["call_link", "call_link", "test", "demo"]),
+            kind=fake.random_element(list(CALL_KINDS)),
             started_at=now - timedelta(minutes=fake.random_int(60, 60 * 24 * 60)),
             length_seconds=fake.random_int(20, 600),
             prompt_tokens=fake.random_int(500, 5000),
@@ -115,8 +121,9 @@ def a_business(nth: int, email: str) -> Business:
 
 def seed() -> list[Business]:
     """Makes two Businesses, or nothing when they exist: call logs can't be deleted for 30 days, so a rerun never starts over."""
+    database = settings.DATABASES.get("default", {})
     check_local(
-        settings.ENVIRONMENT, settings.DATABASES.get("default", {}).get("HOST", "")
+        settings.ENVIRONMENT, database.get("HOST", ""), str(database.get("PORT", ""))
     )
     synthetic.fake.seed_instance(259)  # the same data on every run
     synthetic.fake.unique.clear()

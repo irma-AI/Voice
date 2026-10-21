@@ -1,12 +1,12 @@
 """The one way synthetic people and Businesses are made (VOI-259): `make seed` and the Portal tests both draw from here.
 
-Every email is on a domain reserved for examples (RFC 2606), so nothing made here can reach a real inbox.
+Every email is on example.com, reserved for examples (RFC 2606), so nothing made here can reach a real inbox.
 Faker is in the `synthetic` dependency group, which neither image installs: only the seed and the tests import this module.
 """
 
 from faker import Faker
 
-RESERVED_DOMAINS = ("example.com", "example.net", "example.org")
+RESERVED_DOMAIN = "example.com"
 # PTS's series for books and films, in E.164: the last two digits run over each range (docs/research/swedish-fictional-phone-numbers.md).
 # Faker's own sv_SE numbers are random digits and can be someone's, so it is never asked for one.
 RESERVED_PHONES = tuple(
@@ -26,7 +26,7 @@ fake = Faker("sv_SE")
 
 def email() -> str:
     """A fresh email, never the same twice in one process, on a reserved domain."""
-    return fake.unique.safe_email()
+    return f"{fake.unique.user_name()}@{RESERVED_DOMAIN}"
 
 
 def phone_number() -> str:
