@@ -1,7 +1,7 @@
 # The Portal's local Postgres for `make portal-up`, on a Voice-only port (5432 is every other Postgres's default; tests use 55432). Same mirror as compose.test.yml.
 services:
   postgres:
-    image: mirror.gcr.io/library/postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    image: mirror.gcr.io/library/postgres:18-alpine@sha256:898c60cb390d1085bc97bdd6a1ae968757421df394b071848b52b1c09c89d6a5
     environment: { POSTGRES_PASSWORD: dev, POSTGRES_DB: portal }
     ports: ["127.0.0.1:55431:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
