@@ -15,7 +15,7 @@ dependencies = [
 dev = ["pipecat-ai[cli,runner]==1.12.0", "ruff", "pyright", "pytest", "pytest-django", "django-stubs", "jsonschema"]
 # Synthetic people for `make seed` and the Portal tests (portal/synthetic.py). Exact: an upgrade can change the seed's names and emails,
 # so it is a deliberate bump. Its own group so the dev line stays the one eval-required watches.
-synthetic = ["faker==40.43.0"]
+synthetic = ["faker==40.44.0"]
 # The Portal's own runtime; the core image leaves it out (Dockerfile, ADR 0002).
 portal = [
     "django",
@@ -24,7 +24,7 @@ portal = [
     "gunicorn>=26.2.0",
     "whitenoise>=6.12.0",
     "mcp==2.3.0",  # exact: the agent endpoint uses the SDK's provisional middleware and its tool manager (portal/accounts/agent.py)
-    "publicsuffixlist>=1.1.0.20261017",
+    "publicsuffixlist>=1.1.2.20261029",
     "idna>=3.20",
     "django-stateless-mcp==0.1.11",
     "authlib==1.9.1",
